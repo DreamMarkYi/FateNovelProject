@@ -28,11 +28,10 @@ const sowakaStorySchema = new mongoose.Schema({
     trim: true,
     default: '— SOWAKA KYOTO'
   },
-    prefaceContext: {
-      type : String,
-        trim: true,
-        default: ''
-    },
+    prefaceContext:  [{
+        type: String,
+        trim: true
+    }],
   chapterName: {
     type: String,
     trim: true,

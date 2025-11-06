@@ -5,7 +5,13 @@
         <div class="vertical-logo-text">{{sowakaStory.chapterName}}</div>
       </div>
       <div class="vertical-text-container">
-        <div class="vertical-column">{{sowakaStory.prefaceContext}}</div>
+        <div 
+          v-for="(text, index) in sowakaStory.prefaceContext" 
+          :key="index" 
+          class="vertical-column"
+        >
+          {{ text }}
+        </div>
       </div>
     </div>
   </section>

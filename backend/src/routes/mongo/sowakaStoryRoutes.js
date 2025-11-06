@@ -14,11 +14,11 @@ router.get('/current', SowakaStoryController.getCurrentSowakaStory);
 // 根据章节名称获取Sowaka故事
 router.get('/chapter/:chapterName', SowakaStoryController.getSowakaStoryByChapter);
 
-// 根据章节名称获取序言
-router.get('/prefaceContext', SowakaStoryController.getSowakaStoryByChapter);
+// 获取序言内容
+router.get('/preface', SowakaStoryController.getCurrentPrefaceContext);
 
 // 根据ID获取Sowaka故事
-router.get('/:id', SowakaStoryController.getCurrentPrefaceContext);
+router.get('/:id', SowakaStoryController.getSowakaStoryById);
 
 // 创建新的Sowaka故事
 router.post('/', SowakaStoryController.createSowakaStory);

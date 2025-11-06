@@ -37,7 +37,7 @@ async function initSowakaStory() {
         '私たちは、訪れるすべての方に「幸あれ」という祝福の心を込めて、最高のおもてなしを提供いたします。'
       ],
       authorSignature: '— SOWAKA KYOTO',
-      prefaceContext: '抱着人类的理性，是无法前往天国的',
+      prefaceContext: ['内心收到罪恶感苛责的他，只能朝着唯一的星星徘徊买进','再怎么徘徊都无法找到前往天国之路的他，最终向着星星提问，然后星星如此谕令到：','抱着人类的理性，是无法前往天国的'],
       isActive: true,
       displayOrder: 0,
       metadata: {

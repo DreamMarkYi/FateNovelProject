@@ -103,35 +103,34 @@ class SowakaStoryController {
   }
 
 
-    static async getCurrentPrefaceContext(req, res) {
-        try {
-            const { chapterName } = req.params;
-            const story = await SowakaStory.findOne({
-                chapterName: prefaceContext,
-                isActive: true
-            }).select('-__v');
+  // 获取序言内容
+  static async getCurrentPrefaceContext(req, res) {
+    try {
+      const story = await SowakaStory.findOne({
+        chapterName: '序言',
+        isActive: true
+      }).select('-__v');
 
-            if (!story) {
-                return res.status(404).json({
-                    success: false,
-                    message: `序言"${chapterName}"的故事内容不存在或未激活`
-                });
-            }
+      if (!story) {
+        return res.status(404).json({
+          success: false,
+          message: '序言内容不存在或未激活'
+        });
+      }
 
-            res.json({
-                success: true,
-                data: story
-            });
-        } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: error.message
-            });
-        }
+      res.json({
+        success: true,
+        data: story
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
     }
+  }
 
-
-    // 根据章节名称获取Sowaka故事
+  // 根据章节名称获取Sowaka故事
   static async getSowakaStoryByChapter(req, res) {
     try {
       const { chapterName } = req.params;
