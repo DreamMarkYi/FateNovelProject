@@ -102,10 +102,78 @@ class SowakaStoryController {
     }
   }
 
+
+    static async getCurrentPrefaceContext(req, res) {
+        try {
+            const { chapterName } = req.params;
+            const story = await SowakaStory.findOne({
+                chapterName: prefaceContext,
+                isActive: true
+            }).select('-__v');
+
+            if (!story) {
+                return res.status(404).json({
+                    success: false,
+                    message: `序言"${chapterName}"的故事内容不存在或未激活`
+                });
+            }
+
+            res.json({
+                success: true,
+                data: story
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+
+
+    // 根据章节名称获取Sowaka故事
+  static async getSowakaStoryByChapter(req, res) {
+    try {
+      const { chapterName } = req.params;
+      const story = await SowakaStory.findOne({ 
+        chapterName: chapterName,
+        isActive: true 
+      }).select('-__v');
+      
+      if (!story) {
+        return res.status(404).json({
+          success: false,
+          message: `章节"${chapterName}"的故事内容不存在或未激活`
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: story
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   // 创建新的Sowaka故事
   static async createSowakaStory(req, res) {
     try {
       const storyData = req.body;
+      
+      // 设置默认章节名称（如果未提供）
+      if (!storyData.chapterName) {
+        // 获取当前最大的displayOrder来确定章节编号
+        const maxOrderStory = await SowakaStory.findOne({})
+          .sort({ displayOrder: -1 })
+          .select('displayOrder');
+        
+        const nextOrder = maxOrderStory ? maxOrderStory.displayOrder + 1 : 0;
+        storyData.chapterName = `第${nextOrder + 1}章`;
+      }
       
       // 更新metadata中的lastUpdated
       if (storyData.metadata) {

@@ -11,7 +11,7 @@
     <SowakaHero />
 
     <!-- Vertical Logo and Text Section -->
-    <SowakaVerticalSection />
+    <SowakaVerticalSection :sowaka-story="sowakaStory" />
 
     <!-- Story Content Section -->
     <SowakaStorySection :sowaka-story="sowakaStory" />

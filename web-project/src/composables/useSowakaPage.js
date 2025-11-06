@@ -28,7 +28,9 @@ export function useSowakaPage() {
   const sowakaStory = ref({
     title: 'そわかの物語',
     subtitle: 'STORY OF SOWAKA',
-    storyImageLeft: '',
+    chapterName: '第一章',
+      prefaceContext: '',
+    storyImageLeft: '/images/sowaka-story.jpg', // 默认图片路径（放在 public/images/ 中）
     storyTextRight: [
       '京都の静かな朝、打ち水のされた石畳を歩くと、そこには時を超えた美しさが息づいています。',
       '「そわか」は、古き良き日本の伝統と現代の洗練が調和した、特別な空間です。歴史的な建築を大切に保存しながら、現代の快適さを融合させました。',
@@ -104,6 +106,8 @@ export function useSowakaPage() {
         sowakaStory.value = {
           title: story.title || 'そわかの物語',
           subtitle: story.subtitle || 'STORY OF SOWAKA',
+          chapterName: story.chapterName || '第一章',
+            prefaceContext: story.prefaceContext,
           storyImageLeft: story.storyImageLeft || '',
           storyTextRight: story.storyTextRight || sowakaStory.value.storyTextRight,
           authorSignature: story.authorSignature || '— SOWAKA KYOTO'

@@ -28,6 +28,16 @@ const sowakaStorySchema = new mongoose.Schema({
     trim: true,
     default: '— SOWAKA KYOTO'
   },
+    prefaceContext: {
+      type : String,
+        trim: true,
+        default: ''
+    },
+  chapterName: {
+    type: String,
+    trim: true,
+    default: '第一章'
+  },
   isActive: {
     type: Boolean,
     default: true,

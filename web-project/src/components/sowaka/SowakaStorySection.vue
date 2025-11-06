@@ -46,6 +46,9 @@
 </template>
 
 <script setup>
+// 如果使用 src/assets 中的图片，需要这样导入
+// import defaultStoryImage from '@/assets/images/sowaka-story.jpg'
+
 defineProps({
   sowakaStory: {
     type: Object,
@@ -105,6 +108,8 @@ defineProps({
   text-align: center;
   margin-bottom: 100px;
 }
+
+
 
 .story-header-large h2 {
   font-size: 42px;

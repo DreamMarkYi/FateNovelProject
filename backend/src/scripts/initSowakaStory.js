@@ -24,13 +24,8 @@ async function initSowakaStory() {
     
     // 检查是否已存在数据
     const existingCount = await SowakaStory.countDocuments();
-    if (existingCount > 0) {
-      console.log(`⚠️  数据库中已存在 ${existingCount} 条Sowaka故事记录`);
-      console.log('如需重新初始化，请先清空数据库');
-      return;
-    }
     
-    // 创建默认的Sowaka故事数据
+    // 默认的Sowaka故事数据
     const defaultStory = {
       title: 'そわかの物語',
       subtitle: 'STORY OF SOWAKA',
@@ -42,6 +37,7 @@ async function initSowakaStory() {
         '私たちは、訪れるすべての方に「幸あれ」という祝福の心を込めて、最高のおもてなしを提供いたします。'
       ],
       authorSignature: '— SOWAKA KYOTO',
+      prefaceContext: '抱着人类的理性，是无法前往天国的',
       isActive: true,
       displayOrder: 0,
       metadata: {
@@ -50,15 +46,45 @@ async function initSowakaStory() {
       }
     };
     
-    console.log('📝 创建默认Sowaka故事...');
-    const story = new SowakaStory(defaultStory);
-    await story.save();
+    let story;
+    
+    if (existingCount > 0) {
+      console.log(`⚠️  数据库中已存在 ${existingCount} 条Sowaka故事记录`);
+      console.log('🔄 更新现有记录以包含新字段...');
+      
+      // 更新所有现有记录，添加缺失的字段
+      const updateResult = await SowakaStory.updateMany(
+        { prefaceContext: { $exists: false } }, // 只更新没有prefaceContext字段的记录
+        { 
+          $set: { 
+            prefaceContext: defaultStory.prefaceContext,
+            'metadata.lastUpdated': new Date()
+          } 
+        }
+      );
+      
+      console.log(`✅ 已更新 ${updateResult.modifiedCount} 条记录`);
+      
+      // 获取第一条记录作为示例
+      story = await SowakaStory.findOne().sort({ displayOrder: 1 });
+      
+      if (!story) {
+        console.log('📝 没有找到现有记录，创建新的默认故事...');
+        story = new SowakaStory(defaultStory);
+        await story.save();
+      }
+    } else {
+      console.log('📝 创建默认Sowaka故事...');
+      story = new SowakaStory(defaultStory);
+      await story.save();
+    }
     
     console.log('✅ Sowaka故事数据初始化完成！');
     console.log(`   - 标题: ${story.title}`);
     console.log(`   - 副标题: ${story.subtitle}`);
     console.log(`   - 段落数量: ${story.storyTextRight.length}`);
     console.log(`   - 作者签名: ${story.authorSignature}`);
+    console.log(`   - 前言内容: ${story.prefaceContext}`);
     console.log(`   - 状态: ${story.isActive ? '激活' : '未激活'}`);
     console.log(`   - ID: ${story._id}`);
     

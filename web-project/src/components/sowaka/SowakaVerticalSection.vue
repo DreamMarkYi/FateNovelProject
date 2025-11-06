@@ -2,22 +2,22 @@
   <section class="vertical-section fade-in" id="story">
     <div class="vertical-container">
       <div class="vertical-logo-box">
-        <div class="vertical-logo-text">SOWAKA</div>
+        <div class="vertical-logo-text">{{sowakaStory.chapterName}}</div>
       </div>
       <div class="vertical-text-container">
-        <div class="vertical-column">誕生しました。</div>
-        <div class="vertical-column">京都・祇園八坂に</div>
-        <div class="vertical-column">ホテルが、</div>
-        <div class="vertical-column">本物の質を味わう</div>
-        <div class="vertical-column">そして新しい。</div>
-        <div class="vertical-column">懐かしく、</div>
+        <div class="vertical-column">{{sowakaStory.prefaceContext}}</div>
       </div>
     </div>
   </section>
 </template>
 
 <script setup>
-// 这个组件不需要任何props或逻辑
+defineProps({
+  sowakaStory: {
+    type: Object,
+    required: true
+  }
+})
 </script>
 
 <style scoped>

@@ -11,8 +11,14 @@ router.get('/active', SowakaStoryController.getActiveSowakaStories);
 // 获取当前显示的Sowaka故事（第一个激活的）
 router.get('/current', SowakaStoryController.getCurrentSowakaStory);
 
+// 根据章节名称获取Sowaka故事
+router.get('/chapter/:chapterName', SowakaStoryController.getSowakaStoryByChapter);
+
+// 根据章节名称获取序言
+router.get('/prefaceContext', SowakaStoryController.getSowakaStoryByChapter);
+
 // 根据ID获取Sowaka故事
-router.get('/:id', SowakaStoryController.getSowakaStoryById);
+router.get('/:id', SowakaStoryController.getCurrentPrefaceContext);
 
 // 创建新的Sowaka故事
 router.post('/', SowakaStoryController.createSowakaStory);

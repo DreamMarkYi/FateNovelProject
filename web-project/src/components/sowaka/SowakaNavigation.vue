@@ -24,7 +24,7 @@ defineProps({
   }
 })
 
-defineEmits(['toggle-mobile-menu', 'scroll-to-section'])
+const emit = defineEmits(['toggle-mobile-menu', 'scroll-to-section'])
 
 const toggleMobileMenu = () => {
   emit('toggle-mobile-menu')
@@ -33,8 +33,6 @@ const toggleMobileMenu = () => {
 const scrollToSection = (event) => {
   emit('scroll-to-section', event)
 }
-
-const emit = defineEmits(['toggle-mobile-menu', 'scroll-to-section'])
 </script>
 
 <style scoped>
