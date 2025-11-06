@@ -14,15 +14,14 @@ const sowakaStorySchema = new mongoose.Schema({
     trim: true,
     default: 'STORY OF SOWAKA'
   },
-  storyImageLeft: {
-    type: String,
-    trim: true,
-    default: '' // 图片URL或路径
-  },
-  storyTextRight: [{
+  storyImageLeft: [{
     type: String,
     trim: true
   }],
+  storyTextRight: [[{
+    type: String,
+    trim: true
+  }]],
   authorSignature: {
     type: String,
     trim: true,

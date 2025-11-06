@@ -18,13 +18,13 @@
         </div>
 
         <div class="story-layout">
-          <div class="story-image-left">
-            <img v-if="sowakaStory.storyImageLeft" :src="sowakaStory.storyImageLeft" :alt="sowakaStory.title" />
+          <div class="story-image-left" @click="nextContent">
+            <img v-if="currentImage" :src="currentImage" :alt="sowakaStory.title" />
             <!-- Image placeholder when no image -->
           </div>
 
-          <div class="story-text-right">
-            <p v-for="(paragraph, index) in sowakaStory.storyTextRight" :key="index">
+          <div class="story-text-right" @click="nextContent">
+            <p v-for="(paragraph, index) in currentTextArray" :key="index">
               {{ paragraph }}
             </p>
             <p class="author-signature">{{ sowakaStory.authorSignature }}</p>
@@ -46,15 +46,64 @@
 </template>
 
 <script setup>
+import { ref, computed, watch } from 'vue'
+
 // 如果使用 src/assets 中的图片，需要这样导入
 // import defaultStoryImage from '@/assets/images/sowaka-story.jpg'
 
-defineProps({
+const props = defineProps({
   sowakaStory: {
     type: Object,
     required: true
   }
 })
+
+// 当前内容索引
+const currentIndex = ref(0)
+
+// 计算属性：当前显示的图片
+const currentImage = computed(() => {
+  if (!props.sowakaStory.storyImageLeft || !Array.isArray(props.sowakaStory.storyImageLeft)) {
+    return props.sowakaStory.storyImageLeft || ''
+  }
+  return props.sowakaStory.storyImageLeft[currentIndex.value] || ''
+})
+
+// 计算属性：当前显示的文本数组
+const currentTextArray = computed(() => {
+  if (!props.sowakaStory.storyTextRight || !Array.isArray(props.sowakaStory.storyTextRight)) {
+    return props.sowakaStory.storyTextRight || []
+  }
+  
+  // 如果 storyTextRight 是二维数组（每个元素都是数组）
+  if (Array.isArray(props.sowakaStory.storyTextRight[0])) {
+    return props.sowakaStory.storyTextRight[currentIndex.value] || []
+  }
+  
+  // 如果 storyTextRight 是一维数组，直接返回
+  return props.sowakaStory.storyTextRight
+})
+
+// 切换到下一个内容
+const nextContent = () => {
+  if (!props.sowakaStory.storyImageLeft || !Array.isArray(props.sowakaStory.storyImageLeft)) {
+    return
+  }
+  
+  const maxLength = Math.max(
+    props.sowakaStory.storyImageLeft?.length || 0,
+    props.sowakaStory.storyTextRight?.length || 0
+  )
+  
+  if (maxLength > 1) {
+    currentIndex.value = (currentIndex.value + 1) % maxLength
+  }
+}
+
+// 监听 sowakaStory 变化，重置索引
+watch(() => props.sowakaStory, () => {
+  currentIndex.value = 0
+}, { deep: true })
 </script>
 
 <style scoped>
@@ -139,6 +188,12 @@ defineProps({
   min-height: 600px;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.story-image-left:hover {
+  transform: scale(1.02);
 }
 
 .story-image-left img {
@@ -165,6 +220,12 @@ defineProps({
   background-color: #fff;
   padding: 80px 70px;
   border-left: 3px solid #c9a96e;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.story-text-right:hover {
+  background-color: #fafafa;
 }
 
 .story-text-right p {
