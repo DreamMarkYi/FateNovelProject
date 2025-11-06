@@ -18,17 +18,45 @@
         </div>
 
         <div class="story-layout">
-          <div class="story-image-left" @click="nextContent">
-            <img v-if="currentImage" :src="currentImage" :alt="sowakaStory.title" />
+          <div class="story-image-left" @click="nextContent" :class="{ 'switching': isSwitching }">
+            <transition name="image-fade" mode="out-in">
+              <img 
+                v-if="currentImage" 
+                :key="currentIndex"
+                :src="currentImage" 
+                :alt="sowakaStory.title"
+                @load="onImageLoad"
+                @error="onImageError"
+              />
+            </transition>
+            <!-- Loading indicator -->
+            <div v-if="isImageLoading" class="image-loading">
+              <div class="loading-spinner"></div>
+            </div>
             <!-- Image placeholder when no image -->
           </div>
 
-          <div class="story-text-right" @click="nextContent">
-            <p v-for="(paragraph, index) in currentTextArray" :key="index">
-              {{ paragraph }}
-            </p>
+          <div class="story-text-right" @click="nextContent" :class="{ 'switching': isSwitching }">
+            <transition name="text-slide" mode="out-in">
+              <div :key="currentIndex" class="text-content">
+                <p v-for="(paragraph, index) in currentTextArray" :key="index">
+                  {{ paragraph }}
+                </p>
+              </div>
+            </transition>
             <p class="author-signature">{{ sowakaStory.authorSignature }}</p>
           </div>
+        </div>
+        
+        <!-- 内容指示器 -->
+        <div v-if="totalContentCount > 1" class="content-indicators">
+          <div 
+            v-for="(item, index) in totalContentCount" 
+            :key="index"
+            class="indicator-dot"
+            :class="{ 'active': index === currentIndex }"
+            @click="switchToIndex(index)"
+          ></div>
         </div>
       </div>
 
@@ -61,6 +89,10 @@ const props = defineProps({
 // 当前内容索引
 const currentIndex = ref(0)
 
+// 动画状态管理
+const isSwitching = ref(false)
+const isImageLoading = ref(false)
+
 // 计算属性：当前显示的图片
 const currentImage = computed(() => {
   if (!props.sowakaStory.storyImageLeft || !Array.isArray(props.sowakaStory.storyImageLeft)) {
@@ -84,9 +116,25 @@ const currentTextArray = computed(() => {
   return props.sowakaStory.storyTextRight
 })
 
-// 切换到下一个内容
-const nextContent = () => {
+// 计算属性：总内容数量
+const totalContentCount = computed(() => {
   if (!props.sowakaStory.storyImageLeft || !Array.isArray(props.sowakaStory.storyImageLeft)) {
+    return 0
+  }
+  return Math.max(
+    props.sowakaStory.storyImageLeft?.length || 0,
+    props.sowakaStory.storyTextRight?.length || 0
+  )
+})
+
+// 切换到下一个内容
+const nextContent = async () => {
+  if (!props.sowakaStory.storyImageLeft || !Array.isArray(props.sowakaStory.storyImageLeft)) {
+    return
+  }
+  
+  // 防止快速连续点击
+  if (isSwitching.value) {
     return
   }
   
@@ -96,7 +144,44 @@ const nextContent = () => {
   )
   
   if (maxLength > 1) {
+    isSwitching.value = true
+    isImageLoading.value = true
+    
+    // 切换索引
     currentIndex.value = (currentIndex.value + 1) % maxLength
+    
+    // 动画完成后重置状态
+    setTimeout(() => {
+      isSwitching.value = false
+    }, 600) // 与CSS动画时间保持一致
+  }
+}
+
+// 图片加载完成处理
+const onImageLoad = () => {
+  isImageLoading.value = false
+}
+
+// 图片加载错误处理
+const onImageError = () => {
+  isImageLoading.value = false
+  console.warn('图片加载失败:', currentImage.value)
+}
+
+// 切换到指定索引
+const switchToIndex = (index) => {
+  if (isSwitching.value || index === currentIndex.value) {
+    return
+  }
+  
+  if (index >= 0 && index < totalContentCount.value) {
+    isSwitching.value = true
+    isImageLoading.value = true
+    currentIndex.value = index
+    
+    setTimeout(() => {
+      isSwitching.value = false
+    }, 600)
   }
 }
 
@@ -244,6 +329,155 @@ watch(() => props.sowakaStory, () => {
   font-style: italic;
 }
 
+/* 动画样式 */
+/* 图片淡入淡出动画 */
+.image-fade-enter-active,
+.image-fade-leave-active {
+  transition: all 0.5s ease-in-out;
+}
+
+.image-fade-enter-from {
+  opacity: 0;
+  transform: scale(1.05);
+}
+
+.image-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* 文字滑动动画 */
+.text-slide-enter-active,
+.text-slide-leave-active {
+  transition: all 0.4s ease-in-out;
+}
+
+.text-slide-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.text-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+/* 切换状态样式 */
+.story-image-left.switching {
+  pointer-events: none;
+}
+
+.story-text-right.switching {
+  pointer-events: none;
+}
+
+/* 加载动画 */
+.image-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #c9a96e;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 文本内容容器 */
+.text-content {
+  width: 100%;
+}
+
+/* 增强的悬停效果 */
+.story-image-left:not(.switching):hover {
+  transform: scale(1.02);
+  transition: transform 0.3s ease;
+}
+
+.story-text-right:not(.switching):hover {
+  background-color: #fafafa;
+  transition: background-color 0.3s ease;
+}
+
+/* 点击反馈效果 */
+.story-image-left:active {
+  transform: scale(0.98);
+}
+
+.story-text-right:active {
+  background-color: #f5f5f5;
+}
+
+/* 内容指示器样式 */
+.content-indicators {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 40px;
+  padding: 20px;
+}
+
+.indicator-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #ddd;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.indicator-dot:hover {
+  background-color: #c9a96e;
+  transform: scale(1.2);
+}
+
+.indicator-dot.active {
+  background-color: #c9a96e;
+  transform: scale(1.3);
+  box-shadow: 0 0 10px rgba(201, 169, 110, 0.4);
+}
+
+.indicator-dot.active::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 2px solid #c9a96e;
+  border-radius: 50%;
+  opacity: 0.3;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+}
+
 /* Scroll Animations */
 .fade-in {
   opacity: 0;
@@ -274,6 +508,43 @@ watch(() => props.sowakaStory, () => {
 
   .story-text-right {
     padding: 40px 30px;
+  }
+  
+  /* 移动端动画优化 */
+  .image-fade-enter-active,
+  .image-fade-leave-active {
+    transition: all 0.3s ease-in-out;
+  }
+  
+  .text-slide-enter-active,
+  .text-slide-leave-active {
+    transition: all 0.25s ease-in-out;
+  }
+  
+  .text-slide-enter-from {
+    transform: translateX(20px);
+  }
+  
+  .text-slide-leave-to {
+    transform: translateX(-20px);
+  }
+  
+  /* 移动端指示器 */
+  .content-indicators {
+    margin-top: 20px;
+    padding: 15px;
+    gap: 10px;
+  }
+  
+  .indicator-dot {
+    width: 10px;
+    height: 10px;
+  }
+  
+  .loading-spinner {
+    width: 30px;
+    height: 30px;
+    border-width: 2px;
   }
 }
 </style>
