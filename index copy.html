@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Into the Neverwhere</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@200;300;400&family=Shippori+Mincho:wght@400;500;600&family=Zen+Antique&family=Kaisei+Decol:wght@400;500&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Shippori Mincho', 'Zen Antique', 'Kaisei Decol', 'Noto Serif JP', 'Yu Mincho', 'YuMincho', 'Hiragino Mincho ProN', serif;
+            overflow: hidden;
+            cursor: crosshair;
+            opacity: 0;
+            transform: scale(1.05);
+            transition: opacity 1s ease-out, transform 1s ease-out;
+            background: linear-gradient(135deg, #fef5f5 0%, #fdf0f0 50%, #fce8e8 100%);
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        body.loaded {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        #background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #background video {
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: cover;
+            opacity: 1;
+
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 0%, rgba(253, 240, 240, 0.3) 100%);
+            z-index: -1;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 60px 80px;
+            z-index: 1;
+        }
+
+        .title {
+            position: absolute;
+            top: 60px;
+            left: 80px;
+            color: #d4a5a5;
+            letter-spacing: 0.3em;
+            font-weight: 300;
+            opacity: 0;
+            animation: fadeInDown 1.5s ease forwards;
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 25px;
+            font-family: 'Noto Serif JP', 'Yu Mincho', 'YuMincho', serif;
+        }
+
+        .title .small {
+            font-family: 'Noto Serif JP', 'Yu Mincho', 'YuMincho', serif;
+            font-size: 1.6rem;
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            letter-spacing: 0.3em;
+            color: #e6b8b8;
+            font-weight: 300;
+            padding: 15px 0;
+            text-shadow: 0 0 20px rgba(230, 184, 184, 0.3);
+            animation: gentleSway1 7s ease-in-out infinite;
+        }
+
+        .title .large {
+            font-family: 'Noto Serif JP', 'Yu Mincho', 'YuMincho', serif;
+            font-size: 2.4rem;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            letter-spacing: 0.2em;
+            font-weight: 300;
+            color: #c99;
+            line-height: 2;
+            padding: 0 15px;
+            text-shadow: 0 0 25px rgba(204, 153, 153, 0.2);
+            animation: gentleSway2 8s ease-in-out infinite;
+        }
+
+        .title .large:nth-child(2) {
+            animation-name: gentleSway2;
+            animation-duration: 8s;
+        }
+
+        .title .large:nth-child(3) {
+            animation-name: gentleSway3;
+            animation-duration: 7.5s;
+        }
+
+        .nav-menu {
+            position: absolute;
+            left: 80px;
+            bottom: 100px;
+            display: flex;
+            flex-direction: row;
+            gap: 40px;
+            align-items: flex-end;
+        }
+
+        .nav-sentence {
+            display: flex;
+            flex-direction: row;
+            gap: 45px;
+            align-items: flex-end;
+        }
+
+        .nav-part {
+            color: #d4a5a5;
+            font-size: 1.5rem;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            letter-spacing: 0.25em;
+            line-height: 2.1;
+            font-weight: 300;
+            opacity: 0;
+            text-shadow: 0 0 20px rgba(230, 165, 165, 0.15);
+            transition: all 0.3s ease;
+        }
+
+        .nav-part:hover {
+            color: #e6a5a5;
+            text-shadow: 0 0 15px rgba(255, 153, 153, 0.2), 0 0 8px rgba(230, 165, 165, 0.15);
+        }
+
+        .nav-part:nth-child(1) {
+            animation: fadeInBottom 1s ease 0.6s forwards, gentleSway4 9s ease-in-out 1.6s infinite;
+            margin-bottom: 120px;
+        }
+
+        .nav-part:nth-child(2) {
+            animation: fadeInBottom 1s ease 0.8s forwards, gentleSway5 8.5s ease-in-out 1.8s infinite;
+            margin-bottom: 30px;
+        }
+
+        .nav-part:nth-child(3) {
+            animation: fadeInBottom 1s ease 1s forwards, gentleSway6 9.5s ease-in-out 2s infinite;
+            margin-bottom: 0px;
+        }
+
+        .nav-part .nav-link {
+            color: inherit;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: inline;
+            position: relative;
+        }
+
+        .nav-part .nav-link:hover {
+            color: #ff9999;
+            text-shadow: 0 0 15px rgba(255, 153, 153, 0.3), 0 0 8px rgba(230, 165, 165, 0.25);
+            filter: brightness(1.1);
+        }
+
+        @keyframes fadeInBottom {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .footer-text {
+            position: absolute;
+            right: 80px;
+            bottom: 60px;
+            color: #c9a5a5;
+            font-size: 0.75rem;
+            line-height: 1.8;
+            max-width: 250px;
+            text-align: right;
+            opacity: 0;
+            animation: slideUpFade 1.5s ease 1.5s forwards, scrollUp 8s linear 3s infinite;
+        }
+
+        @keyframes scrollUp {
+            0% {
+                transform: translateY(0);
+            }
+            100% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .interactive-text {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .interactive-text:hover {
+            color: #e69999;
+            text-shadow: 0 0 10px rgba(230, 165, 165, 0.5);
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideInTop {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideUpFade {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Wind sway animations - very subtle */
+        @keyframes gentleSway1 {
+            0%, 100% {
+                transform: translateX(0) rotate(0deg);
+            }
+            50% {
+                transform: translateX(0.8px) rotate(0.15deg);
+            }
+        }
+
+        @keyframes gentleSway2 {
+            0%, 100% {
+                transform: translateX(0) rotate(0deg);
+            }
+            50% {
+                transform: translateX(-0.6px) rotate(-0.12deg);
+            }
+        }
+
+        @keyframes gentleSway3 {
+            0%, 100% {
+                transform: translateX(0) rotate(0deg);
+            }
+            50% {
+                transform: translateX(0.7px) rotate(0.14deg);
+            }
+        }
+
+        @keyframes gentleSway4 {
+            0%, 100% {
+                transform: translateX(0) rotate(0deg);
+            }
+            50% {
+                transform: translateX(-1px) rotate(-0.2deg);
+            }
+        }
+
+        @keyframes gentleSway5 {
+            0%, 100% {
+                transform: translateX(0) rotate(0deg);
+            }
+            50% {
+                transform: translateX(1.2px) rotate(0.22deg);
+            }
+        }
+
+        @keyframes gentleSway6 {
+            0%, 100% {
+                transform: translateX(0) rotate(0deg);
+            }
+            50% {
+                transform: translateX(-0.9px) rotate(-0.18deg);
+            }
+        }
+
+        .dot {
+            position: absolute;
+            left: 80px;
+            width: 8px;
+            height: 8px;
+            background: #e6b8b8;
+            border-radius: 50%;
+            opacity: 0;
+            animation: dotFade 0.5s ease forwards;
+            box-shadow: 0 0 10px rgba(230, 184, 184, 0.3);
+        }
+
+        .dot:nth-child(1) { top: 60px; animation-delay: 0.3s; }
+        .dot:nth-child(2) { top: 400px; animation-delay: 0.5s; }
+        .dot:nth-child(3) { top: 650px; animation-delay: 0.7s; }
+        .dot:nth-child(4) { top: 900px; animation-delay: 0.9s; }
+
+        @keyframes dotFade {
+            to { opacity: 0.6; }
+        }
+
+        /* Cherry blossom petal animation */
+        .petal {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: radial-gradient(ellipse at center, rgba(255, 182, 193, 0.8), rgba(255, 218, 224, 0.4));
+            border-radius: 50% 0 50% 0;
+            pointer-events: none;
+            animation: fall linear infinite;
+            opacity: 0.7;
+            z-index: 2;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-10vh) rotate(0deg);
+                opacity: 0.8;
+            }
+            100% {
+                transform: translateY(110vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px;
+            }
+
+            .title {
+                top: 40px;
+                left: 40px;
+                gap: 15px;
+            }
+
+            .title .small {
+                font-size: 1.2rem;
+                padding: 10px 0;
+            }
+
+            .title .large {
+                font-size: 1.8rem;
+                padding: 0 10px;
+                line-height: 1.8;
+            }
+
+            .nav-menu {
+                left: 40px;
+                bottom: 60px;
+                gap: 25px;
+            }
+
+            .nav-sentence {
+                gap: 25px;
+            }
+
+            .nav-part {
+                font-size: 1.1rem;
+                letter-spacing: 0.18em;
+                line-height: 1.9;
+            }
+
+            .nav-part:nth-child(2) {
+                margin-bottom: 20px;
+            }
+
+            .nav-part:nth-child(3) {
+                margin-bottom: 40px;
+            }
+
+            .footer-text {
+                right: 40px;
+                bottom: 40px;
+                font-size: 0.7rem;
+                max-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="background">
+    <video autoplay muted loop playsinline>
+        <source src="./mainBG_AE_1.mp4" type="video/mp4">
+        <source src="background-video.webm" type="video/webm">
+        <!-- Fallback image if video doesn't load -->
+        <img src="./mainBG.mp4" alt="Background">
+    </video>
+</div>
+<div id="overlay"></div>
+<canvas id="canvas"></canvas>
+
+<div class="dot"></div>
+<div class="dot"></div>
+<div class="dot"></div>
+<div class="dot"></div>
+
+<div class="container">
+    <div class="title">
+        <span class="small">そして</span>
+        <span class="large">春が来て秋が来て。</span>
+        <span class="large">四季が巡ります。</span>
+    </div>
+
+    <nav class="nav-menu">
+        <div class="nav-sentence">
+            <div class="nav-part">
+                <a href="indexblue3_updated2.html" class="nav-link">昔の詩</a>を辿り、
+            </div>
+            <div class="nav-part">
+                <a href="#" class="nav-link">出会った人々</a>と共に、
+            </div>
+            <div class="nav-part">
+                <a href="#" class="nav-link">果てしない道</a>を歩む。
+            </div>
+        </div>
+    </nav>
+
+    <div class="footer-text">
+        <span class="interactive-text">"One day I woke up and saw, we'll find one half of me asleep, I tried to tell the old me in my dream, Let's believe in them, such a strange story, only two pieces left to tell."</span><br><br>
+        <span class="interactive-text">One sunny day waking up. No city could wake up. Let me dream a little longer. There's a sense of loss there. Like if you could, could a friend lend you his dream? The sense that something is missing. Seeing yourself asleep. In the end there was no escape, was there. I lost someone.</span>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

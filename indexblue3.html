@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SILENT HAZE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', 'Microsoft YaHei', sans-serif;
+            overflow: hidden;
+            background: #87CEEB;
+        }
+
+        /* 背景图片容器 */
+        #background {
+            position: fixed;
+            top: 0;
+            left: 400px;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            overflow: hidden;
+        }
+
+        #background img {
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            object-position: center;
+        }
+
+        /* 第二个背景图片容器 */
+        #background2 {
+            position: fixed;
+            top: 0;
+            left: -400px;
+            width: 100%;
+            height: 100%;
+            z-index: -3;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            overflow: hidden;
+        }
+
+        #background2 img {
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            object-position: center;
+        }
+
+        /* 主容器 */
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            padding-left: 80px;
+        }
+
+        /* Canvas容器 */
+        .text-canvas-container {
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* 装饰线条 */
+        .line {
+            width: 120px;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.4);
+            margin: 20px 0;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {s
+            .container {
+                padding-left: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 第二个背景图片 -->
+    <div id="background2">
+        <img src="./backgroundRight4.png" alt="Background 2">
+    </div>
+
+    <!-- 背景图片 -->
+    <div id="background">
+        <img src="./backgroundLeft.jpg" alt="Background">
+    </div>
+
+    <!-- 主容器 -->
+    <div class="container">
+        <div class="text-canvas-container">
+            <canvas id="textCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Perlin Noise 实现
+        class PerlinNoise {
+            constructor() {
+                this.p = new Array(512);
+                this.permutation = [];
+                
+                for (let i = 0; i < 256; i++) {
+                    this.permutation[i] = Math.floor(Math.random() * 256);
+                }
+                
+                for (let i = 0; i < 512; i++) {
+                    this.p[i] = this.permutation[i & 255];
+                }
+            }
+
+            fade(t) {
+                return t * t * t * (t * (t * 6 - 15) + 10);
+            }
+
+            lerp(t, a, b) {
+                return a + t * (b - a);
+            }
+
+            grad(hash, x, y) {
+                const h = hash & 15;
+                const u = h < 8 ? x : y;
+                const v = h < 4 ? y : h === 12 || h === 14 ? x : 0;
+                return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+            }
+
+            noise(x, y) {
+                const X = Math.floor(x) & 255;
+                const Y = Math.floor(y) & 255;
+
+                x -= Math.floor(x);
+                y -= Math.floor(y);
+
+                const u = this.fade(x);
+                const v = this.fade(y);
+
+                const a = this.p[X] + Y;
+                const aa = this.p[a];
+                const ab = this.p[a + 1];
+                const b = this.p[X + 1] + Y;
+                const ba = this.p[b];
+                const bb = this.p[b + 1];
+
+                return this.lerp(v,
+                    this.lerp(u, this.grad(this.p[aa], x, y), this.grad(this.p[ba], x - 1, y)),
+                    this.lerp(u, this.grad(this.p[ab], x, y - 1), this.grad(this.p[bb], x - 1, y - 1))
+                );
+            }
+        }
+
+        // 初始化
+        const canvas = document.getElementById('textCanvas');
+        const ctx = canvas.getContext('2d');
+        const perlin = new PerlinNoise();
+        let time = 0;
+
+        // 设置Canvas尺寸
+        canvas.width = 800;
+        canvas.height = 600;
+
+        // 文字内容和样式
+        const texts = [
+            { text: 'SILENT HAZE', x: 0, y: 50, size: 16, weight: '300', spacing: 5, noiseScale: 0.05 },
+            { text: 'SUMMER', x: 0, y: 180, size: 96, weight: '700', spacing: 0, noiseScale: 0.02 },
+            { text: 'BREEZE', x: 0, y: 280, size: 96, weight: '700', spacing: 0, noiseScale: 0.02 },
+            { text: '25時、ナイトコードで。× 初音ミク', x: 0, y: 360, size: 15, weight: '300', spacing: 2, noiseScale: 0.08 }
+        ];
+
+        // 绘制带噪声的文字
+        function drawTextWithNoise() {
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            texts.forEach((textObj, index) => {
+                // 设置字体
+                ctx.font = `${textObj.weight} ${textObj.size}px Arial`;
+                ctx.textBaseline = 'top';
+
+                // 测量文字宽度
+                const metrics = ctx.measureText(textObj.text);
+                const textWidth = metrics.width;
+                const textHeight = textObj.size;
+
+                // 创建临时画布用于文字
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = textWidth + 20;
+                tempCanvas.height = textHeight + 20;
+
+                // 在临时画布上绘制白色文字
+                tempCtx.font = ctx.font;
+                tempCtx.fillStyle = 'white';
+                tempCtx.textBaseline = 'top';
+                tempCtx.fillText(textObj.text, 10, 10);
+
+                // 获取文字像素数据
+                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                const data = imageData.data;
+
+                // 应用噪声到每个像素
+                for (let y = 0; y < tempCanvas.height; y++) {
+                    for (let x = 0; x < tempCanvas.width; x++) {
+                        const index = (y * tempCanvas.width + x) * 4;
+                        const alpha = data[index + 3];
+
+                        if (alpha > 0) {
+                            // 计算噪声值 - 使用noiseScale控制噪声的"瓦片"大小
+                            const noiseX = x * textObj.noiseScale;
+                            const noiseY = y * textObj.noiseScale;
+                            const noise = perlin.noise(noiseX + time, noiseY + time * 0.5);
+                            const normalizedNoise = (noise + 1) / 2;
+
+                            // 根据噪声调整颜色
+                            const intensity = index < 2 ? 30 : 50; // 标题更明显
+                            data[index] = 255;
+                            data[index + 1] = 255 
+                            data[index + 2] = 255
+                            data[index + 3] = Math.pow((1 - normalizedNoise*0.4 ) ,2) * alpha;
+                        }
+                    }
+                }
+
+                // 将处理后的图像绘制到主画布
+                tempCtx.putImageData(imageData, 0, 0);
+                ctx.drawImage(tempCanvas, textObj.x, textObj.y);
+
+                // 绘制装饰线条（在第一个和最后一个文字后）
+                if (index === 0 || index === 2) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                    ctx.fillRect(textObj.x, textObj.y + textObj.size + 20, 120, 1);
+                }
+            });
+
+            // 添加阴影效果
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 4;
+        }
+
+        // 鼠标交互
+        let isHovering = false;
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // 检测是否悬停在主标题上
+            isHovering = (y > 180 && y < 300 && x < 600);
+            canvas.style.cursor = isHovering ? 'pointer' : 'default';
+        });
+
+        // 动画循环
+        function animate() {
+            time += 0.005; // 控制噪声动画速度
+            drawTextWithNoise();
+            requestAnimationFrame(animate);
+        }
+
+        // 开始动画
+        animate();
+
+        // 窗口调整
+        window.addEventListener('resize', () => {
+            // 可以在这里添加响应式逻辑
+        });
+    </script>
+</body>
+</html>

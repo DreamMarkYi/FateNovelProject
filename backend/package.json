@@ -1,0 +1,32 @@
+{
+  "name": "novel-reading-backend",
+  "version": "1.0.0",
+  "description": "轻小说阅读网站后端API - Node.js + Express + MySQL",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "init-mysql": "node src/scripts/initDatabase.js",
+    "init-mongodb": "node src/scripts/initMongoDB.js",
+    "init-db": "npm run init-mysql && npm run init-mongodb"
+  },
+  "keywords": ["novel", "reading", "api", "express", "mysql"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.5",
+    "mongoose": "^8.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "marked": "^11.1.0",
+    "helmet": "^7.1.0",
+    "compression": "^1.7.4",
+    "express-rate-limit": "^7.1.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
+
+

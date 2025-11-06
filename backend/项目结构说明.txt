@@ -1,0 +1,132 @@
+后端项目结构说明
+==================
+
+backend/
+│
+├── src/                          # 源代码目录
+│   ├── config/                   # 配置文件夹
+│   │   └── database.js          # 数据库连接池配置
+│   │
+│   ├── models/                   # 数据模型层
+│   │   └── contentModel.js      # 内容模型（数据库操作）
+│   │
+│   ├── controllers/              # 控制器层
+│   │   └── contentController.js # 内容控制器（业务逻辑）
+│   │
+│   ├── routes/                   # 路由层
+│   │   └── contentRoutes.js     # 内容相关路由
+│   │
+│   ├── scripts/                  # 脚本文件
+│   │   └── initDatabase.js      # 数据库初始化脚本
+│   │
+│   └── app.js                    # 应用程序入口文件
+│
+├── config.js                     # 主配置文件
+├── package.json                  # npm 依赖配置
+├── env.example                   # 环境变量示例
+├── .gitignore                    # Git 忽略文件
+├── README.md                     # 项目文档
+├── 快速启动指南.md               # 快速上手指南
+└── 项目结构说明.txt              # 本文件
+
+主要文件说明
+============
+
+1. src/app.js
+   - Express 应用主入口
+   - 配置中间件（CORS、安全、压缩等）
+   - 注册路由
+   - 启动服务器
+
+2. src/config/database.js
+   - MySQL 连接池配置
+   - 数据库连接测试函数
+
+3. src/models/contentModel.js
+   - 数据访问层
+   - 封装所有数据库操作（CRUD）
+
+4. src/controllers/contentController.js
+   - 业务逻辑层
+   - 处理请求和响应
+   - Markdown 转 HTML
+
+5. src/routes/contentRoutes.js
+   - 路由定义
+   - API 端点映射
+
+6. src/scripts/initDatabase.js
+   - 数据库初始化脚本
+   - 创建表和插入示例数据
+
+7. config.js
+   - 应用配置
+   - 数据库配置
+   - CORS 配置
+
+技术栈
+======
+
+- Node.js 20.x
+- Express 4.x
+- MySQL 8.x
+- mysql2 (Promise 支持)
+- marked (Markdown 解析)
+- helmet (安全)
+- cors (跨域)
+- compression (压缩)
+- express-rate-limit (限流)
+
+API 端点
+========
+
+GET    /api/contents              获取所有内容
+GET    /api/contents/:id          获取指定内容
+GET    /api/contents/type/:type   获取指定类型内容
+POST   /api/contents              创建新内容
+PUT    /api/contents/:id          更新内容
+DELETE /api/contents/:id          删除内容
+
+数据库表
+========
+
+contents
+--------
+- id (INT, 主键)
+- title (VARCHAR(255))
+- content (TEXT, Markdown)
+- content_type (VARCHAR(50))
+- author (VARCHAR(100))
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
+
+内容类型
+--------
+- story: 故事内容
+- room: 房间介绍
+- concept: 概念说明
+
+启动流程
+========
+
+1. npm install              安装依赖
+2. 配置 config.js           设置数据库密码
+3. npm run init-db          初始化数据库
+4. npm run dev              启动开发服务器
+
+端口
+====
+
+- 后端 API: http://localhost:3000
+- 前端应用: http://localhost:5173
+
+开发建议
+========
+
+1. 使用 nodemon 自动重启（npm run dev）
+2. 查看日志了解请求情况
+3. 使用 curl 或 Postman 测试 API
+4. 定期备份数据库
+5. 生产环境使用 PM2 管理进程
+
+

@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>そわか - SOWAKA KYOTO</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Yu Mincho', 'YuMincho', 'Hiragino Mincho Pro', 'MS PMincho', serif;
+            color: #333;
+            background-color: #faf9f7;
+            line-height: 1.8;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background-color: rgba(250, 249, 247, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            padding: 20px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(51, 51, 51, 0.1);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 300;
+            letter-spacing: 3px;
+            color: #333;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 40px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #333;
+            font-size: 14px;
+            letter-spacing: 2px;
+            transition: opacity 0.3s;
+            font-weight: 300;
+        }
+
+        .nav-links a:hover {
+            opacity: 0.6;
+        }
+
+        .menu-toggle {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
+
+        .menu-toggle span {
+            width: 25px;
+            height: 2px;
+            background-color: #333;
+        }
+
+        /* Hero Section */
+        .hero {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(to bottom, #faf9f7 0%, #f5f0eb 100%);
+        }
+
+        .hero-content {
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .hero-title {
+            font-size: 52px;
+            font-weight: 300;
+            letter-spacing: 12px;
+            margin-bottom: 30px;
+            color: #333;
+            opacity: 0;
+            animation: fadeInUp 1s forwards 0.3s;
+        }
+
+        .hero-subtitle {
+            font-size: 16px;
+            letter-spacing: 3px;
+            color: #666;
+            font-weight: 300;
+            opacity: 0;
+            animation: fadeInUp 1s forwards 0.6s;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Component 1: Vertical Logo and Text */
+        .vertical-section {
+            padding: 120px 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #faf9f7;
+            min-height: 80vh;
+        }
+
+        .vertical-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 50px;
+        }
+
+        .vertical-logo-box {
+            background-color: #1a1a1a;
+            padding: 25px 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .vertical-logo-text {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            font-size: 22px;
+            letter-spacing: 0.4em;
+            color: #fff;
+            font-weight: 300;
+        }
+
+        .vertical-text-container {
+            display: flex;
+            gap: 25px;
+            padding: 40px 50px;
+            border-left: 1px solid #ccc;
+            border-right: 1px solid #ccc;
+        }
+
+        .vertical-column {
+            writing-mode: vertical-rl;
+            font-size: 15px;
+            letter-spacing: 0.15em;
+            color: #555;
+            line-height: 2;
+        }
+
+        /* Component 2: Horizontal Text Content */
+        .horizontal-section {
+            padding: 100px 50px;
+            background-color: #f8f6f3;
+        }
+
+        .horizontal-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .horizontal-content p {
+            font-size: 15px;
+            line-height: 2.8;
+            color: #555;
+            text-align: center;
+            margin-bottom: 40px;
+            letter-spacing: 0.08em;
+        }
+
+        .horizontal-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Component 3: Final Message Section */
+        .message-section {
+            padding: 120px 50px;
+            background-color: #faf9f7;
+        }
+
+        .message-content {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .message-content p {
+            font-size: 15px;
+            line-height: 2.8;
+            color: #555;
+            margin-bottom: 35px;
+            letter-spacing: 0.08em;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+            margin-top: 50px;
+        }
+
+        /* Unified Content Section */
+        .unified-content-section {
+            background-color: #faf9f7;
+        }
+
+        .unified-content-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .content-block {
+            padding: 100px 50px;
+        }
+
+        /* Text Center Blocks */
+        .text-center-block,
+        .text-center-block-final {
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .text-center-block p,
+        .text-center-block-final p {
+            font-size: 15px;
+            line-height: 3;
+            color: #555;
+            margin-bottom: 10px;
+            letter-spacing: 0.08em;
+        }
+
+        .text-center-block {
+            background-color: #faf9f7;
+        }
+
+        .text-center-block-final {
+            background-color: #faf9f7;
+            padding-bottom: 120px;
+        }
+
+        /* Story with Image Block */
+        .story-with-image-block {
+            background-color: #faf9f7 !important;
+            padding: 120px 50px !important;
+        }
+
+        .story-header-large {
+            text-align: center;
+            margin-bottom: 100px;
+        }
+
+        .story-header-large h2 {
+            font-size: 42px;
+            font-weight: 300;
+            letter-spacing: 8px;
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        .story-header-large .subtitle {
+            font-size: 13px;
+            letter-spacing: 3px;
+            color: #999;
+            text-transform: uppercase;
+        }
+
+        .story-layout {
+            display: grid;
+            grid-template-columns: 45% 55%;
+            gap: 0;
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        .story-image-left {
+            background: linear-gradient(135deg, #d4c5b0 0%, #c4b5a0 100%);
+            min-height: 600px;
+            position: relative;
+        }
+
+        .story-image-left::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, transparent 70%, rgba(0,0,0,0.05) 100%);
+        }
+
+        .story-text-right {
+            background-color: #fff;
+            padding: 80px 70px;
+            border-left: 3px solid #c9a96e;
+        }
+
+        .story-text-right p {
+            font-size: 14px;
+            line-height: 2.5;
+            color: #666;
+            margin-bottom: 25px;
+            letter-spacing: 0.05em;
+        }
+
+        .story-text-right .author-signature {
+            font-size: 12px;
+            color: #999;
+            text-align: right;
+            margin-top: 50px;
+            font-style: italic;
+        }
+
+
+        /* Concept Section */
+        .concept-section {
+            padding: 150px 50px;
+            background-color: #faf9f7;
+            margin-top: 0;
+            position: relative;
+            z-index: 0;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 14px;
+            letter-spacing: 5px;
+            margin-bottom: 80px;
+            color: #555;
+            font-weight: 300;
+            padding: 25px 0;
+            border-top: 1px solid #ccc;
+            border-bottom: 1px solid #ccc;
+            display: block;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .concept-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 50px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .concept-card {
+            background-color: #fff;
+            padding: 60px 50px;
+            border: none;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .concept-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .concept-card h3 {
+            font-size: 18px;
+            font-weight: 400;
+            letter-spacing: 3px;
+            margin-bottom: 30px;
+            color: #333;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e8e0d5;
+        }
+
+        .concept-card p {
+            font-size: 14px;
+            line-height: 2.5;
+            color: #666;
+            letter-spacing: 0.05em;
+            text-align: left;
+        }
+
+        /* Story Section with Image */
+        .story-section {
+            padding: 120px 50px;
+            background-color: #e8e4df;
+        }
+
+        .story-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .story-header {
+            text-align: center;
+            margin-bottom: 100px;
+        }
+
+        .story-header h2 {
+            font-size: 48px;
+            font-weight: 300;
+            letter-spacing: 8px;
+            color: #3d4a3d;
+            margin-bottom: 20px;
+        }
+
+        .story-header .subtitle {
+            font-size: 14px;
+            letter-spacing: 3px;
+            color: #666;
+        }
+
+        .story-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+            margin-bottom: 80px;
+        }
+
+        .story-text-block {
+            padding: 60px;
+            background-color: #fff;
+            border-left: 4px solid #d4a373;
+        }
+
+        .story-text-block p {
+            font-size: 14px;
+            line-height: 2.5;
+            color: #555;
+            margin-bottom: 20px;
+            letter-spacing: 0.05em;
+        }
+
+        .story-text-block .author {
+            font-size: 12px;
+            color: #999;
+            text-align: right;
+            margin-top: 30px;
+            font-style: italic;
+        }
+
+        .story-image-block {
+            aspect-ratio: 3/4;
+            background: linear-gradient(135deg, #e8dfd0 0%, #d4c5b0 100%);
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            border-radius: 2px;
+        }
+
+        .story-image-block::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.05) 100%);
+        }
+
+        .story-info {
+            text-align: center;
+            padding: 40px 0;
+            border-top: 1px solid #ccc;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .story-info p {
+            font-size: 13px;
+            color: #666;
+            line-height: 2;
+            letter-spacing: 0.05em;
+        }
+
+        /* Character Cards Section */
+        .characters-section {
+            padding: 0;
+            background-color: #3d4a3d;
+            position: relative;
+            padding-bottom: 450px;
+        }
+
+        .characters-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            width: 100%;
+            background-color: #2a3a2a;
+        }
+
+        .character-card {
+            aspect-ratio: 4/3;
+            background: linear-gradient(135deg, #5a6b5a 0%, #4a5a4a 100%);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            display: flex;
+            align-items: flex-end;
+            padding: 40px;
+        }
+
+        .character-card.active {
+            transform: translateY(-5px);
+            z-index: 10;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            background: linear-gradient(135deg, #6a7b6a 0%, #5a6a5a 100%);
+        }
+
+        .character-card:not(.active) {
+            opacity: 0.6;
+        }
+
+        .character-card:hover:not(.active) {
+            opacity: 0.8;
+        }
+
+        .character-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 70%);
+            z-index: 1;
+            transition: all 0.4s;
+        }
+
+        .character-card.active::before {
+            background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 60%);
+        }
+
+        .character-name {
+            position: relative;
+            color: #f0f0f0;
+            font-size: 22px;
+            font-weight: 300;
+            letter-spacing: 3px;
+            z-index: 2;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            transition: all 0.3s;
+        }
+
+        .character-card.active .character-name {
+            font-size: 24px;
+            letter-spacing: 4px;
+            color: #fff;
+        }
+
+        /* News Section - Quote Block Style */
+        .news {
+            padding: 0;
+            margin: 0;
+            background-color: transparent;
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+
+        .news-sidebar {
+            display: none;
+        }
+
+        .news-content {
+            background-color: rgba(70, 70, 70, 0.98);
+            backdrop-filter: blur(10px);
+            flex: 0 0 auto;
+            padding: 50px 45px;
+            max-width: 520px;
+            min-width: 380px;
+            position: absolute;
+            bottom: 60px;
+            z-index: 100;
+            left: 0;
+            transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border-left: 3px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .news-content.align-left {
+            left: 3%;
+        }
+
+        .news-content.align-center {
+            left: 36%;
+        }
+
+        .news-content.align-right {
+            left: 69%;
+        }
+
+        .news-item {
+            border-bottom: 1px solid #666;
+            padding: 40px 0;
+            transition: all 0.3s;
+            cursor: default;
+        }
+
+        .news-item.room-content {
+            border-bottom: none;
+            padding: 0;
+        }
+
+        .news-item.room-content.active {
+            display: block !important;
+        }
+
+        .news-item.room-content:not(.active) {
+            display: none;
+        }
+
+        .news-item:first-child {
+            padding-top: 0;
+        }
+
+        .news-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .news-item:hover {
+            padding-left: 0;
+        }
+
+        .news-date {
+            font-size: 13px;
+            color: #e8e8e8;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            font-weight: 300;
+            text-transform: uppercase;
+        }
+
+        .news-title {
+            font-size: 18px;
+            color: #ffffff;
+            line-height: 2;
+            letter-spacing: 0.1em;
+            margin-bottom: 20px;
+            font-weight: 400;
+        }
+
+        .news-description {
+            font-size: 13px;
+            color: #d4d4d4;
+            line-height: 2.2;
+            letter-spacing: 0.05em;
+        }
+
+        .news-description p {
+            margin-bottom: 15px;
+        }
+
+        .news-divider {
+            width: 60px;
+            height: 1px;
+            background-color: #999;
+            margin: 30px 0;
+        }
+
+        .news-details {
+            margin-top: 25px;
+            padding-top: 0;
+            border-left: none;
+        }
+
+        .news-details p {
+            font-size: 12px;
+            color: #b8b8b8;
+            line-height: 2;
+            margin-bottom: 8px;
+        }
+
+        .news-details p {
+            font-size: 13px;
+            color: #bbb;
+            line-height: 1.8;
+            margin-bottom: 8px;
+        }
+
+        .news-link {
+            display: inline-block;
+            margin-top: 10px;
+            color: #d4c5b0;
+            font-size: 13px;
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+
+        .news-link:hover {
+            opacity: 0.7;
+        }
+
+        /* Footer */
+        footer {
+            background-color: #2a2a2a;
+            color: #aaa;
+            padding: 80px 50px 40px;
+            text-align: center;
+        }
+
+        .footer-logo {
+            font-size: 28px;
+            letter-spacing: 6px;
+            margin-bottom: 40px;
+            color: #d4c5b0;
+            font-weight: 300;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 50px;
+            list-style: none;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: #aaa;
+            text-decoration: none;
+            font-size: 13px;
+            letter-spacing: 2px;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: #d4c5b0;
+        }
+
+        .footer-info {
+            font-size: 13px;
+            line-height: 2.2;
+            color: #888;
+            margin-bottom: 40px;
+        }
+
+        .copyright {
+            font-size: 11px;
+            color: #666;
+            letter-spacing: 1px;
+            padding-top: 30px;
+            border-top: 1px solid #444;
+        }
+
+        /* Scroll Animations */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: opacity 0.8s, transform 0.8s;
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav {
+                padding: 15px 20px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .menu-toggle {
+                display: flex;
+            }
+
+            .hero-title {
+                font-size: 36px;
+                letter-spacing: 8px;
+            }
+
+            .vertical-section {
+                padding: 80px 20px;
+            }
+
+            .vertical-text-container {
+                gap: 20px;
+                padding: 0 20px;
+            }
+
+            .vertical-column {
+                font-size: 14px;
+            }
+
+            .unified-content-section .content-block {
+                padding: 60px 20px;
+            }
+
+            .story-header-large h2 {
+                font-size: 32px;
+                letter-spacing: 4px;
+            }
+
+            .story-layout {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            .story-text-right {
+                padding: 40px 30px;
+            }
+
+            .concept-section {
+                padding: 80px 20px;
+            }
+
+            .concept-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .story-section {
+                padding: 80px 20px;
+            }
+
+            .story-header h2 {
+                font-size: 32px;
+                letter-spacing: 4px;
+            }
+
+            .story-content {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .story-text-block {
+                padding: 30px;
+            }
+
+            .characters-section {
+                min-height: auto;
+                padding: 20px 0;
+            }
+
+            .characters-grid {
+                grid-template-columns: 1fr;
+                gap: 1px;
+            }
+
+            .character-card {
+                aspect-ratio: 16/9;
+            }
+
+            .characters-section {
+                padding-bottom: 100px;
+            }
+
+            .news {
+                position: relative;
+                margin-top: 0;
+            }
+
+            .news-content {
+                padding: 35px 25px;
+                min-width: auto;
+                max-width: calc(100% - 40px);
+                position: relative;
+                left: 0 !important;
+                bottom: auto;
+                margin: 20px;
+                border-left: 2px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .news-item {
+                padding: 30px 0;
+            }
+
+            .footer-links {
+                flex-direction: column;
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="logo">そわか</div>
+        <ul class="nav-links">
+            <li><a href="#story">物語</a></li>
+            <li><a href="#concept">コンセプト</a></li>
+            <li><a href="#rooms">客室</a></li>
+            <li><a href="#news">お知らせ</a></li>
+            <li><a href="#access">アクセス</a></li>
+        </ul>
+        <div class="menu-toggle">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">そわか</h1>
+            <p class="hero-subtitle">SOWAKA KYOTO</p>
+        </div>
+    </section>
+
+    <!-- Component 1: Vertical Logo and Text Section -->
+    <section class="vertical-section fade-in" id="story">
+        <div class="vertical-container">
+            <div class="vertical-logo-box">
+                <div class="vertical-logo-text">SOWAKA</div>
+            </div>
+            <div class="vertical-text-container">
+                <div class="vertical-column">
+                    誕生しました。
+                </div>
+                <div class="vertical-column">
+                    京都・祇園八坂に
+                </div>
+                <div class="vertical-column">
+                    ホテルが、
+                </div>
+                <div class="vertical-column">
+                    本物の質を味わう
+                </div>
+                <div class="vertical-column">
+                    そして新しい。
+                </div>
+                <div class="vertical-column">
+                    懐かしく、
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Component 2: Horizontal Text Content Section -->
+    <!-- Unified Content Section -->
+    <section class="unified-content-section fade-in" id="story">
+        <div class="unified-content-container">
+            <!-- First Part - Introduction Text -->
+            <div class="content-block text-center-block">
+                <p>「そわか」とは、サンスクリット語で「幸あれ」の意味。</p>
+                <p>仏教の経典の最後にもしばしば用いられるこの祝福の言葉は</p>
+                <p>耳に馴染みをして、そして新しく、仏教発祥の美しい響きとして皆様に届きます。</p>
+                <p>エントランスをくぐり、打ち水のされた石畳を歩めばそこは、静けさに包まれた別世界。</p>
+                <p>坪庭の緑に目を潤し、そよぐ風を感じながらお部屋で寛ぐ。</p>
+            </div>
+
+            <!-- Second Part - Main Story with Image -->
+            <div class="content-block story-with-image-block">
+                <div class="story-header-large">
+                    <h2>そわかの物語</h2>
+                    <p class="subtitle">STORY OF SOWAKA</p>
+                </div>
+                
+                <div class="story-layout">
+                    <div class="story-image-left">
+                        <!-- Image placeholder -->
+                    </div>
+                    
+                    <div class="story-text-right">
+                        <p>京都の静かな朝、打ち水のされた石畳を歩くと、そこには時を超えた美しさが息づいています。</p>
+                        <p>「そわか」は、古き良き日本の伝統と現代の洗練が調和した、特別な空間です。歴史的な建築を大切に保存しながら、現代の快適さを融合させました。</p>
+                        <p>四季折々の京都の風景を感じながら、心安らぐひとときをお過ごしいただけます。坪庭の緑、石畳の音、風の香り。五感すべてで感じる日本の美がここにあります。</p>
+                        <p>私たちは、訪れるすべての方に「幸あれ」という祝福の心を込めて、最高のおもてなしを提供いたします。</p>
+                        <p class="author-signature">— SOWAKA KYOTO</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Third Part - Closing Message -->
+            <div class="content-block text-center-block-final">
+                <p>恵まれたロケーションもさることながら、このホテルの最大の魅力は、</p>
+                <p>古き良きものと新しきものが融合した贅沢な空間にあります。</p>
+                <p>日本の旬を贅沢に堪能するレストラン祇園 ろかせ、自由で美しき和食の世界を味わう。</p>
+                <p>皆さま人のように、フットワーク軽く街を歩く。</p>
+                <p>訪れる方々に幸いあれ、祝福あれ。</p>
+                <p>数多なる幸せを、「そわか」でこころゆくまでお楽しみください。</p>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- Characters/Rooms Section -->
+    <section class="characters-section fade-in" id="rooms">
+        <div class="characters-grid">
+            <div class="character-card active" data-room="garden" data-position="1">
+                <div class="character-name">庭園の間</div>
+            </div>
+            <div class="character-card" data-room="moon" data-position="2">
+                <div class="character-name">月見の間</div>
+            </div>
+            <div class="character-card" data-room="flower" data-position="3">
+                <div class="character-name">花鳥の間</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- News Section -->
+    <section class="news fade-in" id="news">
+        <div class="news-content align-left" id="newsContent">
+            <!-- Garden Room Content (Default) -->
+            <div class="news-item room-content active" data-room="garden">
+                <div class="news-date">2025.02.13</div>
+                <div class="news-title">スモールラグジュアリーホテル「SOWAKA（そわか）」は、世界の一流ホテルを格付けするトラベルガイド「ラグジュアス・トラベルガイド2025」の「ホテル部門」で、全100年を超える建築を再生した日本のホテルとして初の4つ星を獲得しました。</div>
+                <div class="news-divider"></div>
+                <div class="news-description">
+                    <p>歴史的建築を改修した唯一性や、グローバルスタンダードと日本的な品格さを融合したホスピタリティの形を評価いただいた背景、大変光栄に思っております。</p>
+                    <p>日本の歴史ある資産や自然の保護・継承、及び新しいアートや価値の創出を、ホテル事業を通じて行い、日本が持つ唯一無二の魅力が世界でより認められるよう、一層の研鑽に励んでまいります</p>
+                    <p>＊ホテルの主たる宿泊・共用施設部分が、築100年を超える数寄屋建築を改修したホテル</p>
+                </div>
+            </div>
+
+            <!-- Moon Room Content -->
+            <div class="news-item room-content" data-room="moon" style="display:none;">
+                <div class="news-date">月見の間について</div>
+                <div class="news-title">静謐な空間で月の移ろいを感じる特別な客室</div>
+                <div class="news-divider"></div>
+                <div class="news-description">
+                    <p>月見の間は、古来より日本人が愛でてきた月の美しさを堪能できるよう設計された客室です。</p>
+                    <p>大きな窓からは京都の夜空を一望でき、満月の夜には格別の風情をお楽しみいただけます。</p>
+                    <p>伝統的な数寄屋造りの美しさと、現代の快適さが調和した空間で、特別なひとときをお過ごしください。</p>
+                    <div class="news-details">
+                        <p>・客室面積: 45㎡</p>
+                        <p>・定員: 2名様</p>
+                        <p>・設備: 檜風呂、露天風呂、庭園ビュー</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flower Room Content -->
+            <div class="news-item room-content" data-room="flower" style="display:none;">
+                <div class="news-date">花鳥の間について</div>
+                <div class="news-title">四季折々の花と鳥のモチーフに彩られた優雅な空間</div>
+                <div class="news-divider"></div>
+                <div class="news-description">
+                    <p>花鳥の間は、日本の伝統的な花鳥画からインスピレーションを得た、華やかで優雅な客室です。</p>
+                    <p>四季折々の草花と鳥のモチーフが随所に施され、京都の自然美を室内で感じることができます。</p>
+                    <p>専用の坪庭からは、季節ごとに表情を変える庭園をご覧いただけます。</p>
+                    <div class="news-details">
+                        <p>・客室面積: 50㎡</p>
+                        <p>・定員: 2-3名様</p>
+                        <p>・設備: 専用坪庭、石風呂、茶室スペース</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Concept Section -->
+    <section class="concept-section fade-in" id="concept">
+        <h2 class="section-title">― そわかの心 ―</h2>
+        <div class="concept-grid">
+            <div class="concept-card">
+                <h3>伝統と革新</h3>
+                <p>京都祇園八坂に佇む、歴史ある建築と現代的な快適さが調和した空間。古き良き日本の美意識を守りながら、新しい価値を創造します。</p>
+            </div>
+            <div class="concept-card">
+                <h3>五感の饗宴</h3>
+                <p>四季折々の旬の食材、心地よい空間、丁寧なおもてなし。五感すべてで感じる、日本の美しさと豊かさをご堪能ください。</p>
+            </div>
+            <div class="concept-card">
+                <h3>心の安らぎ</h3>
+                <p>喧騒を離れた静謐な空間で、ゆったりとした時間を。心と体が解きほぐされる、特別な寛ぎのひとときを提供いたします。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-logo">そわか</div>
+            <ul class="footer-links">
+                <li><a href="#story">物語</a></li>
+                <li><a href="#concept">コンセプト</a></li>
+                <li><a href="#rooms">客室</a></li>
+                <li><a href="#dining">お食事</a></li>
+                <li><a href="#spa">スパ</a></li>
+                <li><a href="#wedding">ウェディング</a></li>
+                <li><a href="#access">交通案内</a></li>
+                <li><a href="#contact">お問い合わせ</a></li>
+            </ul>
+            <div class="footer-info">
+                〒605-0000 京都府京都市東山区下河原通八坂鳥居前下る<br>
+                TEL: 075-541-5323<br>
+                E-mail: info@sowaka.com<br>
+                営業時間: 24時間 (チェックイン 15:00 / チェックアウト 12:00)
+            </div>
+            <div class="copyright">
+                © 2025 SOWAKA KYOTO. All Rights Reserved.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Scroll Animation
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -80px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Mobile Menu Toggle
+        const menuToggle = document.querySelector('.menu-toggle');
+        const navLinks = document.querySelector('.nav-links');
+
+        if (menuToggle) {
+            menuToggle.addEventListener('click', () => {
+                if (navLinks.style.display === 'flex') {
+                    navLinks.style.display = 'none';
+                } else {
+                    navLinks.style.display = 'flex';
+                    navLinks.style.flexDirection = 'column';
+                    navLinks.style.position = 'absolute';
+                    navLinks.style.top = '70px';
+                    navLinks.style.right = '20px';
+                    navLinks.style.background = 'rgba(250, 249, 247, 0.98)';
+                    navLinks.style.padding = '20px';
+                    navLinks.style.borderRadius = '8px';
+                    navLinks.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
+                }
+            });
+        }
+
+        // Smooth Scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Room Card Switching Functionality
+        const characterCards = document.querySelectorAll('.character-card');
+        const roomContents = document.querySelectorAll('.room-content');
+        const newsContent = document.getElementById('newsContent');
+
+        characterCards.forEach((card, index) => {
+            card.addEventListener('click', function() {
+                const roomType = this.getAttribute('data-room');
+                
+                // Remove active class from all cards
+                characterCards.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked card
+                this.classList.add('active');
+                
+                // Update news content position based on card index
+                newsContent.classList.remove('align-left', 'align-center', 'align-right');
+                if (index === 0) {
+                    newsContent.classList.add('align-left');
+                } else if (index === 1) {
+                    newsContent.classList.add('align-center');
+                } else if (index === 2) {
+                    newsContent.classList.add('align-right');
+                }
+                
+                // Hide all room contents
+                roomContents.forEach(content => {
+                    content.classList.remove('active');
+                    content.style.display = 'none';
+                });
+                
+                // Show selected room content
+                const selectedContent = document.querySelector(`.room-content[data-room="${roomType}"]`);
+                if (selectedContent) {
+                    selectedContent.classList.add('active');
+                    selectedContent.style.display = 'block';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

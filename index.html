@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Into the Neverwhere</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            cursor: crosshair;
+            opacity: 0;
+            transform: scale(1.05);
+            transition: opacity 1s ease-out, transform 1s ease-out;
+        }
+
+        body.loaded {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        #background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #e8e8e8;
+        }
+
+        #background img {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            z-index: -1;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 60px 80px;
+            z-index: 1;
+        }
+
+        .title {
+            text-align: center;
+            color: #d4d4d4;
+            letter-spacing: 0.3em;
+            font-weight: 300;
+            opacity: 0;
+            animation: fadeInDown 1.5s ease forwards;
+        }
+
+        .title .small {
+            font-size: 1.2rem;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .title .large {
+            font-size: 4rem;
+            display: block;
+            font-weight: 200;
+        }
+
+        .nav-menu {
+            position: absolute;
+            left: 80px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .nav-item {
+            color: #b0b0b0;
+            font-size: 1.1rem;
+            text-decoration: none;
+            letter-spacing: 0.1em;
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateX(-30px);
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 2px;
+            background: #c77;
+            transition: width 0.3s ease;
+        }
+
+        .nav-item:hover {
+            color: #fff;
+            transform: translateX(0);
+            text-shadow: 0 0 20px rgba(199, 119, 119, 0.5);
+        }
+
+        .nav-item:hover::before {
+            width: 15px;
+        }
+
+        .nav-item:nth-child(1) { animation: slideInLeft 0.8s ease 0.5s forwards; }
+        .nav-item:nth-child(2) { animation: slideInLeft 0.8s ease 0.7s forwards; }
+        .nav-item:nth-child(3) { animation: slideInLeft 0.8s ease 0.9s forwards; }
+        .nav-item:nth-child(4) { animation: slideInLeft 0.8s ease 1.1s forwards; }
+
+        .footer-text {
+            position: absolute;
+            right: 80px;
+            bottom: 60px;
+            color: #888;
+            font-size: 0.75rem;
+            line-height: 1.8;
+            max-width: 250px;
+            text-align: right;
+            opacity: 0;
+            animation: slideUpFade 1.5s ease 1.5s forwards, scrollUp 8s linear 3s infinite;
+        }
+
+        @keyframes scrollUp {
+            0% {
+                transform: translateY(0);
+            }
+            100% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .interactive-text {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .interactive-text:hover {
+            color: #c77;
+            text-shadow: 0 0 10px rgba(199, 119, 119, 0.6);
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideUpFade {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .dot {
+            position: absolute;
+            left: 80px;
+            width: 8px;
+            height: 8px;
+            background: #666;
+            border-radius: 50%;
+            opacity: 0;
+            animation: dotFade 0.5s ease forwards;
+        }
+
+        .dot:nth-child(1) { top: 60px; animation-delay: 0.3s; }
+        .dot:nth-child(2) { top: 400px; animation-delay: 0.5s; }
+        .dot:nth-child(3) { top: 650px; animation-delay: 0.7s; }
+        .dot:nth-child(4) { top: 900px; animation-delay: 0.9s; }
+
+        @keyframes dotFade {
+            to { opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px;
+            }
+
+            .title .large {
+                font-size: 2.5rem;
+            }
+
+            .nav-menu {
+                left: 40px;
+            }
+
+            .footer-text {
+                right: 40px;
+                bottom: 40px;
+                font-size: 0.7rem;
+                max-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="background">
+        <img src="C:/Users/pci/Desktop/25f6da64c7f223630206b458e9c53fce.jpg" alt="Background">
+    </div>
+    <div id="overlay"></div>
+    <canvas id="particles"></canvas>
+
+    <div class="container">
+        <div class="title">
+            <span class="small interactive-text">INTO THE</span>
+            <span class="large interactive-text">NEVERWHERE</span>
+        </div>
+
+        <nav class="nav-menu">
+            <a href="#" class="nav-item interactive-text">ABOUT</a>
+            <a href="#" class="nav-item interactive-text">PORTFOLIO</a>
+            <a href="indexblue3_updated.html" class="nav-item interactive-text">EXPERIENCE</a>
+            <a href="#" class="nav-item interactive-text">CONTACT</a>
+        </nav>
+
+        <div class="footer-text">
+            Well, good things are both our holy joy list.<br>
+            There's no real hate, no hurt, no<br>
+            pain. No sweat. You're welcome!<br>
+            Does it mean you destined to your<br>
+            fate? Can you decides for it that you<br>
+            do so feel more alive. Are you ready<br>
+            any more?
+        </div>
+
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+    </div>
+
+    <script>
+        // 粒子系统
+        const canvas = document.getElementById('particles');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x || Math.random() * canvas.width;
+                this.y = y || Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = Math.random() * 0.5 - 0.25;
+                this.speedY = Math.random() * 0.5 - 0.25;
+                this.opacity = Math.random() * 0.5 + 0.2;
+                this.life = Math.random() * 100 + 100;
+                this.maxLife = this.life;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.life--;
+                this.opacity = (this.life / this.maxLife) * 0.5;
+
+                if (this.life <= 0) {
+                    this.life = this.maxLife;
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = `rgba(199, 119, 119, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        const particles = [];
+        for (let i = 0; i < 50; i++) {
+            particles.push(new Particle());
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+
+            requestAnimationFrame(animateParticles);
+        }
+
+        animateParticles();
+
+        // 鼠标交互 - 创建粒子
+        document.addEventListener('mousemove', (e) => {
+            if (Math.random() < 0.1) {
+                particles.push(new Particle(e.clientX, e.clientY));
+                if (particles.length > 100) {
+                    particles.shift();
+                }
+            }
+        });
+
+        // 页面退出过渡动画
+        function fadeOutPage() {
+            return new Promise((resolve) => {
+                document.body.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
+                document.body.style.opacity = '0';
+                document.body.style.transform = 'scale(0.95)';
+                setTimeout(resolve, 800);
+            });
+        }
+
+        // 预加载目标页面的背景图片
+        function preloadTargetPageImages() {
+            return new Promise((resolve) => {
+                const imagesToPreload = [
+                    './backgroundLeft.jpg',
+                    './backgroundRight4.png'
+                ];
+                
+                let loadedCount = 0;
+                const totalImages = imagesToPreload.length;
+                
+                imagesToPreload.forEach(src => {
+                    const img = new Image();
+                    img.onload = () => {
+                        loadedCount++;
+                        if (loadedCount === totalImages) {
+                            resolve();
+                        }
+                    };
+                    img.onerror = () => {
+                        loadedCount++;
+                        if (loadedCount === totalImages) {
+                            resolve();
+                        }
+                    };
+                    img.src = src;
+                });
+            });
+        }
+
+        // 创建预览背景层
+        function createPreviewBackground() {
+            const previewBg = document.createElement('div');
+            previewBg.id = 'preview-background';
+            previewBg.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 1000;
+                opacity: 0;
+                background: #E1F5FE;
+                transition: opacity 1.5s ease-out;
+            `;
+            
+            // 左侧模糊背景
+            const leftBg = document.createElement('div');
+            leftBg.style.cssText = `
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 50%;
+                height: 100%;
+                background-image: url('./backgroundLeft.jpg');
+                background-size: cover;
+                background-position: center;
+                filter: blur(30px) brightness(1.1) saturate(0.8);
+                transform: scale(1.2);
+            `;
+            
+            // 右侧模糊背景
+            const rightBg = document.createElement('div');
+            rightBg.style.cssText = `
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 50%;
+                height: 100%;
+                background-image: url('./backgroundRight4.png');
+                background-size: cover;
+                background-position: center;
+                filter: blur(30px) brightness(0.6) saturate(0.8);
+                transform: scale(1.2);
+            `;
+            
+            // 渐变遮罩
+            const gradientOverlay = document.createElement('div');
+            gradientOverlay.style.cssText = `
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: radial-gradient(ellipse 60% 100% at center,
+                    rgba(225, 245, 254, 0.6) 0%,
+                    rgba(225, 245, 254, 0.4) 40%,
+                    rgba(225, 245, 254, 0.2) 70%,
+                    transparent 100%);
+            `;
+            
+            previewBg.appendChild(leftBg);
+            previewBg.appendChild(rightBg);
+            previewBg.appendChild(gradientOverlay);
+            document.body.appendChild(previewBg);
+            
+            return previewBg;
+        }
+
+        // 文字点击效果
+        const interactiveTexts = document.querySelectorAll('.interactive-text');
+        interactiveTexts.forEach(text => {
+            text.addEventListener('click', function(e) {
+                // 检查是否是EXPERIENCE链接
+                if (text.textContent === 'EXPERIENCE') {
+                    e.preventDefault(); // 阻止默认跳转行为
+                    
+                    // 创建涟漪效果
+                    const ripple = document.createElement('div');
+                    ripple.style.position = 'absolute';
+                    ripple.style.left = e.clientX + 'px';
+                    ripple.style.top = e.clientY + 'px';
+                    ripple.style.width = '0';
+                    ripple.style.height = '0';
+                    ripple.style.border = '2px solid rgba(199, 119, 119, 0.6)';
+                    ripple.style.borderRadius = '50%';
+                    ripple.style.transform = 'translate(-50%, -50%)';
+                    ripple.style.pointerEvents = 'none';
+                    ripple.style.zIndex = '1000';
+                    document.body.appendChild(ripple);
+
+                    let size = 0;
+                    const animate = setInterval(() => {
+                        size += 10;
+                        ripple.style.width = size + 'px';
+                        ripple.style.height = size + 'px';
+                        ripple.style.opacity = 1 - (size / 200);
+                        
+                        if (size >= 200) {
+                            clearInterval(animate);
+                            document.body.removeChild(ripple);
+                            
+                            // 预加载图片并创建预览背景
+                            preloadTargetPageImages().then(() => {
+                                const previewBg = createPreviewBackground();
+                                
+                                // 显示预览背景
+                                setTimeout(() => {
+                                    previewBg.style.opacity = '1';
+                                }, 50);
+                                
+                                // 等待预览背景显示完成后再跳转
+                                setTimeout(() => {
+                                    window.location.href = 'indexblue3_updated.html';
+                                }, 900);
+                            });
+                        }
+                    }, 20);
+                } else {
+                    // 其他按钮的正常涟漪效果
+                    const ripple = document.createElement('div');
+                    ripple.style.position = 'absolute';
+                    ripple.style.left = e.clientX + 'px';
+                    ripple.style.top = e.clientY + 'px';
+                    ripple.style.width = '0';
+                    ripple.style.height = '0';
+                    ripple.style.border = '2px solid rgba(199, 119, 119, 0.6)';
+                    ripple.style.borderRadius = '50%';
+                    ripple.style.transform = 'translate(-50%, -50%)';
+                    ripple.style.pointerEvents = 'none';
+                    ripple.style.zIndex = '1000';
+                    document.body.appendChild(ripple);
+
+                    let size = 0;
+                    const animate = setInterval(() => {
+                        size += 10;
+                        ripple.style.width = size + 'px';
+                        ripple.style.height = size + 'px';
+                        ripple.style.opacity = 1 - (size / 200);
+                        
+                        if (size >= 200) {
+                            clearInterval(animate);
+                            document.body.removeChild(ripple);
+                        }
+                    }, 20);
+                }
+            });
+        });
+
+        // 窗口调整
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // 页面入场动画
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                document.body.classList.add('loaded');
+            }, 50);
+        });
+
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.body.classList.add('loaded');
+            }, 100);
+        });
+
+        // 红色飘带动画效果
+        class Ribbon {
+            constructor() {
+                this.points = [];
+                this.numPoints = 20;
+                this.init();
+            }
+
+            init() {
+                for (let i = 0; i < this.numPoints; i++) {
+                    this.points.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        vx: Math.random() * 2 - 1,
+                        vy: Math.random() * 2 - 1
+                    });
+                }
+            }
+
+            update() {
+                this.points.forEach(point => {
+                    point.x += point.vx;
+                    point.y += point.vy;
+
+                    if (point.x < 0 || point.x > canvas.width) point.vx *= -1;
+                    if (point.y < 0 || point.y > canvas.height) point.vy *= -1;
+                });
+            }
+
+            draw() {
+                ctx.strokeStyle = 'rgba(199, 119, 119, 0.1)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.points[0].x, this.points[0].y);
+
+                for (let i = 1; i < this.points.length; i++) {
+                    ctx.lineTo(this.points[i].x, this.points[i].y);
+                }
+
+                ctx.stroke();
+            }
+        }
+
+        const ribbon = new Ribbon();
+
+        function animate() {
+            ribbon.update();
+            ribbon.draw();
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
