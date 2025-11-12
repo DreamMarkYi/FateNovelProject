@@ -38,7 +38,7 @@
             <router-link to="/blue" class="nav-link" @click="handleNavClick">昔の詩</router-link>を辿り、
           </div>
           <div class="nav-part">
-            <a href="#" class="nav-link" @click="handleClick">出会った人々</a>と共に、
+            <router-link to="/chapters" class="nav-link" @click="handleNavClick">出会った人々</router-link>と共に、
           </div>
           <div class="nav-part">
             <a href="#" class="nav-link" @click="handleClick">果てしない道</a>を歩む。

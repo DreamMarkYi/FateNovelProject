@@ -1,0 +1,630 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>花と蜜 - 章节阅读</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Yu Mincho', 'YuMincho', 'Hiragino Mincho ProN', 'MS Mincho', serif;
+            background: #fafafa;
+            overflow-x: hidden;
+            min-height: 100vh;
+            padding: 40px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 100%;
+            padding: 0 40px;
+        }
+
+        .chapter-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 0;
+            position: relative;
+            min-height: 750px;
+        }
+
+        /* 章节卡片 - 参照图片比例 (约 5:7 比例) */
+        .chapter-card {
+            width: 540px;
+            height: 756px;
+            background: white;
+            position: relative;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+            transition: all 0.4s ease;
+            overflow: hidden;
+        }
+
+        .chapter-card.fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* 插画区域 */
+        .chapter-illustration {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #b8a8d8 0%, #e8c8e8 40%, #f5d8c8 70%, #ffe8d8 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 装饰性图案 */
+        .illustration-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background:
+                    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.3) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 70%, rgba(168,138,198,0.2) 0%, transparent 50%);
+        }
+
+        /* 顶部横向标题文字 */
+        .top-title {
+            position: absolute;
+            top: 8vh;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 2vw;
+            letter-spacing: 0.8em;
+            color: rgba(0,0,0,0.7);
+            font-weight: 400;
+            padding: 0 40px;
+            text-indent: 0.8em;
+        }
+
+        /* 右侧竖排大标题 */
+        .vertical-title {
+            position: absolute;
+            right: 5vw;
+            top: 50%;
+            transform: translateY(-50%);
+            writing-mode: vertical-rl;
+            font-size: 12vw;
+            font-weight: 900;
+            letter-spacing: 0.15em;
+            color: #1a1a1a;
+            line-height: 1;
+            text-shadow: 3px 3px 0px rgba(255,255,255,0.8);
+        }
+
+        /* 左侧竖排副标题 */
+        .left-sidebar {
+            position: absolute;
+            left: 3vw;
+            top: 15vh;
+            writing-mode: vertical-rl;
+            font-size: 1.2vw;
+            color: rgba(0,0,0,0.6);
+            letter-spacing: 0.1em;
+            line-height: 1.8;
+        }
+
+        /* 底部横向装饰文字 */
+        .bottom-title {
+            position: absolute;
+            bottom: 8vh;
+            left: 0;
+            right: 0;
+            font-size: 13vw;
+            font-weight: 900;
+            color: rgba(0,0,0,0.85);
+            text-align: center;
+            letter-spacing: 0.05em;
+            line-height: 1;
+            text-shadow: 4px 4px 0px rgba(255,255,255,0.7);
+        }
+
+        /* 方框装饰 */
+        .frame-decoration {
+            position: absolute;
+            background: #000;
+        }
+
+        .frame-top-left {
+            top: 0;
+            left: 0;
+            width: 12px;
+            height: 12vh;
+        }
+
+        .frame-top-right-1 {
+            top: 0;
+            right: 18vw;
+            width: 12px;
+            height: 9vh;
+        }
+
+        .frame-top-right-2 {
+            top: 0;
+            right: 13vw;
+            width: 12px;
+            height: 12vh;
+        }
+
+        .frame-top-horizontal {
+            top: 0;
+            right: 0;
+            width: 20vw;
+            height: 12px;
+        }
+
+        .frame-bottom-left {
+            bottom: 0;
+            left: 0;
+            width: 12px;
+            height: 20vh;
+        }
+
+        .frame-bottom-horizontal {
+            bottom: 0;
+            left: 0;
+            width: 15vw;
+            height: 12px;
+        }
+
+        .frame-right-vertical {
+            right: 0;
+            top: 0;
+            width: 12px;
+            height: 22vh;
+        }
+
+        /* 中间斜线装饰 */
+        .diagonal-line {
+            position: absolute;
+            background: rgba(0,0,0,0.15);
+            width: 2px;
+            height: 200px;
+            top: 30%;
+            left: 50%;
+            transform: rotate(25deg);
+        }
+
+        /* 底部作者信息 */
+        .author-info {
+            position: absolute;
+            bottom: 18px;
+            right: 35px;
+            font-size: 0.75em;
+            color: rgba(0,0,0,0.5);
+            letter-spacing: 0.1em;
+            font-style: italic;
+        }
+
+        /* 章节编号小标签 */
+        .chapter-number {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px 18px;
+            font-size: 0.75em;
+            letter-spacing: 0.15em;
+            color: #333;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* 翻页按钮 */
+        .nav-button {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 60px;
+            height: 60px;
+            background: rgba(255,255,255,0.95);
+            border: 2px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8em;
+            color: #333;
+            transition: all 0.3s ease;
+            z-index: 10;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            user-select: none;
+        }
+
+        .nav-button:hover {
+            background: white;
+            transform: translateY(-50%) scale(1.1);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        .nav-button:active {
+            transform: translateY(-50%) scale(0.95);
+        }
+
+        .nav-button.disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .prev-button {
+            left: 30px;
+        }
+
+        .next-button {
+            right: 30px;
+        }
+
+        /* 章节指示器 */
+        .chapter-indicator {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 10;
+        }
+
+        .indicator-dot {
+            width: 10px;
+            height: 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .indicator-dot.active {
+            background: rgba(0,0,0,0.7);
+            width: 35px;
+            border-radius: 5px;
+        }
+
+        .indicator-dot:hover {
+            background: rgba(0,0,0,0.4);
+        }
+
+        /* 章节信息显示 */
+        .chapter-info {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 1.1em;
+            color: #666;
+            letter-spacing: 0.3em;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 30px 0;
+            }
+
+            .container {
+                padding: 0 20px;
+            }
+
+            .chapter-card {
+                width: 420px;
+                height: 588px;
+            }
+
+            .vertical-title {
+                font-size: 4.5em;
+                right: 35px;
+            }
+
+            .bottom-title {
+                font-size: 5em;
+            }
+
+            .nav-button {
+                width: 50px;
+                height: 50px;
+                font-size: 1.5em;
+            }
+
+            .prev-button {
+                left: 15px;
+            }
+
+            .next-button {
+                right: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 20px 0;
+            }
+
+            .chapter-card {
+                width: 340px;
+                height: 476px;
+            }
+
+            .vertical-title {
+                font-size: 3.8em;
+                right: 28px;
+            }
+
+            .bottom-title {
+                font-size: 4.2em;
+                bottom: 35px;
+            }
+
+            .top-title {
+                font-size: 0.85em;
+                top: 25px;
+            }
+
+            .left-sidebar {
+                font-size: 0.65em;
+                top: 70px;
+            }
+
+            .chapter-number {
+                font-size: 0.65em;
+                padding: 8px 14px;
+            }
+
+            .nav-button {
+                width: 45px;
+                height: 45px;
+                font-size: 1.3em;
+            }
+
+            .prev-button {
+                left: 5px;
+            }
+
+            .next-button {
+                right: 5px;
+            }
+
+            .chapter-indicator {
+                bottom: 20px;
+                gap: 8px;
+            }
+
+            .indicator-dot {
+                width: 8px;
+                height: 8px;
+            }
+
+            .indicator-dot.active {
+                width: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="chapter-container">
+        <!-- 上一章按钮 -->
+        <button class="nav-button prev-button" id="prevBtn" onclick="prevChapter()">
+            ‹
+        </button>
+
+        <!-- 章节卡片容器 -->
+        <div id="chapterCard"></div>
+
+        <!-- 下一章按钮 -->
+        <button class="nav-button next-button" id="nextBtn" onclick="nextChapter()">
+            ›
+        </button>
+
+        <!-- 章节指示器 -->
+        <div class="chapter-indicator" id="indicator"></div>
+    </div>
+
+    <div class="chapter-info" id="chapterInfo"></div>
+</div>
+
+<script>
+    // 章节数据
+    const chapters = [
+        {
+            topTitle: '花と蜜',
+            verticalTitle: '花<br>と<br>蜜',
+            bottomTitle: '蜜と花',
+            leftSidebar: 'Promise of Beyond - Henticity x Shibu<br><span style="margin-top: 10px; display: block;">第一章 / Chapter 01</span>',
+            gradient: 'linear-gradient(135deg, #b8a8d8 0%, #e8c8e8 40%, #f5d8c8 70%, #ffe8d8 100%)',
+            number: 'CH.01'
+        },
+        {
+            topTitle: '桜の雫',
+            verticalTitle: '桜<br>の<br>雫',
+            bottomTitle: '雫と桜',
+            leftSidebar: 'Drops of Cherry Blossom<br><span style="margin-top: 10px; display: block;">第二章 / Chapter 02</span>',
+            gradient: 'linear-gradient(135deg, #d8b8c8 0%, #f5d0e8 40%, #ffd8c8 70%, #fff0e8 100%)',
+            number: 'CH.02'
+        },
+        {
+            topTitle: '月と星',
+            verticalTitle: '月<br>と<br>星',
+            bottomTitle: '星と月',
+            leftSidebar: 'Moon and Stars<br><span style="margin-top: 10px; display: block;">第三章 / Chapter 03</span>',
+            gradient: 'linear-gradient(135deg, #c8b8e8 0%, #e8c5d8 40%, #f5d0c8 70%, #ffe8d0 100%)',
+            number: 'CH.03'
+        },
+        {
+            topTitle: '風と雨',
+            verticalTitle: '風<br>と<br>雨',
+            bottomTitle: '雨と風',
+            leftSidebar: 'Wind and Rain<br><span style="margin-top: 10px; display: block;">第四章 / Chapter 04</span>',
+            gradient: 'linear-gradient(135deg, #a8c8e8 0%, #d8c8e8 40%, #e8d0d8 70%, #f5e8e0 100%)',
+            number: 'CH.04'
+        },
+        {
+            topTitle: '夢と現',
+            verticalTitle: '夢<br>と<br>現',
+            bottomTitle: '現と夢',
+            leftSidebar: 'Dream and Reality<br><span style="margin-top: 10px; display: block;">第五章 / Chapter 05</span>',
+            gradient: 'linear-gradient(135deg, #e8b8d8 0%, #f5c8e8 40%, #ffd8d8 70%, #fff0e8 100%)',
+            number: 'CH.05'
+        },
+        {
+            topTitle: '光と影',
+            verticalTitle: '光<br>と<br>影',
+            bottomTitle: '影と光',
+            leftSidebar: 'Light and Shadow<br><span style="margin-top: 10px; display: block;">第六章 / Chapter 06</span>',
+            gradient: 'linear-gradient(135deg, #c8a8b8 0%, #e8c0d0 40%, #f5d8d0 70%, #ffe8e0 100%)',
+            number: 'CH.06'
+        },
+        {
+            topTitle: '空と海',
+            verticalTitle: '空<br>と<br>海',
+            bottomTitle: '海と空',
+            leftSidebar: 'Sky and Sea<br><span style="margin-top: 10px; display: block;">第七章 / Chapter 07</span>',
+            gradient: 'linear-gradient(135deg, #b8d8e8 0%, #d0e8f0 40%, #e8f0f5 70%, #f5f8ff 100%)',
+            number: 'CH.07'
+        },
+        {
+            topTitle: '始まりと終わり',
+            verticalTitle: '終<br>と<br>始',
+            bottomTitle: '始と終',
+            leftSidebar: 'Beginning and End<br><span style="margin-top: 10px; display: block;">第八章 / Chapter 08</span>',
+            gradient: 'linear-gradient(135deg, #d8b8e8 0%, #e8c8f0 40%, #f5d8e8 70%, #ffe8f5 100%)',
+            number: 'CH.08'
+        }
+    ];
+
+    let currentChapter = 0;
+
+    // 渲染章节
+    function renderChapter(index) {
+        const chapter = chapters[index];
+        const cardContainer = document.getElementById('chapterCard');
+
+        cardContainer.innerHTML = `
+                <div class="chapter-card fade-in">
+                    <div class="chapter-illustration" style="background: ${chapter.gradient}">
+                        <div class="illustration-overlay"></div>
+
+  
+                        <div class="vertical-title">${chapter.verticalTitle}</div>
+                        <div class="left-sidebar">${chapter.leftSidebar}</div>
+                        <div class="bottom-title">${chapter.bottomTitle}</div>
+
+                        <div class="frame-decoration frame-top-left"></div>
+                        <div class="frame-decoration frame-top-right-1"></div>
+                        <div class="frame-decoration frame-top-right-2"></div>
+                        <div class="frame-decoration frame-top-horizontal"></div>
+                        <div class="frame-decoration frame-bottom-left"></div>
+                        <div class="frame-decoration frame-bottom-horizontal"></div>
+                        <div class="frame-decoration frame-right-vertical"></div>
+
+                        <div class="diagonal-line"></div>
+
+                        <div class="author-info">R18</div>
+                        <div class="chapter-number">${chapter.number}</div>
+                    </div>
+                </div>
+            `;
+
+        // 更新按钮状态
+        document.getElementById('prevBtn').classList.toggle('disabled', index === 0);
+        document.getElementById('nextBtn').classList.toggle('disabled', index === chapters.length - 1);
+
+        // 更新章节信息
+        document.getElementById('chapterInfo').textContent = `${index + 1} / ${chapters.length}`;
+
+        // 更新指示器
+        renderIndicator();
+    }
+
+    // 渲染指示器
+    function renderIndicator() {
+        const indicator = document.getElementById('indicator');
+        indicator.innerHTML = '';
+
+        chapters.forEach((_, index) => {
+            const dot = document.createElement('div');
+            dot.className = 'indicator-dot';
+            if (index === currentChapter) {
+                dot.classList.add('active');
+            }
+            dot.onclick = () => goToChapter(index);
+            indicator.appendChild(dot);
+        });
+    }
+
+    // 上一章
+    function prevChapter() {
+        if (currentChapter > 0) {
+            currentChapter--;
+            renderChapter(currentChapter);
+        }
+    }
+
+    // 下一章
+    function nextChapter() {
+        if (currentChapter < chapters.length - 1) {
+            currentChapter++;
+            renderChapter(currentChapter);
+        }
+    }
+
+    // 跳转到指定章节
+    function goToChapter(index) {
+        currentChapter = index;
+        renderChapter(currentChapter);
+    }
+
+    // 键盘导航
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') {
+            prevChapter();
+        } else if (e.key === 'ArrowRight') {
+            nextChapter();
+        }
+    });
+
+    // 触摸滑动支持
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    document.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    });
+
+    document.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    });
+
+    function handleSwipe() {
+        if (touchEndX < touchStartX - 50) {
+            nextChapter();
+        }
+        if (touchEndX > touchStartX + 50) {
+            prevChapter();
+        }
+    }
+
+    // 初始化
+    renderChapter(currentChapter);
+</script>
+</body>
+</html>
