@@ -1,6 +1,10 @@
 <template>
   <div class="sowaka-page">
     <!-- Navigation -->
+    <div class="background-layer">
+      <img src="/chapterBG.jpg"/>
+    </div>
+
     <SowakaNavigation 
       :mobile-menu-open="mobileMenuOpen"
       @toggle-mobile-menu="toggleMobileMenu"
@@ -93,5 +97,27 @@ onMounted(async () => {
   background-color: #faf9f7;
   line-height: 1.8;
   overflow-x: hidden;
+}
+
+.background-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 50%, #efefef 100%);
+  z-index: -1;
+}
+
+.background-layer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+      radial-gradient(circle at 20% 30%, rgba(184, 168, 216, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(232, 200, 232, 0.08) 0%, transparent 50%);
 }
 </style>
