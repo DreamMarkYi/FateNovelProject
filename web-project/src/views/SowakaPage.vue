@@ -1,9 +1,7 @@
 <template>
   <div class="sowaka-page">
     <!-- Navigation -->
-    <div class="background-layer">
-      <img src="/chapterBG.jpg"/>
-    </div>
+
 
     <SowakaNavigation 
       :mobile-menu-open="mobileMenuOpen"
