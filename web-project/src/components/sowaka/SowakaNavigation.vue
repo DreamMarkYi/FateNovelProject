@@ -1,5 +1,9 @@
 <template>
-  <nav>
+  <nav 
+    :class="{ 'nav-visible': isNavVisible }"
+    @mouseenter="showNav"
+    @mouseleave="hideNav"
+  >
     <div class="logo">そわか</div>
     <ul class="nav-links" :class="{ 'mobile-open': mobileMenuOpen }">
       <li><a href="#story" @click="scrollToSection">物語</a></li>
@@ -17,6 +21,8 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
+
 defineProps({
   mobileMenuOpen: {
     type: Boolean,
@@ -25,6 +31,16 @@ defineProps({
 })
 
 const emit = defineEmits(['toggle-mobile-menu', 'scroll-to-section'])
+
+const isNavVisible = ref(false)
+
+const showNav = () => {
+  isNavVisible.value = true
+}
+
+const hideNav = () => {
+  isNavVisible.value = false
+}
 
 const toggleMobileMenu = () => {
   emit('toggle-mobile-menu')
@@ -49,6 +65,14 @@ nav {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid rgba(51, 51, 51, 0.1);
+  opacity: 0.0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+nav.nav-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .logo {

@@ -1,5 +1,12 @@
 <template>
   <div class="chapter-page">
+
+    <SowakaNavigation
+        :mobile-menu-open="mobileMenuOpen"
+        @toggle-mobile-menu="toggleMobileMenu"
+        @scroll-to-section="scrollToSection"
+    />
+
     <!-- 背景层 -->
     <div class="background-layer">
       <img src="/chapterBG.jpg"/>
@@ -61,6 +68,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import ChapterCard from '@/components/ChapterCard.vue'
+import SowakaNavigation from "@/components/sowaka/SowakaNavigation.vue";
 
 const currentChapter = ref(0)
 
@@ -341,7 +349,7 @@ onUnmounted(() => {
 .page-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 60px 40px;
+  padding: 100px 40px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;

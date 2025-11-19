@@ -75,7 +75,7 @@
         </p>
       </div>
 
-      <!-- 装饰性插画区域-->
+      <!-- 装饰性插画区域
       <div class="illustration-left-buttom-area">
         <img
           v-if="chapter.illustrationImage"
@@ -86,7 +86,7 @@
         <div v-else class="illustration-placeholder" :style="{ background: chapter.illustrationGradient }">
           <div class="illustration-overlay"></div>
         </div>
-      </div>
+      </div>-->
       
       <!-- 底部装饰文字 -->
       <div class="bottom-decoration">
