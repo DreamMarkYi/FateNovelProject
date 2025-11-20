@@ -1,5 +1,5 @@
 <template>
-    <div class="minimalist-page" 
+  <div class="minimalist-page" 
        @mousemove="onDrag" 
        @mouseup="stopDrag"
        :class="{ 
@@ -47,15 +47,14 @@
         <span class="title-kanji">白</span>
         
         <!-- 竖线装饰 -->
-        <div class="side-vertical-line">  <div class="side-subtitle-vertical">
-          <span class="subtitle-letter">MIDNIGHT</span>
-        </div></div>
+        <div class="side-vertical-line">
+          <div class="side-subtitle-vertical">
+            <span class="subtitle-letter">MIDNIGHT</span>
+          </div>
+        </div>
         
         <!-- 第二个字 -->
         <span class="title-kanji">夜</span>
-        
-        <!-- 副标题 -->
-
       </div>
 
     </div>
@@ -111,6 +110,8 @@
             text="左　侧　之　一"
             subtitle="Left Card One"
             season="春"
+            @mouseenter="currentBg = 1"
+            @mouseleave="currentBg = 0"
             @destroyed="removeLeftCard(0)"
           />
           
@@ -123,6 +124,8 @@
             text="左　侧　之　二"
             subtitle="Left Card Two"
             season="夏"
+            @mouseenter="currentBg = 2"
+            @mouseleave="currentBg = 0"
             @destroyed="removeLeftCard(1)"
           />
           
@@ -135,6 +138,8 @@
             text="左　侧　之　三"
             subtitle="Left Card Three"
             season="秋"
+            @mouseenter="currentBg = 3"
+            @mouseleave="currentBg = 0"
             @destroyed="removeLeftCard(2)"
           />
         </div>
@@ -164,58 +169,78 @@
            'section-fullscreen': isFullRight,
            'section-gradient-bg': rightBgMode === 'gradient'
          }">
-      <!-- 右侧装饰线条 -->
-      <div class="deco-lines-right">
-        <div class="right-line-h right-line-h-1"></div>
-        <div class="right-line-h right-line-h-2"></div>
-        <div class="right-line-v right-line-v-1"></div>
-      </div>
       
-      <div class="card-container" :class="{ 'cards-fading': rightCardsFading }">
-        <!-- 卡片1 -->
-        <MinimalCard
-          v-if="cards[0].visible"
-          :key="`card1-${cards[0].key}`"
-          ref="card1Ref"
-          number="01"
-          title="H O 1"
-          text="人　間　不　信"
-          subtitle="Distrust of Humanity"
-          season="春"
-          @mouseenter="currentBg = 1"
-          @mouseleave="currentBg = 0"
-          @destroyed="removeCard(0)"
-        />
+      <!-- 使用与左侧相同的背景结构 -->
+      <div class="sky-background" :class="{ 'bg-solid': rightBgMode === 'solid' }">
+        <!-- 多层背景叠加 -->
+        <div class="bg-layer bg-default2" :class="{ active: currentBg === 0 }"></div>
+        <div class="bg-layer bg-4" :class="{ active: currentBg === 1 }"></div>
+        <div class="bg-layer bg-5" :class="{ active: currentBg === 2 }"></div>
+        <div class="bg-layer bg-6" :class="{ active: currentBg === 3 }"></div>
 
-        <!-- 卡片2 -->
-        <MinimalCard
-          v-if="cards[1].visible"
-          :key="`card2-${cards[1].key}`"
-          ref="card2Ref"
-          number="02"
-          title="H O 2"
-          text="思　界　者"
-          subtitle="Thinker of Realms"
-          season="夏"
-          @mouseenter="currentBg = 2"
-          @mouseleave="currentBg = 0"
-          @destroyed="removeCard(1)"
-        />
+        <!-- 右侧装饰线条 -->
+        <div class="deco-lines-right">
+          <div class="right-line-h right-line-h-1"></div>
+          <div class="right-line-h right-line-h-2"></div>
+          <div class="right-line-v right-line-v-1"></div>
+        </div>
 
-        <!-- 卡片3 -->
-        <MinimalCard
-          v-if="cards[2].visible"
-          :key="`card3-${cards[2].key}`"
-          ref="card3Ref"
-          number="03"
-          title="H O 3"
-          text="永　遠　回　帰"
-          subtitle="Eternal Recurrence"
-          season="冬"
-          @mouseenter="currentBg = 3"
-          @mouseleave="currentBg = 0"
-          @destroyed="removeCard(2)"
-        />
+        <div class="title-vertical" :class="'title-mode-' + currentBg">
+          <!-- 标题装饰框 -->
+          <div class="title-frame-lines">
+            <span class="frame-line frame-top"></span>
+            <span class="frame-line frame-bottom"></span>
+          </div>
+          <p class="subtitle">—Midnight Sun—</p>
+        </div>
+
+        <div class="card-container"  v-if="rightBgMode === 'solid'"
+             :class="{ 'cards-fading': rightCardsFading }">
+          <!-- 卡片1 -->
+          <MinimalCard
+            v-if="cards[0].visible"
+            :key="`card1-${cards[0].key}`"
+            ref="card1Ref"
+            number="01"
+            title="H O 1"
+            text="人　間　不　信"
+            subtitle="Distrust of Humanity"
+            season="春"
+            @mouseenter="currentBg = 1"
+            @mouseleave="currentBg = 0"
+            @destroyed="removeCard(0)"
+          />
+
+          <!-- 卡片2 -->
+          <MinimalCard
+            v-if="cards[1].visible"
+            :key="`card2-${cards[1].key}`"
+            ref="card2Ref"
+            number="02"
+            title="H O 2"
+            text="思　界　者"
+            subtitle="Thinker of Realms"
+            season="夏"
+            @mouseenter="currentBg = 2"
+            @mouseleave="currentBg = 0"
+            @destroyed="removeCard(1)"
+          />
+
+          <!-- 卡片3 -->
+          <MinimalCard
+            v-if="cards[2].visible"
+            :key="`card3-${cards[2].key}`"
+            ref="card3Ref"
+            number="03"
+            title="H O 3"
+            text="永　遠　回　帰"
+            subtitle="Eternal Recurrence"
+            season="冬"
+            @mouseenter="currentBg = 3"
+            @mouseleave="currentBg = 0"
+            @destroyed="removeCard(2)"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -337,6 +362,9 @@ const removeCard = (index) => {
 // 移除左侧卡片
 const removeLeftCard = (index) => {
   leftCards.value[index].visible = false;
+  if (currentBg.value === index + 1) {
+    currentBg.value = 0;
+  }
 };
 
 // 触发所有卡片燃烧
@@ -355,41 +383,36 @@ const burnAllCards = () => {
 
 // 监听分割线位置，处理各种效果
 watch(leftWidth, (newWidth) => {
-  // 当分割线向右移动到60%时（距右侧40%）
-  if (newWidth >= 50) {
-    // 触发右侧卡片淡出动画
+  // 以50为分界线
+  if (newWidth > 50) {
+    // 大于50：左边显示卡牌，右边显示颜色
+    leftCardsFading.value = false;
     rightCardsFading.value = true;
     
-    // 切换背景模式
-    rightBgMode.value = 'gradient';
+    // 左边实色背景显示卡牌，右边渐变背景
     leftBgMode.value = 'solid';
+    rightBgMode.value = 'gradient';
     
     // 显示左侧卡片
     if (!leftCards.value[0].visible) {
       showLeftCards();
     }
     
-    // 不触发燃烧效果
-  } else if (newWidth <= 40) {
-    // 当分割线向左移动到40%时（距左侧40%）
-    // 触发左侧卡片淡出动画
-    leftCardsFading.value = true;
-    
-    // 切换背景模式
-    leftBgMode.value = 'gradient';
-    rightBgMode.value = 'solid';
-    
-    // 显示右侧卡片（如果之前被隐藏了）
-    ensureRightCardsVisible();
-    
-    // 隐藏左侧卡片
-    hideLeftCards();
+    // 隐藏右侧卡片
+    hideRightCards();
   } else {
-    // 中间区域，恢复默认状态
+    // 小于等于50：右边显示卡牌，左边显示颜色
+    leftCardsFading.value = true;
     rightCardsFading.value = false;
-    leftCardsFading.value = false;
+    
+    // 左边渐变背景，右边实色背景显示卡牌
     leftBgMode.value = 'gradient';
     rightBgMode.value = 'solid';
+    
+    // 显示右侧卡片
+    if (!cards.value[0].visible) {
+      showRightCards();
+    }
     
     // 隐藏左侧卡片
     hideLeftCards();
@@ -466,14 +489,42 @@ const hideLeftCards = () => {
     card.visible = false;
   });
 };
+const hideRightCards = () => {
+  cards.value.forEach((card) => {
+    card.visible = false;
+  });
+};
+
+// 显示右侧卡片
+const showRightCards = async () => {
+  cards.value.forEach((card) => {
+    card.visible = true;
+  });
+  
+  await nextTick();
+  
+  cards.value.forEach((card) => {
+    card.key += 1;
+  });
+  
+  // 添加淡入动画
+  setTimeout(() => {
+    const cardElements = document.querySelectorAll('.card-container .minimal-card');
+    cardElements.forEach((card, index) => {
+      setTimeout(() => {
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+      }, index * 100);
+    });
+  }, 50);
+};
 
 // 确保右侧卡片可见
 const ensureRightCardsVisible = () => {
-  cards.value.forEach((card) => {
-    if (!card.visible) {
-      card.visible = true;
-    }
-  });
+  const hasHiddenCard = cards.value.some(card => !card.visible);
+  if (hasHiddenCard) {
+    showRightCards();
+  }
 };
 
 onMounted(() => {
@@ -600,6 +651,7 @@ onMounted(() => {
   align-items: center;
   gap: 20px;
   transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1), all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+
 }
 
 /* 当在极端状态时，标题居中显示 */
@@ -917,109 +969,6 @@ onMounted(() => {
           drop-shadow(0 0 60px rgba(255, 255, 255, 0.3));
 }
 
-
-/* 英文标题 */
-.title-english {
-  font-size: 14px;
-  letter-spacing: 10px;
-  color: rgba(60, 60, 70, 0.65);
-  margin: 0;
-  font-family: 'Cinzel', serif;
-  font-weight: 300;
-  text-transform: uppercase;
-  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8);
-  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.center-main-title.title-theme-1 .title-english,
-.center-main-title.title-theme-2 .title-english,
-.center-main-title.title-theme-3 .title-english {
-  color: rgba(255, 255, 255, 0.85);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-}
-
-/* 页面标记 */
-.title-page-mark {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 15px 0;
-}
-
-.mark-text {
-  font-size: 11px;
-  letter-spacing: 3px;
-  color: rgba(60, 60, 70, 0.5);
-  font-family: 'Cinzel', serif;
-  font-weight: 300;
-  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.center-main-title.title-theme-1 .mark-text,
-.center-main-title.title-theme-2 .mark-text,
-.center-main-title.title-theme-3 .mark-text {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.mark-dot {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: rgba(60, 60, 70, 0.4);
-  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.center-main-title.title-theme-1 .mark-dot,
-.center-main-title.title-theme-2 .mark-dot,
-.center-main-title.title-theme-3 .mark-dot {
-  background: rgba(255, 255, 255, 0.6);
-}
-
-/* 装饰线 */
-.title-decoration-top,
-.title-decoration-bottom {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.title-line {
-  width: 70px;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(60, 60, 70, 0.35),
-    transparent
-  );
-  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.center-main-title.title-theme-1 .title-line,
-.center-main-title.title-theme-2 .title-line,
-.center-main-title.title-theme-3 .title-line {
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(255, 255, 255, 0.5),
-    transparent
-  );
-}
-
-.title-dot {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: rgba(60, 60, 70, 0.45);
-  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.center-main-title.title-theme-1 .title-dot,
-.center-main-title.title-theme-2 .title-dot,
-.center-main-title.title-theme-3 .title-dot {
-  background: rgba(255, 255, 255, 0.65);
-}
-
 /* 可拖拽的分割线 */
 .divider {
   position: fixed;
@@ -1212,7 +1161,7 @@ onMounted(() => {
   transition: background 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 左侧纯色背景模式 */
+/* 纯色背景模式 */
 .sky-background.bg-solid {
   background: #f5f3f0 !important;
 }
@@ -1241,9 +1190,8 @@ onMounted(() => {
 .bg-layer.bg-default {
   background: linear-gradient(
     to bottom,
-    #a8c5dd 0%,      /* 上: 空色 (天蓝) */
-    #d4b5a8 50%,     /* 中: 灰櫻 (暖粉灰) */
-    #c5d3e0 100%     /* 下: 水色 (淡蓝) */
+    #f7ddd7 0%,      /* 上: 空色 (天蓝) */ #bad6ea 50%,     /* 中: 灰櫻 (暖粉灰) */
+    #f7ddd7 100%     /* 下: 水色 (淡蓝) */
   );
 }
 
@@ -1276,7 +1224,41 @@ onMounted(() => {
     #4a5a6a 100%     /* 下: 鼠色 (冬日灰蓝) */
   );
 }
+.bg-layer.bg-default2 {
+  background: linear-gradient(
+      to bottom,
+      #343b43 0%,      /* 上: 暖色 - 淡樱灰粉 (低饱和) */
+      #f1f3f6 50%,     /* 中: 暖色 - 灰樱色 (温柔的灰粉) */
+      #343b43 100%     /* 下: 冷色 - 淡蓝灰 (春日薄雾天空) */
+  );
+}
 
+.bg-layer.bg-4 {
+  background: linear-gradient(
+      to bottom,
+      #A4C0D9 0%,      /* 上: 暖色 - 淡樱灰粉 (低饱和) */ #f1f3f6 50%,     /* 中: 暖色 - 灰樱色 (温柔的灰粉) */ #8aa4ba 100%     /* 下: 冷色 - 淡蓝灰 (春日薄雾天空) */
+  );
+}
+
+/* 卡片2背景 - 思界者·夏 (夏日天空) */
+.bg-layer.bg-5 {
+  background: linear-gradient(
+      to bottom,
+      #e8d5b7 0%,      /* 上: 空色 (夏日蓝天) */
+      #7db9de 50%,     /* 中: 勿忘草色 (明亮蓝) */
+      #e8d5b7 100%     /* 下: 砂色 (夏日沙滩) */
+  );
+}
+
+/* 卡片3背景 - 永遠回帰·冬 (雪夜) */
+.bg-layer.bg-6 {
+  background: linear-gradient(
+      to bottom,
+      #4a5a6a 0%,      /* 上: 藍鼠 (冬夜深蓝) */
+      #8b9aaa 50%,     /* 中: 銀鼠 (银灰雪色) */
+      #4a5a6a 100%     /* 下: 鼠色 (冬日灰蓝) */
+  );
+}
 /* 云朵效果 - 添加到默认背景层 */
 .bg-layer.bg-default::before {
   content: '';
@@ -1504,10 +1486,10 @@ onMounted(() => {
 .title-vertical {
   writing-mode: vertical-rl;
   text-orientation: upright;
-  position: relative;
+  position: absolute;
   z-index: 10;
   text-align: center;
-  padding: 40px 0;
+  padding: 50px 0;
 }
 
 /* 标题装饰框线 */
@@ -1556,24 +1538,6 @@ onMounted(() => {
   );
 }
 
-.main-title {
-  font-size: 120px;
-  font-weight: 300;
-  letter-spacing: 30px;
-  color: rgba(255, 255, 255, 0.95);
-  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-  margin: 0;
-  font-family: 'Noto Serif JP', serif;
-  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.title-vertical.title-mode-1 .main-title,
-.title-vertical.title-mode-2 .main-title,
-.title-vertical.title-mode-3 .main-title {
-  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
-  transform: scale(1.03);
-}
-
 .subtitle {
   font-size: 16px;
   letter-spacing: 8px;
@@ -1591,64 +1555,24 @@ onMounted(() => {
   color: rgba(255, 255, 255, 0.95);
 }
 
-.decorative-text {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  margin-top: 60px;
-  font-size: 24px;
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 300;
-  letter-spacing: 10px;
-}
-
-.decorative-text span {
-  display: inline-block;
-  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.title-vertical.title-mode-1 .decorative-text span,
-.title-vertical.title-mode-2 .decorative-text span,
-.title-vertical.title-mode-3 .decorative-text span {
-  transform: translateX(-10px);
-  opacity: 0.95;
-}
-
-.decorative-text span:nth-child(1) {
-  transition-delay: 0.1s;
-}
-
-.decorative-text span:nth-child(2) {
-  transition-delay: 0.2s;
-}
-
-.decorative-text span:nth-child(3) {
-  transition-delay: 0.3s;
-}
-
 /* 右侧区域 - 70% */
 .right-section {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 60px;
+  /* 移除 padding，由内部容器控制 */
+  padding: 0;
   background: #f5f3f0;
   position: relative;
   z-index: 100;
   overflow-y: auto;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease, padding 0.6s ease, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), background 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), background 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 }
 
-/* 右侧渐变背景模式 */
+/* 右侧渐变背景模式 - 不再需要，由内部 sky-background 处理 */
+/* 
 .right-section.section-gradient-bg {
-  background: linear-gradient(
-    to bottom,
-    #e8d5b7 0%,
-    #7db9de 50%,
-    #e8d5b7 100%
-  );
-}
+  background: linear-gradient(...);
+} 
+*/
 
 .right-section.section-hidden {
   opacity: 0;
@@ -1656,7 +1580,7 @@ onMounted(() => {
   transform: translateX(50px);
 }
 
-.right-section.section-fullscreen {
+.right-section.section-fullscreen .card-container {
   padding: 60px 80px;
 }
 
@@ -1751,6 +1675,8 @@ onMounted(() => {
   max-width: 100%;
   opacity: 1;
   transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 添加 padding 以保持原有布局 */
+  padding: 40px 60px;
 }
 
 /* 卡片淡出动画 */
@@ -1797,16 +1723,14 @@ onMounted(() => {
   
   .right-section {
     flex: 0 0 65%;
+  }
+  
+  .card-container {
     padding: 30px 40px;
   }
   
   .center-main-title {
     left: 35%;
-  }
-  
-  .vertical-main-title {
-    font-size: 120px;
-    letter-spacing: 30px;
   }
 }
 
@@ -1823,6 +1747,9 @@ onMounted(() => {
   .right-section {
     flex: 0 0 60vh;
     width: 100%;
+  }
+  
+  .card-container {
     padding: 30px;
   }
   
@@ -1835,18 +1762,5 @@ onMounted(() => {
     gap: 20px;
     overflow-x: auto;
   }
-
-  .main-title {
-    font-size: 80px;
-    letter-spacing: 20px;
-  }
-}
-
-@media (max-width: 768px) {
-  .main-title {
-    font-size: 60px;
-    letter-spacing: 15px;
-  }
 }
 </style>
-
