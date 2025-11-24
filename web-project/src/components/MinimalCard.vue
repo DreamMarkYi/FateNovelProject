@@ -2,7 +2,8 @@
   <div class="minimal-card"
        ref="cardElement"
        @mouseenter="$emit('mouseenter')"
-       @mouseleave="$emit('mouseleave')">
+       @mouseleave="$emit('mouseleave')"
+       @click="handleClick">
     <div class="card-glow"></div>
 
     <!-- 星光装饰 -->
@@ -43,8 +44,9 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { useRouter } from 'vue-router';
 
-defineProps({
+const props = defineProps({
   number: {
     type: String,
     required: true
@@ -64,10 +66,33 @@ defineProps({
   season: {
     type: String,
     required: true
+  },
+  route: {
+    type: [String, Object],
+    default: null
   }
 });
 
-const emit = defineEmits(['mouseenter', 'mouseleave', 'destroyed']);
+const emit = defineEmits(['mouseenter', 'mouseleave', 'destroyed', 'click']);
+
+const router = useRouter();
+
+// 处理卡片点击事件
+const handleClick = () => {
+  // 触发点击事件
+  emit('click');
+  
+  // 如果有路由配置，则进行跳转
+  if (props.route) {
+    if (typeof props.route === 'string') {
+      // 如果是字符串，作为路径跳转
+      router.push(props.route);
+    } else if (typeof props.route === 'object') {
+      // 如果是对象，作为路由对象跳转
+      router.push(props.route);
+    }
+  }
+};
 
 const dissolveCanvas = ref(null);
 const cardElement = ref(null);

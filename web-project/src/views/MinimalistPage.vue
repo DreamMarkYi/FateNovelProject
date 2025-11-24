@@ -1,16 +1,16 @@
 <template>
-  <div class="minimalist-page" 
-       @mousemove="onDrag" 
+  <div class="minimalist-page"
+       @mousemove="onDrag"
        @mouseup="stopDrag"
        :class="{ 
          'page-day-mode': isFullLeft,
          'page-night-mode': isFullRight
        }">
     <!-- 中央大标题 -->
-    <div class="center-main-title" 
+    <div class="center-main-title"
          :class="'title-theme-' + currentBg"
          :style="{ left: titlePosition + '%' }">
-      
+
       <!-- 完全拖到左边时显示的内容 - 昼之页面 -->
       <div v-if="isFullLeft" class="extreme-content left-extreme">
         <div class="extreme-page-content">
@@ -25,7 +25,7 @@
           </div>
         </div>
       </div>
-      
+
       <!-- 完全拖到右边时显示的内容 - 夜之页面 -->
       <div v-else-if="isFullRight" class="extreme-content right-extreme">
         <div class="extreme-page-content">
@@ -40,19 +40,19 @@
           </div>
         </div>
       </div>
-      
+
       <!-- 正常状态的标题组合 -->
       <div v-else class="title-composition">
         <!-- 第一个字 -->
         <span class="title-kanji">白</span>
-        
+
         <!-- 竖线装饰 -->
         <div class="side-vertical-line">
           <div class="side-subtitle-vertical">
             <span class="subtitle-letter">MIDNIGHT</span>
           </div>
         </div>
-        
+
         <!-- 第二个字 -->
         <span class="title-kanji">夜</span>
       </div>
@@ -60,7 +60,7 @@
     </div>
 
     <!-- 左侧大图区域 -->
-    <div class="left-section" 
+    <div class="left-section"
          :style="{ width: leftWidth + '%' }"
          :class="{ 
            'section-hidden': isFullRight,
@@ -72,7 +72,7 @@
         <div class="bg-layer bg-1" :class="{ active: currentBg === 1 }"></div>
         <div class="bg-layer bg-2" :class="{ active: currentBg === 2 }"></div>
         <div class="bg-layer bg-3" :class="{ active: currentBg === 3 }"></div>
-        
+
         <!-- 装饰性线条元素 -->
         <div class="deco-lines-left">
           <div class="line-h line-h-1"></div>
@@ -81,13 +81,38 @@
           <div class="line-v line-v-2"></div>
         </div>
 
+        <!-- 日式极简装饰线 -->
+        <div class="japanese-minimal-deco">
+          <!-- 角落装饰线 -->
+          <div class="corner-line corner-tl"></div>
+          <div class="corner-line corner-tr"></div>
+          <div class="corner-line corner-bl"></div>
+          <div class="corner-line corner-br"></div>
+          
+          <!-- 边缘装饰线 -->
+          <div class="edge-line edge-top"></div>
+          <div class="edge-line edge-bottom"></div>
+          <div class="edge-line edge-left"></div>
+          <div class="edge-line edge-right"></div>
+          
+          <!-- 网格装饰线 -->
+          <div class="grid-line grid-h-1"></div>
+          <div class="grid-line grid-h-2"></div>
+          <div class="grid-line grid-v-1"></div>
+          <div class="grid-line grid-v-2"></div>
+          
+          <!-- 波浪装饰线 -->
+          <div class="wave-line wave-1"></div>
+          <div class="wave-line wave-2"></div>
+        </div>
+
         <!-- 几何装饰元素 -->
         <div class="geometric-deco">
           <div class="geo-circle-outline"></div>
           <div class="geo-square-outline"></div>
           <div class="geo-cross"></div>
         </div>
-        
+
         <div class="title-vertical" :class="'title-mode-' + currentBg">
           <!-- 标题装饰框 -->
           <div class="title-frame-lines">
@@ -96,9 +121,9 @@
           </div>
           <p class="subtitle">—Midnight Sun—</p>
         </div>
-        
+
         <!-- 左侧卡片容器 -->
-        <div class="left-card-container" 
+        <div class="left-card-container"
              v-if="leftBgMode === 'solid'"
              :class="{ 'cards-fading': leftCardsFading }">
           <MinimalCard
@@ -110,11 +135,12 @@
             text="左　侧　之　一"
             subtitle="Left Card One"
             season="春"
+            route="/blue"
             @mouseenter="currentBg = 1"
             @mouseleave="currentBg = 0"
             @destroyed="removeLeftCard(0)"
           />
-          
+
           <MinimalCard
             v-if="leftCards[1].visible"
             :key="`left-card2-${leftCards[1].key}`"
@@ -124,11 +150,12 @@
             text="左　侧　之　二"
             subtitle="Left Card Two"
             season="夏"
+            route="/sowaka"
             @mouseenter="currentBg = 2"
             @mouseleave="currentBg = 0"
             @destroyed="removeLeftCard(1)"
           />
-          
+
           <MinimalCard
             v-if="leftCards[2].visible"
             :key="`left-card3-${leftCards[2].key}`"
@@ -138,6 +165,7 @@
             text="左　侧　之　三"
             subtitle="Left Card Three"
             season="秋"
+            route="/chapters"
             @mouseenter="currentBg = 3"
             @mouseleave="currentBg = 0"
             @destroyed="removeLeftCard(2)"
@@ -147,9 +175,9 @@
     </div>
 
     <!-- 可拖拽的分割线 -->
-    <div class="divider" 
+    <div class="divider"
          @mousedown="startDrag"
-         :class="{ 
+         :class="{
            dragging: isDragging,
            'edge-left': isFullLeft,
            'edge-right': isFullRight,
@@ -162,14 +190,14 @@
     </div>
 
     <!-- 右侧卡片区域 -->
-    <div class="right-section" 
+    <div class="right-section"
          :style="{ width: (100 - leftWidth) + '%' }"
-         :class="{ 
+         :class="{
            'section-hidden': isFullLeft,
            'section-fullscreen': isFullRight,
            'section-gradient-bg': rightBgMode === 'gradient'
          }">
-      
+
       <!-- 使用与左侧相同的背景结构 -->
       <div class="sky-background" :class="{ 'bg-solid': rightBgMode === 'solid' }">
         <!-- 多层背景叠加 -->
@@ -185,7 +213,33 @@
           <div class="right-line-v right-line-v-1"></div>
         </div>
 
-        <div class="title-vertical" :class="'title-mode-' + currentBg">
+        <!-- 右侧日式极简装饰线 -->
+        <div class="japanese-minimal-deco japanese-deco-right">
+          <!-- 角落装饰线 -->
+          <div class="corner-line corner-tl"></div>
+          <div class="corner-line corner-tr"></div>
+          <div class="corner-line corner-bl"></div>
+          <div class="corner-line corner-br"></div>
+          
+          <!-- 边缘装饰线 -->
+          <div class="edge-line edge-top"></div>
+          <div class="edge-line edge-bottom"></div>
+          <div class="edge-line edge-left"></div>
+          <div class="edge-line edge-right"></div>
+          
+          <!-- 网格装饰线 -->
+          <div class="grid-line grid-h-1"></div>
+          <div class="grid-line grid-h-2"></div>
+          <div class="grid-line grid-v-1"></div>
+          <div class="grid-line grid-v-2"></div>
+          
+          <!-- 波浪装饰线 -->
+          <div class="wave-line wave-1"></div>
+          <div class="wave-line wave-2"></div>
+        </div>
+
+        <!-- 修复：只在非卡片模式时显示标题 -->
+        <div v-if="rightBgMode !== 'solid'" class="title-vertical" :class="'title-mode-' + currentBg">
           <!-- 标题装饰框 -->
           <div class="title-frame-lines">
             <span class="frame-line frame-top"></span>
@@ -206,6 +260,7 @@
             text="人　間　不　信"
             subtitle="Distrust of Humanity"
             season="春"
+            route="/"
             @mouseenter="currentBg = 1"
             @mouseleave="currentBg = 0"
             @destroyed="removeCard(0)"
@@ -221,6 +276,7 @@
             text="思　界　者"
             subtitle="Thinker of Realms"
             season="夏"
+            route="/cards"
             @mouseenter="currentBg = 2"
             @mouseleave="currentBg = 0"
             @destroyed="removeCard(1)"
@@ -236,6 +292,7 @@
             text="永　遠　回　帰"
             subtitle="Eternal Recurrence"
             season="冬"
+            route="/sowaka"
             @mouseenter="currentBg = 3"
             @mouseleave="currentBg = 0"
             @destroyed="removeCard(2)"
@@ -314,14 +371,14 @@ const startDrag = (e) => {
 
 const onDrag = (e) => {
   if (!isDragging.value) return;
-  
+
   // 计算鼠标移动的距离（像素）
   const deltaX = e.clientX - dragStartX.value;
   // 转换为百分比
   const deltaPercent = (deltaX / window.innerWidth) * 100;
   // 新的分割线位置 = 起始位置 + 移动距离
   const newWidth = dragStartWidth.value + deltaPercent;
-  
+
   leftWidth.value = Math.max(0, Math.min(100, newWidth));
 };
 
@@ -329,7 +386,7 @@ const stopDrag = () => {
   isDragging.value = false;
   document.body.style.cursor = '';
   document.body.style.userSelect = '';
-  
+
   // 自动吸附到边缘
   if (leftWidth.value <= 10) {
     isTransitioning.value = true;
@@ -371,7 +428,7 @@ const removeLeftCard = (index) => {
 const burnAllCards = () => {
   if (hasBurned.value) return; // 防止重复触发
   hasBurned.value = true;
-  
+
   // 同时触发三张卡片的燃烧动画
   const cardRefs = [card1Ref.value, card2Ref.value, card3Ref.value];
   cardRefs.forEach((cardRef) => {
@@ -388,32 +445,32 @@ watch(leftWidth, (newWidth) => {
     // 大于50：左边显示卡牌，右边显示颜色
     leftCardsFading.value = false;
     rightCardsFading.value = true;
-    
+
     // 左边实色背景显示卡牌，右边渐变背景
     leftBgMode.value = 'solid';
     rightBgMode.value = 'gradient';
-    
+
     // 显示左侧卡片
     if (!leftCards.value[0].visible) {
       showLeftCards();
     }
-    
+
     // 隐藏右侧卡片
     hideRightCards();
   } else {
     // 小于等于50：右边显示卡牌，左边显示颜色
     leftCardsFading.value = true;
     rightCardsFading.value = false;
-    
+
     // 左边渐变背景，右边实色背景显示卡牌
     leftBgMode.value = 'gradient';
     rightBgMode.value = 'solid';
-    
+
     // 显示右侧卡片
     if (!cards.value[0].visible) {
       showRightCards();
     }
-    
+
     // 隐藏左侧卡片
     hideLeftCards();
   }
@@ -436,25 +493,25 @@ const addCardFadeInAnimation = () => {
 const regenerateCards = async () => {
   console.log('开始重新生成卡片');
   hasBurned.value = false;
-  
+
   // 先将所有卡片设为可见
   cards.value.forEach((card) => {
     card.visible = true;
   });
-  
+
   // 等待 DOM 更新
   await nextTick();
-  
+
   // 然后更新 key 值来强制重新生成组件
   cards.value.forEach((card) => {
     card.key += 1; // 改变 key 会导致 Vue 销毁旧组件并创建新组件
   });
-  
+
   console.log('卡片状态:', cards.value);
-  
+
   // 重置背景
   currentBg.value = 0;
-  
+
   // 添加淡入动画
   addCardFadeInAnimation();
 };
@@ -464,13 +521,13 @@ const showLeftCards = async () => {
   leftCards.value.forEach((card) => {
     card.visible = true;
   });
-  
+
   await nextTick();
-  
+
   leftCards.value.forEach((card) => {
     card.key += 1;
   });
-  
+
   // 添加淡入动画
   setTimeout(() => {
     const cardElements = document.querySelectorAll('.left-card-container .minimal-card');
@@ -500,13 +557,13 @@ const showRightCards = async () => {
   cards.value.forEach((card) => {
     card.visible = true;
   });
-  
+
   await nextTick();
-  
+
   cards.value.forEach((card) => {
     card.key += 1;
   });
-  
+
   // 添加淡入动画
   setTimeout(() => {
     const cardElements = document.querySelectorAll('.card-container .minimal-card');
@@ -530,7 +587,7 @@ const ensureRightCardsVisible = () => {
 onMounted(() => {
   // 添加淡入动画
   addCardFadeInAnimation();
-  
+
   // 添加全局鼠标事件监听
   document.addEventListener('mousemove', onDrag);
   document.addEventListener('mouseup', stopDrag);
@@ -600,7 +657,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: 
+  background-image:
     radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.8), transparent),
     radial-gradient(2px 2px at 60% 70%, rgba(255, 255, 255, 0.6), transparent),
     radial-gradient(1px 1px at 50% 50%, rgba(255, 255, 255, 0.7), transparent),
@@ -842,14 +899,14 @@ onMounted(() => {
   transform: translateX(-25px);
   background: linear-gradient(
     to bottom,
-    #fbf2eb 0%,
-    #edf4f8 50%,
-    #faf5eb 100%
+    #f4efec 0%,
+    #ffffff 50%,
+    #ece8e2 100%
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
+  filter: drop-shadow(2px 2px 0 rgba(50, 50, 50, 0.6))
           drop-shadow(-2px -2px 0 rgba(122, 143, 163, 0.1));
 }
 
@@ -936,7 +993,7 @@ onMounted(() => {
 }
 
 .subtitle-letter:hover {
-  color: rgba(212, 165, 165, 0.85);
+  color: rgba(212, 165, 165, 1);
   transform: scale(1.1);
 }
 
@@ -1227,9 +1284,9 @@ onMounted(() => {
 .bg-layer.bg-default2 {
   background: linear-gradient(
       to bottom,
-      #343b43 0%,      /* 上: 暖色 - 淡樱灰粉 (低饱和) */
-      #f1f3f6 50%,     /* 中: 暖色 - 灰樱色 (温柔的灰粉) */
-      #343b43 100%     /* 下: 冷色 - 淡蓝灰 (春日薄雾天空) */
+      #3a4a5a 0%,
+      #8ea1b3 50%,
+      #3a4a5a 100%
   );
 }
 
@@ -1391,6 +1448,310 @@ onMounted(() => {
     opacity: 0.6;
     transform: translateY(15px);
   }
+}
+
+/* 日式极简装饰线 */
+.japanese-minimal-deco {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+/* 角落装饰线 - 日式极简风格 */
+.corner-line {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border: 0.5px solid rgba(139, 125, 107, 0.45);
+  border-radius: 2px;
+}
+
+.corner-tl {
+  top: 40px;
+  left: 40px;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 0;
+  animation: cornerFade 12s ease-in-out infinite;
+}
+
+.corner-tr {
+  top: 40px;
+  right: 40px;
+  border-left: none;
+  border-bottom: none;
+  border-top-right-radius: 0;
+  animation: cornerFade 12s ease-in-out infinite 3s;
+}
+
+.corner-bl {
+  bottom: 40px;
+  left: 40px;
+  border-right: none;
+  border-top: none;
+  border-bottom-left-radius: 0;
+  animation: cornerFade 12s ease-in-out infinite 6s;
+}
+
+.corner-br {
+  bottom: 40px;
+  right: 40px;
+  border-left: none;
+  border-top: none;
+  border-bottom-right-radius: 0;
+  animation: cornerFade 12s ease-in-out infinite 9s;
+}
+
+@keyframes cornerFade {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.05);
+  }
+}
+
+/* 边缘装饰线 - 极细线条 */
+.edge-line {
+  position: absolute;
+  background: rgba(139, 125, 107, 0.35);
+}
+
+.edge-top {
+  top: 0;
+  left: 15%;
+  right: 15%;
+  height: 0.5px;
+  animation: edgeGlow 15s ease-in-out infinite;
+}
+
+.edge-bottom {
+  bottom: 0;
+  left: 15%;
+  right: 15%;
+  height: 0.5px;
+  animation: edgeGlow 15s ease-in-out infinite 7.5s;
+}
+
+.edge-left {
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 0.5px;
+  animation: edgeGlow 15s ease-in-out infinite 3s;
+}
+
+.edge-right {
+  right: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 0.5px;
+  animation: edgeGlow 15s ease-in-out infinite 10s;
+}
+
+@keyframes edgeGlow {
+  0%, 100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* 网格装饰线 - 微妙的网格效果 */
+.grid-line {
+  position: absolute;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(139, 125, 107, 0.25),
+    transparent
+  );
+  animation: gridFade 20s ease-in-out infinite;
+}
+
+.grid-h-1 {
+  top: 30%;
+  left: 10%;
+  right: 10%;
+  height: 0.5px;
+  animation-delay: 0s;
+}
+
+.grid-h-2 {
+  top: 70%;
+  left: 10%;
+  right: 10%;
+  height: 0.5px;
+  animation-delay: 10s;
+}
+
+.grid-v-1 {
+  left: 25%;
+  top: 15%;
+  bottom: 15%;
+  width: 0.5px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(139, 125, 107, 0.25),
+    transparent
+  );
+  animation-delay: 5s;
+}
+
+.grid-v-2 {
+  right: 25%;
+  top: 15%;
+  bottom: 15%;
+  width: 0.5px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(139, 125, 107, 0.25),
+    transparent
+  );
+  animation-delay: 15s;
+}
+
+@keyframes gridFade {
+  0%, 100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* 波浪装饰线 - 日式波纹效果 */
+.wave-line {
+  position: absolute;
+  width: 200px;
+  height: 1px;
+  background: transparent;
+  border-top: 0.5px solid rgba(139, 125, 107, 0.35);
+  border-radius: 50%;
+  animation: waveFloat 18s ease-in-out infinite;
+}
+
+.wave-1 {
+  top: 25%;
+  left: 5%;
+  transform: rotate(-15deg);
+  animation-delay: 0s;
+}
+
+.wave-2 {
+  bottom: 30%;
+  right: 8%;
+  transform: rotate(15deg);
+  animation-delay: 9s;
+}
+
+@keyframes waveFloat {
+  0%, 100% {
+    opacity: 0.35;
+    transform: rotate(-15deg) translateY(0) scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: rotate(-15deg) translateY(-10px) scale(1.1);
+  }
+}
+
+.wave-2 {
+  animation-name: waveFloat2;
+}
+
+@keyframes waveFloat2 {
+  0%, 100% {
+    opacity: 0.35;
+    transform: rotate(15deg) translateY(0) scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: rotate(15deg) translateY(10px) scale(1.1);
+  }
+}
+
+/* 右侧日式装饰线的颜色调整 */
+.japanese-deco-right .corner-line {
+  border-color: rgba(200, 190, 180, 0.45);
+}
+
+.japanese-deco-right .edge-line {
+  background: rgba(200, 190, 180, 0.35);
+}
+
+.japanese-deco-right .grid-line {
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(200, 190, 180, 0.25),
+    transparent
+  );
+}
+
+.japanese-deco-right .grid-v-1,
+.japanese-deco-right .grid-v-2 {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(200, 190, 180, 0.25),
+    transparent
+  );
+}
+
+.japanese-deco-right .wave-line {
+  border-color: rgba(200, 190, 180, 0.35);
+}
+
+/* 背景切换时的装饰线调整 */
+.sky-background.bg-solid .japanese-minimal-deco {
+  opacity: 0.6;
+}
+
+/* 永夜模式下的装饰线调整 */
+.page-night-mode .japanese-minimal-deco {
+  opacity: 0.65;
+}
+
+.page-night-mode .japanese-minimal-deco .corner-line {
+  border-color: rgba(200, 210, 220, 0.5);
+}
+
+.page-night-mode .japanese-minimal-deco .edge-line {
+  background: rgba(200, 210, 220, 0.4);
+}
+
+.page-night-mode .japanese-minimal-deco .grid-line {
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(200, 210, 220, 0.3),
+    transparent
+  );
+}
+
+.page-night-mode .japanese-minimal-deco .grid-v-1,
+.page-night-mode .japanese-minimal-deco .grid-v-2 {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(200, 210, 220, 0.3),
+    transparent
+  );
+}
+
+.page-night-mode .japanese-minimal-deco .wave-line {
+  border-color: rgba(200, 210, 220, 0.4);
 }
 
 /* 几何装饰元素 */
@@ -1568,10 +1929,10 @@ onMounted(() => {
 }
 
 /* 右侧渐变背景模式 - 不再需要，由内部 sky-background 处理 */
-/* 
+/*
 .right-section.section-gradient-bg {
   background: linear-gradient(...);
-} 
+}
 */
 
 .right-section.section-hidden {
@@ -1720,15 +2081,15 @@ onMounted(() => {
   .left-section {
     flex: 0 0 35%;
   }
-  
+
   .right-section {
     flex: 0 0 65%;
   }
-  
+
   .card-container {
     padding: 30px 40px;
   }
-  
+
   .center-main-title {
     left: 35%;
   }
@@ -1748,11 +2109,11 @@ onMounted(() => {
     flex: 0 0 60vh;
     width: 100%;
   }
-  
+
   .card-container {
     padding: 30px;
   }
-  
+
   .center-main-title {
     display: none;
   }
