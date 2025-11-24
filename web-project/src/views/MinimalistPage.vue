@@ -6,6 +6,48 @@
          'page-day-mode': isFullLeft,
          'page-night-mode': isFullRight
        }">
+    <!-- SVG 噪点滤镜定义 -->
+    <svg class="noise-filter-svg" style="position: absolute; width: 0; height: 0;">
+      <defs>
+        <filter id="textNoiseFilter" x="0%" y="0%" width="100%" height="100%">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.9"
+            numOctaves="4"
+            stitchTiles="stitch"
+            result="noise"/>
+          <feColorMatrix
+            in="noise"
+            type="saturate"
+            values="0"
+            result="noise"/>
+          <feComposite
+            in="SourceGraphic"
+            in2="noise"
+            operator="overlay"
+            opacity="0.15"/>
+        </filter>
+        <filter id="textNoiseFilterSubtle" x="0%" y="0%" width="100%" height="100%">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.7"
+            numOctaves="3"
+            stitchTiles="stitch"
+            result="noise"/>
+          <feColorMatrix
+            in="noise"
+            type="saturate"
+            values="0"
+            result="noise"/>
+          <feComposite
+            in="SourceGraphic"
+            in2="noise"
+            operator="overlay"
+            opacity="0.12"/>
+        </filter>
+      </defs>
+    </svg>
+
     <!-- 中央大标题 -->
     <div class="center-main-title"
          :class="'title-theme-' + currentBg"
@@ -62,7 +104,7 @@
     <!-- 左侧大图区域 -->
     <div class="left-section"
          :style="{ width: leftWidth + '%' }"
-         :class="{ 
+         :class="{
            'section-hidden': isFullRight,
            'section-solid-bg': leftBgMode === 'solid'
          }">
@@ -81,31 +123,6 @@
           <div class="line-v line-v-2"></div>
         </div>
 
-        <!-- 日式极简装饰线 -->
-        <div class="japanese-minimal-deco">
-          <!-- 角落装饰线 -->
-          <div class="corner-line corner-tl"></div>
-          <div class="corner-line corner-tr"></div>
-          <div class="corner-line corner-bl"></div>
-          <div class="corner-line corner-br"></div>
-          
-          <!-- 边缘装饰线 -->
-          <div class="edge-line edge-top"></div>
-          <div class="edge-line edge-bottom"></div>
-          <div class="edge-line edge-left"></div>
-          <div class="edge-line edge-right"></div>
-          
-          <!-- 网格装饰线 -->
-          <div class="grid-line grid-h-1"></div>
-          <div class="grid-line grid-h-2"></div>
-          <div class="grid-line grid-v-1"></div>
-          <div class="grid-line grid-v-2"></div>
-          
-          <!-- 波浪装饰线 -->
-          <div class="wave-line wave-1"></div>
-          <div class="wave-line wave-2"></div>
-        </div>
-
         <!-- 几何装饰元素 -->
         <div class="geometric-deco">
           <div class="geo-circle-outline"></div>
@@ -113,7 +130,7 @@
           <div class="geo-cross"></div>
         </div>
 
-        <div class="title-vertical" :class="'title-mode-' + currentBg">
+        <div v-if = "leftBgMode !== 'solid'" class="title-vertical" :class="'title-mode-' + currentBg">
           <!-- 标题装饰框 -->
           <div class="title-frame-lines">
             <span class="frame-line frame-top"></span>
@@ -213,31 +230,6 @@
           <div class="right-line-v right-line-v-1"></div>
         </div>
 
-        <!-- 右侧日式极简装饰线 -->
-        <div class="japanese-minimal-deco japanese-deco-right">
-          <!-- 角落装饰线 -->
-          <div class="corner-line corner-tl"></div>
-          <div class="corner-line corner-tr"></div>
-          <div class="corner-line corner-bl"></div>
-          <div class="corner-line corner-br"></div>
-          
-          <!-- 边缘装饰线 -->
-          <div class="edge-line edge-top"></div>
-          <div class="edge-line edge-bottom"></div>
-          <div class="edge-line edge-left"></div>
-          <div class="edge-line edge-right"></div>
-          
-          <!-- 网格装饰线 -->
-          <div class="grid-line grid-h-1"></div>
-          <div class="grid-line grid-h-2"></div>
-          <div class="grid-line grid-v-1"></div>
-          <div class="grid-line grid-v-2"></div>
-          
-          <!-- 波浪装饰线 -->
-          <div class="wave-line wave-1"></div>
-          <div class="wave-line wave-2"></div>
-        </div>
-
         <!-- 修复：只在非卡片模式时显示标题 -->
         <div v-if="rightBgMode !== 'solid'" class="title-vertical" :class="'title-mode-' + currentBg">
           <!-- 标题装饰框 -->
@@ -247,6 +239,8 @@
           </div>
           <p class="subtitle">—Midnight Sun—</p>
         </div>
+
+       
 
         <div class="card-container"  v-if="rightBgMode === 'solid'"
              :class="{ 'cards-fading': rightCardsFading }">
@@ -595,6 +589,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* SVG 滤镜容器 - 隐藏但保持可用 */
+.noise-filter-svg {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .minimalist-page {
   display: flex;
   width: 100vw;
@@ -779,7 +782,7 @@ onMounted(() => {
   animation: extremePulse 4s ease-in-out infinite;
   display: block !important;
   transform: none !important;
-  filter: none !important;
+  position: relative;
 }
 
 @keyframes extremePulse {
@@ -844,6 +847,7 @@ onMounted(() => {
   text-shadow: 0 2px 10px rgba(255, 255, 255, 0.5);
 }
 
+
 .left-extreme .extreme-subtitle {
   color: rgba(107, 93, 75, 0.85);
   text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8);
@@ -866,6 +870,7 @@ onMounted(() => {
   background-clip: text;
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
+
 
 .right-extreme .extreme-subtitle {
   color: rgba(200, 210, 220, 0.85);
@@ -892,6 +897,7 @@ onMounted(() => {
   font-family: 'Noto Serif JP', serif;
   display: inline-block;
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 
 /* 第一个字 "白" - 左偏移 + 冷色调 */
@@ -906,6 +912,33 @@ onMounted(() => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  filter: drop-shadow(2px 2px 0 rgba(50, 50, 50, 0.6))
+          drop-shadow(-2px -2px 0 rgba(122, 143, 163, 0.1));
+}
+
+/* 为"白"字添加噪点纹理叠加层 - 使用 ::after 确保显示在文字上方 */
+.title-composition .title-kanji:nth-child(1)::after {
+  content: '白';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise1)' opacity='0.8'/%3E%3C/svg%3E"),
+    linear-gradient(
+      to bottom,
+      #f4efec 0%,
+      #ffffff 50%,
+      #ece8e2 100%
+    );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  mix-blend-mode: multiply;
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 1;
   filter: drop-shadow(2px 2px 0 rgba(50, 50, 50, 0.6))
           drop-shadow(-2px -2px 0 rgba(122, 143, 163, 0.1));
 }
@@ -926,6 +959,60 @@ onMounted(() => {
           drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
 }
 
+/* 为"夜"字添加额外的噪点层 - 使用 ::before 创建更明显的效果 */
+.title-composition .title-kanji:nth-child(3)::before {
+  content: '夜';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.0' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2b)' opacity='0.4'/%3E%3C/svg%3E"),
+    linear-gradient(
+      to bottom,
+      #4a5a6a 0%,
+      #8b9aaa 50%,
+      #4a5a6a 100%
+    );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  mix-blend-mode: screen;
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+  filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
+          drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
+}
+
+/* 为"夜"字添加噪点纹理叠加层 - 使用 ::after 确保显示在文字上方 */
+.title-composition .title-kanji:nth-child(3)::after {
+  content: '夜';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='6' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0.3 0.7 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2)'/%3E%3C/svg%3E"),
+    linear-gradient(
+      to bottom,
+      #4a5a6a 0%,
+      #8b9aaa 50%,
+      #4a5a6a 100%
+    );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  mix-blend-mode: overlay;
+  opacity: 1;
+  pointer-events: none;
+  z-index: 1;
+  filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
+          drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
+}
+
 /* hover 效果 - 第一个字 */
 .title-composition .title-kanji:nth-child(1):hover {
   transform: translateX(-25px) scale(1.08);
@@ -935,9 +1022,25 @@ onMounted(() => {
           drop-shadow(0 0 80px rgba(122, 143, 163, 0.3));
 }
 
+.title-composition .title-kanji:nth-child(1):hover::after {
+  opacity: 0.95;
+  filter: drop-shadow(3px 3px 0 rgba(255, 255, 255, 0.9))
+          drop-shadow(-3px -3px 0 rgba(122, 143, 163, 0.15))
+          drop-shadow(0 6px 30px rgba(122, 143, 163, 0.4))
+          drop-shadow(0 0 80px rgba(122, 143, 163, 0.3));
+}
+
 /* hover 效果 - 第二个字 */
 .title-composition .title-kanji:nth-child(3):hover {
   transform: translateX(30px) scale(1.08);
+  filter: drop-shadow(3px 3px 0 rgba(255, 255, 255, 0.9))
+          drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
+          drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
+          drop-shadow(0 0 80px rgba(255, 192, 203, 0.3));
+}
+
+.title-composition .title-kanji:nth-child(3):hover::after {
+  opacity: 1;
   filter: drop-shadow(3px 3px 0 rgba(255, 255, 255, 0.9))
           drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
           drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
@@ -968,8 +1071,8 @@ onMounted(() => {
   font-size: 20px;
   font-weight: 300;
   letter-spacing: 6px;
-  color: rgba(227, 234, 243, 0.6);
-  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 1);
+  text-shadow: 1px 1px  rgba(0, 0, 0, 1);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -977,13 +1080,6 @@ onMounted(() => {
   margin-left: 20px;
   margin-top: -20px;
   transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
-  background: linear-gradient(
-      to bottom,
-      #e6e8ec 0%,
-      #d0e0ed 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
@@ -993,7 +1089,7 @@ onMounted(() => {
 }
 
 .subtitle-letter:hover {
-  color: rgba(212, 165, 165, 1);
+  color: rgba(255, 255, 255, 1);
   transform: scale(1.1);
 }
 
@@ -1013,7 +1109,7 @@ onMounted(() => {
 .center-main-title.title-theme-1 .side-subtitle-vertical,
 .center-main-title.title-theme-2 .side-subtitle-vertical,
 .center-main-title.title-theme-3 .side-subtitle-vertical {
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 1);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -1024,6 +1120,12 @@ onMounted(() => {
   filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.3))
           drop-shadow(0 4px 20px rgba(0, 0, 0, 0.4))
           drop-shadow(0 0 60px rgba(255, 255, 255, 0.3));
+}
+
+.center-main-title.title-theme-1 .title-kanji::after,
+.center-main-title.title-theme-2 .title-kanji::after,
+.center-main-title.title-theme-3 .title-kanji::after {
+  opacity: 0.7;
 }
 
 /* 可拖拽的分割线 */
@@ -1221,6 +1323,18 @@ onMounted(() => {
 /* 纯色背景模式 */
 .sky-background.bg-solid {
   background: #f5f3f0 !important;
+}
+
+/* 右侧区域使用图片背景 - 背景与卡片保持相对位置固定 */
+.right-section .sky-background.bg-solid {
+  /* 背景图片定位：使用百分比定位，确保与卡片容器保持相对位置 */
+  /* 可以通过调整 background-position 的值来微调对齐（例如：120% 50% 表示向右偏移） */
+  background: url('/minimalistBG.png') 50% 50% / cover no-repeat !important;
+  position: relative;
+  /* 确保背景覆盖整个区域 */
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center center;
 }
 
 .sky-background.bg-solid .bg-layer {
@@ -1448,310 +1562,6 @@ onMounted(() => {
     opacity: 0.6;
     transform: translateY(15px);
   }
-}
-
-/* 日式极简装饰线 */
-.japanese-minimal-deco {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 4;
-  pointer-events: none;
-  opacity: 0.75;
-}
-
-/* 角落装饰线 - 日式极简风格 */
-.corner-line {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  border: 0.5px solid rgba(139, 125, 107, 0.45);
-  border-radius: 2px;
-}
-
-.corner-tl {
-  top: 40px;
-  left: 40px;
-  border-right: none;
-  border-bottom: none;
-  border-top-left-radius: 0;
-  animation: cornerFade 12s ease-in-out infinite;
-}
-
-.corner-tr {
-  top: 40px;
-  right: 40px;
-  border-left: none;
-  border-bottom: none;
-  border-top-right-radius: 0;
-  animation: cornerFade 12s ease-in-out infinite 3s;
-}
-
-.corner-bl {
-  bottom: 40px;
-  left: 40px;
-  border-right: none;
-  border-top: none;
-  border-bottom-left-radius: 0;
-  animation: cornerFade 12s ease-in-out infinite 6s;
-}
-
-.corner-br {
-  bottom: 40px;
-  right: 40px;
-  border-left: none;
-  border-top: none;
-  border-bottom-right-radius: 0;
-  animation: cornerFade 12s ease-in-out infinite 9s;
-}
-
-@keyframes cornerFade {
-  0%, 100% {
-    opacity: 0.45;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.65;
-    transform: scale(1.05);
-  }
-}
-
-/* 边缘装饰线 - 极细线条 */
-.edge-line {
-  position: absolute;
-  background: rgba(139, 125, 107, 0.35);
-}
-
-.edge-top {
-  top: 0;
-  left: 15%;
-  right: 15%;
-  height: 0.5px;
-  animation: edgeGlow 15s ease-in-out infinite;
-}
-
-.edge-bottom {
-  bottom: 0;
-  left: 15%;
-  right: 15%;
-  height: 0.5px;
-  animation: edgeGlow 15s ease-in-out infinite 7.5s;
-}
-
-.edge-left {
-  left: 0;
-  top: 20%;
-  bottom: 20%;
-  width: 0.5px;
-  animation: edgeGlow 15s ease-in-out infinite 3s;
-}
-
-.edge-right {
-  right: 0;
-  top: 20%;
-  bottom: 20%;
-  width: 0.5px;
-  animation: edgeGlow 15s ease-in-out infinite 10s;
-}
-
-@keyframes edgeGlow {
-  0%, 100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 0.55;
-  }
-}
-
-/* 网格装饰线 - 微妙的网格效果 */
-.grid-line {
-  position: absolute;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(139, 125, 107, 0.25),
-    transparent
-  );
-  animation: gridFade 20s ease-in-out infinite;
-}
-
-.grid-h-1 {
-  top: 30%;
-  left: 10%;
-  right: 10%;
-  height: 0.5px;
-  animation-delay: 0s;
-}
-
-.grid-h-2 {
-  top: 70%;
-  left: 10%;
-  right: 10%;
-  height: 0.5px;
-  animation-delay: 10s;
-}
-
-.grid-v-1 {
-  left: 25%;
-  top: 15%;
-  bottom: 15%;
-  width: 0.5px;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    rgba(139, 125, 107, 0.25),
-    transparent
-  );
-  animation-delay: 5s;
-}
-
-.grid-v-2 {
-  right: 25%;
-  top: 15%;
-  bottom: 15%;
-  width: 0.5px;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    rgba(139, 125, 107, 0.25),
-    transparent
-  );
-  animation-delay: 15s;
-}
-
-@keyframes gridFade {
-  0%, 100% {
-    opacity: 0.25;
-  }
-  50% {
-    opacity: 0.45;
-  }
-}
-
-/* 波浪装饰线 - 日式波纹效果 */
-.wave-line {
-  position: absolute;
-  width: 200px;
-  height: 1px;
-  background: transparent;
-  border-top: 0.5px solid rgba(139, 125, 107, 0.35);
-  border-radius: 50%;
-  animation: waveFloat 18s ease-in-out infinite;
-}
-
-.wave-1 {
-  top: 25%;
-  left: 5%;
-  transform: rotate(-15deg);
-  animation-delay: 0s;
-}
-
-.wave-2 {
-  bottom: 30%;
-  right: 8%;
-  transform: rotate(15deg);
-  animation-delay: 9s;
-}
-
-@keyframes waveFloat {
-  0%, 100% {
-    opacity: 0.35;
-    transform: rotate(-15deg) translateY(0) scale(1);
-  }
-  50% {
-    opacity: 0.55;
-    transform: rotate(-15deg) translateY(-10px) scale(1.1);
-  }
-}
-
-.wave-2 {
-  animation-name: waveFloat2;
-}
-
-@keyframes waveFloat2 {
-  0%, 100% {
-    opacity: 0.35;
-    transform: rotate(15deg) translateY(0) scale(1);
-  }
-  50% {
-    opacity: 0.55;
-    transform: rotate(15deg) translateY(10px) scale(1.1);
-  }
-}
-
-/* 右侧日式装饰线的颜色调整 */
-.japanese-deco-right .corner-line {
-  border-color: rgba(200, 190, 180, 0.45);
-}
-
-.japanese-deco-right .edge-line {
-  background: rgba(200, 190, 180, 0.35);
-}
-
-.japanese-deco-right .grid-line {
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(200, 190, 180, 0.25),
-    transparent
-  );
-}
-
-.japanese-deco-right .grid-v-1,
-.japanese-deco-right .grid-v-2 {
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    rgba(200, 190, 180, 0.25),
-    transparent
-  );
-}
-
-.japanese-deco-right .wave-line {
-  border-color: rgba(200, 190, 180, 0.35);
-}
-
-/* 背景切换时的装饰线调整 */
-.sky-background.bg-solid .japanese-minimal-deco {
-  opacity: 0.6;
-}
-
-/* 永夜模式下的装饰线调整 */
-.page-night-mode .japanese-minimal-deco {
-  opacity: 0.65;
-}
-
-.page-night-mode .japanese-minimal-deco .corner-line {
-  border-color: rgba(200, 210, 220, 0.5);
-}
-
-.page-night-mode .japanese-minimal-deco .edge-line {
-  background: rgba(200, 210, 220, 0.4);
-}
-
-.page-night-mode .japanese-minimal-deco .grid-line {
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(200, 210, 220, 0.3),
-    transparent
-  );
-}
-
-.page-night-mode .japanese-minimal-deco .grid-v-1,
-.page-night-mode .japanese-minimal-deco .grid-v-2 {
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    rgba(200, 210, 220, 0.3),
-    transparent
-  );
-}
-
-.page-night-mode .japanese-minimal-deco .wave-line {
-  border-color: rgba(200, 210, 220, 0.4);
 }
 
 /* 几何装饰元素 */
@@ -2022,6 +1832,118 @@ onMounted(() => {
   }
   50% {
     opacity: 0.7;
+  }
+}
+
+/* 卡片装饰图案容器 */
+.card-decorative-patterns {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.geometric-framework {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  min-width: 1200px;
+  min-height: 600px;
+  opacity: 0.6;
+}
+
+/* 框架动画 */
+.left-framework,
+.center-framework,
+.right-framework {
+  animation: patternFadeIn 1.5s ease-out forwards;
+}
+
+.left-framework {
+  animation-delay: 0.2s;
+  opacity: 0;
+}
+
+.center-framework {
+  animation-delay: 0.4s;
+  opacity: 0;
+}
+
+.right-framework {
+  animation-delay: 0.6s;
+  opacity: 0;
+}
+
+@keyframes patternFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 船形图标动画 */
+.ship-icon-left,
+.ship-icon-right {
+  animation: shipFloat 8s ease-in-out infinite;
+}
+
+.ship-icon-left {
+  animation-delay: 0s;
+}
+
+.ship-icon-right {
+  animation-delay: 4s;
+}
+
+@keyframes shipFloat {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(5px, -8px) rotate(2deg);
+  }
+}
+
+/* 抽象图标动画 */
+.abstract-icons circle,
+.abstract-icons rect,
+.abstract-icons polygon {
+  animation: iconPulse 4s ease-in-out infinite;
+}
+
+.abstract-icons circle:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.abstract-icons rect {
+  animation-delay: 1s;
+}
+
+.abstract-icons polygon {
+  animation-delay: 2s;
+}
+
+.abstract-icons circle:nth-child(4) {
+  animation-delay: 3s;
+}
+
+@keyframes iconPulse {
+  0%, 100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.25;
   }
 }
 

@@ -454,8 +454,8 @@ defineExpose({
 <style scoped>
 /* 卡片样式 */
 .minimal-card {
-  width: 260px;
-  height: 400px;
+  width: 400px;
+  height: 600px;
   background: linear-gradient(145deg, #ffffff 0%, #f8f6f2 50%, #f0ebe5 100%);
   border: 1px solid rgba(200, 190, 180, 0.4);
   box-shadow:

@@ -1,21 +1,17 @@
 <template>
   <div 
     class="card" 
+    :class="{ 'card-locked': !unlocked }"
     @click="handleClick"
     ref="cardRef"
+    :style="backgroundStyle"
   >
-    <div class="card-background" :style="backgroundStyle"></div>
+    <div class="card-background"></div>
+    
+    <!-- 未选中时的覆盖图片层 -->
+    <div class="card-overlay-image"></div>
 
-    <!-- 装饰元素 -->
-    <div 
-      v-for="(deco, index) in decorations" 
-      :key="index"
-      class="card-decoration"
-      :class="deco.class"
-      ref="decoRefs"
-    ></div>
-
-    <div class="card-content">
+    <div class="card-content" :class="{ 'content-blur': !unlocked }">
       <div class="card-season">{{ season }}</div>
       <div class="card-number">{{ number }}</div>
       <div class="card-title">{{ title }}</div>
@@ -27,6 +23,11 @@
         >{{ char }}</span>
       </div>
       <div class="card-label">{{ label }}</div>
+    </div>
+
+    <!-- 未解锁遮罩层 -->
+    <div v-if="!unlocked" class="card-lock-overlay">
+      <div class="lock-text">未解锁</div>
     </div>
   </div>
 </template>
@@ -71,6 +72,14 @@ const props = defineProps({
   index: {
     type: Number,
     default: 0
+  },
+  unlocked: {
+    type: Boolean,
+    default: true
+  },
+  commandImage: {
+    type: String,
+    default: '/storyImage/command1.png'
   }
 })
 
@@ -88,7 +97,8 @@ const subtitleChars = computed(() => {
 const backgroundStyle = computed(() => {
   return {
     '--bg-image': `url(${props.backgroundImage})`,
-    '--hover-gradient': props.hoverGradient
+    '--hover-gradient': props.hoverGradient,
+    '--cmd-image': `url(${props.commandImage})`,
   }
 })
 
@@ -115,6 +125,10 @@ const decorations = computed(() => {
 
 // 点击处理
 const handleClick = (e) => {
+  // 未解锁时不允许点击
+  if (!props.unlocked) {
+    return
+  }
   const card = e.currentTarget
   card.style.transform = 'skewY(-2deg) scale(0.98)'
   setTimeout(() => {
@@ -154,6 +168,22 @@ defineExpose({
   flex: 0.9;
 }
 
+/* 未解锁状态 */
+.card-locked {
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.card-locked:hover {
+  flex: 1;
+  transform: skewY(-2deg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.card-locked:hover .card-background {
+  transform: none;
+}
+
 /* 背景层 */
 .card-background {
   position: absolute;
@@ -176,14 +206,17 @@ defineExpose({
   left: 0;
   width: 100%;
   height: 100%;
-    background: rgba(255, 255, 255, 0.85);
+    background: var(--hover-gradient);
   transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1;
+  opacity: 1;
+  z-index: 3;
 }
 
 /* hover时添加彩色渐变叠加到底层 */
 .card:hover .card-background::before {
   background: var(--hover-gradient);
+  z-index: 1;
+  opacity: 1;
 }
 
 /* 人物图片层 - 在渐变色上层 */
@@ -198,14 +231,39 @@ defineExpose({
   background-size: cover;
   background-repeat: no-repeat;
 
-  opacity: 0.2;
+  opacity: 1;
   transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 2;
+
 }
 
 /* hover时人物图片更明显 */
 .card:hover .card-background::after {
   opacity: 1;
+  z-index: 5;
+
+}
+
+/* 未选中时的覆盖图片层 - 位于人物图片上层 */
+.card-overlay-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: var(--cmd-image);
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.1;
+  transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* 悬停时隐藏覆盖图片 */
+.card:hover .card-overlay-image {
+  opacity: 0;
 }
 
 /* 分割线 - 调整为适应新布局 */
@@ -244,7 +302,7 @@ defineExpose({
 }
 
 .card:hover::after {
-  opacity: 1;
+  opacity: 0.5;
 }
 
 /* 内容容器 - 增加内边距 */
@@ -259,6 +317,14 @@ defineExpose({
   padding: 80px 40px 80px 50px; /* 增加左侧内边距 */
   z-index: 10;
   transform: skewY(2deg); /* 反向倾斜使内容保持垂直 */
+  transition: filter 0.6s ease;
+}
+
+/* 未解锁时内容模糊 */
+.content-blur {
+  filter: blur(80px);
+  user-select: none;
+  pointer-events: none;
 }
 
 /* 卡片编号 - 调整位置 */
@@ -283,23 +349,24 @@ defineExpose({
   position: absolute;
   top: 40px; /* 增加顶部距离 */
   left: 50px; /* 更靠左 */
-  width: 32px;
-  height: 32px;
+  width: auto;
+  min-width: 60px;
+  height: 30px;
+  padding: 0 16px;
   border: 1px solid rgba(120, 120, 140, 0.25);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  color: rgba(100, 100, 120, 0.5);
+  font-size: 20px;
+  color: rgba(0, 0, 0, 1);
   font-weight: 300;
   transition: all 0.5s ease;
 }
 
 .card:hover .card-season {
-  border-color: rgba(120, 120, 140, 0.5);
-  color: rgba(100, 100, 120, 0.8);
-  transform: rotate(90deg);
+  border-color: rgba(120, 120, 140, 1);
+  color: rgba(100, 100, 120, 1);
 }
 
 /* 主标题 */
@@ -310,7 +377,7 @@ defineExpose({
   font-weight: 300;
   color: rgba(70, 70, 90, 1);
   letter-spacing: 10px;
-  margin-top: -900px; /* 向上移动 */
+  margin-top: -950px; /* 向上移动 */
   margin-bottom: 40px; /* 增加间距 */
   position: absolute;
   transition: all 0.6s ease;
@@ -543,6 +610,47 @@ defineExpose({
   transparent 60%,
   rgba(120, 120, 140, 0.3) 60%,
   rgba(120, 120, 140, 0.3) 100%);
+}
+
+/* 未解锁遮罩层 */
+.card-lock-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(30px);
+  z-index: 20;
+  transform: skewY(2deg);
+  pointer-events: none;
+}
+
+
+
+.lock-text {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-size: 18px;
+  font-weight: 300;
+  color: rgba(100, 100, 120, 0.8);
+  letter-spacing: 4px;
+  font-family: 'Noto Sans JP', sans-serif;
+}
+
+@keyframes lockPulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
 }
 
 /* 响应式调整 */

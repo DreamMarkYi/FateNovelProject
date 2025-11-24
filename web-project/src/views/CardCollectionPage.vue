@@ -23,6 +23,8 @@
           :hover-gradient="card.hoverGradient"
           :decoration-type="card.decorationType"
           :index="index"
+          :unlocked="card.unlocked !== undefined ? card.unlocked : true"
+          :command-image="card.commandImage"
           @click="handleCardClick"
         />
       </div>
@@ -52,34 +54,37 @@ const cardRefs = ref([])
 // 卡片数据
 const cardsData = [
   {
-    season: '春',
+    season: 'Saber',
     number: 'H O 1',
-    title: '人間不信',
-    subtitle: '桜花之章',
+    title: '白鳥 瑤',
+    subtitle: '皎月之章',
     label: 'Distrust',
     backgroundImage: '/storyImage/haruka1_Alpha_position.png',
-    hoverGradient: 'linear-gradient(168deg, rgba(252, 238, 243, 0.7) 0%, rgba(227, 252, 254, 0.6) 50%, rgba(200, 207, 207, 0.5) 100%)',
-    decorationType: 'type1'
+    hoverGradient: 'linear-gradient(168deg, rgba(252, 253, 257 ,0.7) 0%, rgba(227, 252, 254, 0.6) 50%, rgba(200, 207, 207, 0.5) 100%)',
+    decorationType: 'type1',
+    commandImage:'/storyImage/command1.png'
   },
   {
-    season: '夏',
+    season: 'Archer',
     number: 'H O 2',
-    title: '思界者',
-    subtitle: '夏日之詩',
+    title: '天宮院 菲娜',
+    subtitle: '烈阳之詩',
     label: 'Thinker',
     backgroundImage: '/storyImage/Ruri1.png',
-    hoverGradient: 'linear-gradient(168deg, rgba(252, 242, 238, 0.7) 0%, rgba(209, 101, 116, 0.6) 50%, rgba(235, 206, 201, 0.5) 100%)',
-    decorationType: 'type2'
+    hoverGradient: 'linear-gradient(168deg, rgba(252, 242, 238, 0.9) 0%, rgba(227, 164, 171, 0.8) 50%, rgba(235, 206, 201, 0.7) 100%)',
+    decorationType: 'type2',
+    commandImage:'/storyImage/command2.png'
   },
   {
-    season: '秋',
+    season: 'Caster',
     number: 'H O 3',
-    title: '永遠回帰',
-    subtitle: '紅葉之歌',
+    title: '神代 琉璃',
+    subtitle: '玫瑰之歌',
     label: 'Recurrence',
-    backgroundImage: '/storyImage/haruka1_Alpha_position.png',
-    hoverGradient: 'linear-gradient(168deg, rgba(240, 242, 245, 0.7) 0%, rgba(231, 233, 238, 0.6) 50%, rgba(204, 207, 217, 0.5) 100%)',
-    decorationType: 'type1'
+    backgroundImage: '/storyImage/Seraphina.png',
+    hoverGradient: 'linear-gradient(168deg, rgba(240, 242, 245, 0.7) 0%, rgba(123, 123, 114, 0.6) 50%, rgba(204, 207, 217, 0.5) 100%)',
+    decorationType: 'type1',
+    commandImage:'/storyImage/command3.png'
   },
   {
     season: '冬',
@@ -89,7 +94,9 @@ const cardsData = [
     label: 'Crystal',
     backgroundImage: '/storyImage/haruka1_Alpha_position.png',
     hoverGradient: 'linear-gradient(168deg, rgba(238, 242, 247, 0.7) 0%, rgba(229, 233, 242, 0.6) 50%, rgba(201, 206, 221, 0.5) 100%)',
-    decorationType: 'type2'
+    decorationType: 'type2',
+    unlocked: false,
+    commandImage:'/storyImage/command1.png'
   },
   {
     season: '暁',
@@ -99,7 +106,9 @@ const cardsData = [
     label: 'Dawn',
     backgroundImage: '/storyImage/haruka1_Alpha_position.png',
     hoverGradient: 'linear-gradient(168deg, rgba(238, 247, 242, 0.7) 0%, rgba(229, 242, 233, 0.6) 50%, rgba(201, 220, 207, 0.5) 100%)',
-    decorationType: 'type1'
+    decorationType: 'type1',
+    unlocked: false,
+    commandImage:'/storyImage/command1.png'
   },
   {
     season: '暮',
@@ -109,7 +118,9 @@ const cardsData = [
     label: 'Twilight',
     backgroundImage: '/storyImage/haruka1_Alpha_position.png',
     hoverGradient: 'linear-gradient(168deg, rgba(252, 247, 238, 0.7) 0%, rgba(249, 242, 229, 0.6) 50%, rgba(235, 222, 201, 0.5) 100%)',
-    decorationType: 'type2'
+    decorationType: 'type2',
+    unlocked: false,
+    commandImage:'/storyImage/command2.png'
   },
   {
     season: '夜',
@@ -119,7 +130,9 @@ const cardsData = [
     label: 'Fantasy',
     backgroundImage: '/storyImage/haruka1_Alpha_position.png',
     hoverGradient: 'linear-gradient(168deg, rgba(245, 238, 245, 0.7) 0%, rgba(239, 229, 239, 0.6) 50%, rgba(217, 202, 217, 0.5) 100%)',
-    decorationType: 'type1'
+    decorationType: 'type1',
+    unlocked: false,
+    commandImage:'/storyImage/command2.png'
   }
 ]
 
