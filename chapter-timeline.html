@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>章节时间轴</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+            background: #fafaf8;
+            min-height: 100vh;
+            padding: 60px 20px;
+            position: relative;
+            overflow-x: hidden;
+            color: #2a2a2a;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 100px;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            color: #2a2a2a;
+            font-weight: 300;
+            letter-spacing: 8px;
+            margin-bottom: 16px;
+        }
+
+        .header .subtitle {
+            font-size: 0.9em;
+            color: #888;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        /* Timeline container */
+        .timeline {
+            position: relative;
+            padding: 60px 0;
+        }
+
+        /* Main timeline line */
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #d4d4d4;
+            transform: translateY(-50%);
+        }
+
+        /* Timeline nodes container */
+        .timeline-nodes {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            gap: 40px;
+        }
+
+        /* Individual chapter node */
+        .chapter-node {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .chapter-node:hover {
+            transform: translateY(-8px);
+        }
+
+        /* Node connector dot */
+        .node-dot {
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            border: 1px solid #2a2a2a;
+            border-radius: 50%;
+            position: relative;
+            z-index: 2;
+            transition: all 0.3s ease;
+        }
+
+        .chapter-node:hover .node-dot {
+            width: 14px;
+            height: 14px;
+            background: #2a2a2a;
+        }
+
+        /* Chapter card */
+        .chapter-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            padding: 32px 24px;
+            margin-top: 50px;
+            min-width: 180px;
+            max-width: 200px;
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .chapter-node:nth-child(even) .chapter-card {
+            margin-top: -220px;
+        }
+
+        .chapter-node:hover .chapter-card {
+            border-color: #2a2a2a;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+        }
+
+        .chapter-number {
+            font-size: 3em;
+            font-weight: 200;
+            color: #2a2a2a;
+            margin-bottom: 16px;
+            letter-spacing: 2px;
+        }
+
+        .chapter-title {
+            font-size: 0.95em;
+            color: #2a2a2a;
+            text-align: center;
+            line-height: 1.6;
+            letter-spacing: 1px;
+            font-weight: 400;
+        }
+
+        .chapter-year {
+            font-size: 0.75em;
+            color: #999;
+            margin-top: 12px;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        /* Lock icon for locked chapters */
+        .lock-icon {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 14px;
+        }
+
+        .chapter-card.locked {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .chapter-card.locked:hover {
+            border-color: #e0e0e0;
+            box-shadow: none;
+        }
+
+        /* Connector line from dot to card */
+        .connector-line {
+            position: absolute;
+            width: 1px;
+            background: #d4d4d4;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .chapter-node:nth-child(even) .connector-line {
+            top: -220px;
+            height: 220px;
+        }
+
+        .chapter-node:nth-child(odd) .connector-line {
+            top: 10px;
+            height: 50px;
+        }
+
+        /* Image placeholder in card */
+        .chapter-image {
+            width: 100%;
+            height: 120px;
+            background: #f5f5f5;
+            border: 1px solid #e8e8e8;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ccc;
+            font-size: 0.75em;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        /* Achievement badge */
+        .achievement-badge {
+            position: fixed;
+            bottom: 40px;
+            left: 40px;
+            background: #fff;
+            color: #2a2a2a;
+            padding: 16px 28px;
+            border: 1px solid #e0e0e0;
+            font-size: 0.9em;
+            font-weight: 300;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .achievement-badge:hover {
+            border-color: #2a2a2a;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.1);
+        }
+
+        .badge-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2a2a2a;
+            font-size: 16px;
+        }
+
+        @media (max-width: 1200px) {
+            .timeline-nodes {
+                flex-wrap: wrap;
+            }
+
+            .chapter-node {
+                flex: 0 0 calc(50% - 20px);
+                margin-bottom: 100px;
+            }
+
+            .chapter-node:nth-child(even) .chapter-card {
+                margin-top: 50px;
+            }
+
+            .chapter-node:nth-child(even) .connector-line {
+                top: 10px;
+                height: 50px;
+            }
+
+            .timeline::before {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 40px 16px;
+            }
+
+            .chapter-node {
+                flex: 0 0 100%;
+            }
+
+            .header h1 {
+                font-size: 1.5em;
+                letter-spacing: 4px;
+            }
+
+            .header .subtitle {
+                font-size: 0.8em;
+            }
+
+            .achievement-badge {
+                bottom: 20px;
+                left: 20px;
+                font-size: 0.8em;
+                padding: 12px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>历史之旅</h1>
+            <div class="subtitle">选择章节开始您的探索</div>
+        </div>
+
+        <div class="timeline">
+            <div class="timeline-nodes">
+                <!-- Chapter 1 -->
+                <div class="chapter-node" onclick="selectChapter(1)">
+                    <div class="connector-line"></div>
+                    <div class="chapter-card">
+                        <div class="chapter-image">历史图片</div>
+                        <div class="chapter-number">01</div>
+                        <div class="chapter-title">艺术何处</div>
+                        <div class="chapter-year">1900-1910</div>
+                    </div>
+                    <div class="node-dot"></div>
+                </div>
+
+                <!-- Chapter 2 -->
+                <div class="chapter-node" onclick="selectChapter(2)">
+                    <div class="node-dot"></div>
+                    <div class="connector-line"></div>
+                    <div class="chapter-card">
+                        <div class="chapter-image">历史图片</div>
+                        <div class="chapter-number">02</div>
+                        <div class="chapter-title">灾难命名</div>
+                        <div class="chapter-year">1910-1920</div>
+                    </div>
+                </div>
+
+                <!-- Chapter 3 -->
+                <div class="chapter-node" onclick="selectChapter(3)">
+                    <div class="connector-line"></div>
+                    <div class="chapter-card">
+                        <div class="chapter-image">历史图片</div>
+                        <div class="chapter-number">03</div>
+                        <div class="chapter-title">愿望成真</div>
+                        <div class="chapter-year">1920-1930</div>
+                    </div>
+                    <div class="node-dot"></div>
+                </div>
+
+                <!-- Chapter 4 -->
+                <div class="chapter-node" onclick="selectChapter(4)">
+                    <div class="node-dot"></div>
+                    <div class="connector-line"></div>
+                    <div class="chapter-card locked">
+                        <div class="lock-icon">🔒</div>
+                        <div class="chapter-image">历史图片</div>
+                        <div class="chapter-number">04</div>
+                        <div class="chapter-title">姐妹情深</div>
+                        <div class="chapter-year">1930-1940</div>
+                    </div>
+                </div>
+
+                <!-- Chapter 5 -->
+                <div class="chapter-node" onclick="selectChapter(5)">
+                    <div class="connector-line"></div>
+                    <div class="chapter-card locked">
+                        <div class="lock-icon">🔒</div>
+                        <div class="chapter-image">历史图片</div>
+                        <div class="chapter-number">05</div>
+                        <div class="chapter-title">淑女之道</div>
+                        <div class="chapter-year">1940-1950</div>
+                    </div>
+                    <div class="node-dot"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="achievement-badge" onclick="showAchievements()">
+            <div class="badge-icon">★</div>
+            <span>成就与挑战</span>
+        </div>
+    </div>
+
+    <script>
+        function selectChapter(chapterNum) {
+            const cards = document.querySelectorAll('.chapter-card');
+            const selectedCard = cards[chapterNum - 1];
+            
+            if (selectedCard.classList.contains('locked')) {
+                alert('此章节尚未解锁');
+                return;
+            }
+            
+            // Add subtle visual feedback
+            selectedCard.style.background = '#f8f8f8';
+            setTimeout(() => {
+                selectedCard.style.background = '#fff';
+                alert(`第 ${chapterNum} 章`);
+            }, 200);
+        }
+
+        function showAchievements() {
+            alert('成就：\n\n完成第1章\n完成第2章\n完成第3章');
+        }
+
+        // Subtle fade-in animation on load
+        window.addEventListener('load', () => {
+            const nodes = document.querySelectorAll('.chapter-node');
+            nodes.forEach((node, index) => {
+                node.style.opacity = '0';
+                node.style.transform = 'translateY(10px)';
+                node.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+                
+                setTimeout(() => {
+                    node.style.opacity = '1';
+                    node.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html>

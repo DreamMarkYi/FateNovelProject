@@ -25,6 +25,10 @@
           :index="index"
           :unlocked="card.unlocked !== undefined ? card.unlocked : true"
           :command-image="card.commandImage"
+          :overlay-color="card.overlayColor || 'rgba(100, 150, 200, 0.3)'"
+          :overlay-dark-color="card.overlayDarkColor || 'rgba(50, 80, 120, 0.3)'"
+          :overlay-background-image="card.overlayBackgroundImage || '/storyImage/harukaBG.png'"
+          :is-active="activeCardIndex === index"
           @click="handleCardClick"
         />
       </div>
@@ -50,6 +54,7 @@ import CardItem from '../components/CardItem.vue'
 
 const sidebarContentRef = ref(null)
 const cardRefs = ref([])
+const activeCardIndex = ref(null) // 跟踪当前激活的卡片索引
 
 // 卡片数据
 const cardsData = [
@@ -60,20 +65,27 @@ const cardsData = [
     subtitle: '皎月之章',
     label: 'Distrust',
     backgroundImage: '/storyImage/haruka1_Alpha_position.png',
-    hoverGradient: 'linear-gradient(168deg, rgba(252, 253, 257 ,0.7) 0%, rgba(227, 252, 254, 0.6) 50%, rgba(200, 207, 207, 0.5) 100%)',
+    hoverGradient: 'linear-gradient(168deg, rgba(252, 253, 257 ,0.9) 0%, rgba(227, 252, 254, 0.8) 50%, rgba(50, 51, 51, 0.9) 100%)',
     decorationType: 'type1',
-    commandImage:'/storyImage/command1.png'
+    commandImage:'/storyImage/command1.png',
+    overlayColor: 'rgb(224,246,255 ,1)',
+    overlayDarkColor : 'rgba(247,252,255,1)',
+    overlayBackgroundImage : "/storyImage/harukaBG2.png"
   },
   {
     season: 'Archer',
     number: 'H O 2',
     title: '天宮院 菲娜',
+
     subtitle: '烈阳之詩',
     label: 'Thinker',
     backgroundImage: '/storyImage/Ruri1.png',
-    hoverGradient: 'linear-gradient(168deg, rgba(252, 242, 238, 0.9) 0%, rgba(227, 164, 171, 0.8) 50%, rgba(235, 206, 201, 0.7) 100%)',
+    hoverGradient: 'linear-gradient(168deg, rgba(252, 242, 238, 0.7) 0%, rgba(148, 49, 49, 0.5) 50%, rgba(59, 52, 50, 0.9) 100%)',
     decorationType: 'type2',
-    commandImage:'/storyImage/command2.png'
+    commandImage:'/storyImage/command2.png',
+    overlayColor: 'rgba(255,55,55 , 0.4)',
+    overlayDarkColor : 'rgba(60,17,23,1)',
+    overlayBackgroundImage:'/storyImage/SeraphinaBG4.png',
   },
   {
     season: 'Caster',
@@ -82,9 +94,12 @@ const cardsData = [
     subtitle: '玫瑰之歌',
     label: 'Recurrence',
     backgroundImage: '/storyImage/Seraphina.png',
-    hoverGradient: 'linear-gradient(168deg, rgba(240, 242, 245, 0.7) 0%, rgba(123, 123, 114, 0.6) 50%, rgba(204, 207, 217, 0.5) 100%)',
+    hoverGradient: 'linear-gradient(168deg, rgba(240, 242, 245, 0.9) 0%, rgba(123, 123, 114, 0.9) 50%, rgba(20, 20, 20, 0.9) 100%)',
     decorationType: 'type1',
-    commandImage:'/storyImage/command3.png'
+    commandImage:'/storyImage/command3.png',
+    overlayColor: 'rgba(90,25,25,0.6)',
+    overlayBackgroundImage:'/storyImage/RuriBG5.png',
+
   },
   {
     season: '冬',
@@ -96,7 +111,8 @@ const cardsData = [
     hoverGradient: 'linear-gradient(168deg, rgba(238, 242, 247, 0.7) 0%, rgba(229, 233, 242, 0.6) 50%, rgba(201, 206, 221, 0.5) 100%)',
     decorationType: 'type2',
     unlocked: false,
-    commandImage:'/storyImage/command1.png'
+    commandImage:'/storyImage/command1.png',
+    overlayColor: 'rgba(200, 220, 255, 0.35)'
   },
   {
     season: '暁',
@@ -108,7 +124,8 @@ const cardsData = [
     hoverGradient: 'linear-gradient(168deg, rgba(238, 247, 242, 0.7) 0%, rgba(229, 242, 233, 0.6) 50%, rgba(201, 220, 207, 0.5) 100%)',
     decorationType: 'type1',
     unlocked: false,
-    commandImage:'/storyImage/command1.png'
+    commandImage:'/storyImage/command1.png',
+    overlayColor: 'rgba(255, 220, 150, 0.4)'
   },
   {
     season: '暮',
@@ -120,7 +137,8 @@ const cardsData = [
     hoverGradient: 'linear-gradient(168deg, rgba(252, 247, 238, 0.7) 0%, rgba(249, 242, 229, 0.6) 50%, rgba(235, 222, 201, 0.5) 100%)',
     decorationType: 'type2',
     unlocked: false,
-    commandImage:'/storyImage/command2.png'
+    commandImage:'/storyImage/command2.png',
+    overlayColor: 'rgba(255, 180, 140, 0.4)'
   },
   {
     season: '夜',
@@ -132,7 +150,8 @@ const cardsData = [
     hoverGradient: 'linear-gradient(168deg, rgba(245, 238, 245, 0.7) 0%, rgba(239, 229, 239, 0.6) 50%, rgba(217, 202, 217, 0.5) 100%)',
     decorationType: 'type1',
     unlocked: false,
-    commandImage:'/storyImage/command2.png'
+    commandImage:'/storyImage/command2.png',
+    overlayColor: 'rgba(180, 160, 220, 0.4)'
   }
 ]
 
@@ -173,6 +192,12 @@ const handleMouseMove = (e) => {
 // 卡片点击处理
 const handleCardClick = (index) => {
   console.log('Card clicked:', index)
+  // 如果点击的是当前激活的卡片，则取消激活；否则激活该卡片
+  if (activeCardIndex.value === index) {
+    activeCardIndex.value = null
+  } else {
+    activeCardIndex.value = index
+  }
   // 可以在这里添加路由跳转或其他逻辑
 }
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>几何线条</title>
+    <title>视觉小说 - Visual Novel</title>
     <style>
         * {
             margin: 0;
@@ -12,60 +12,484 @@
         }
 
         body {
-            width: 100vw;
-            height: 100vh;
-            background-color: #e8e8e8;
+            font-family: 'Yu Mincho', 'YuMincho', 'Hiragino Mincho ProN', 'Hiragino Mincho Pro', 'Songti SC', 'SimSun', serif;
+            background: linear-gradient(135deg, #faf9f6 0%, #f5f3ef 50%, #fef8f3 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            padding: 40px 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1300px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 30px rgba(0, 0, 0, 0.03);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        /* 图片区域 */
+        .image-section {
+            width: 100%;
+            height: 450px;
+            background: #fafafa;
+            position: relative;
             overflow: hidden;
         }
 
-        svg {
+        .image-section img {
             width: 100%;
             height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 1.2s ease;
+            filter: saturate(0.85) brightness(1.05);
+        }
+
+        .image-section img.active {
+            opacity: 0.95;
+        }
+
+        /* 文本区域 */
+        .text-section {
+            width: 100%;
+            display: flex;
+            position: relative;
+            min-height: 420px;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        /* 左侧 - 垂直标题 */
+        .text-left {
+            width: 140px;
+            background: transparent;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 0;
+        }
+
+        .vertical-title {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            font-size: 1.4em;
+            font-weight: 300;
+            color: rgba(100, 100, 100, 0.6);
+            letter-spacing: 0.8em;
+            line-height: 1.8;
+        }
+
+        .vertical-subtitle {
+            writing-mode: vertical-rl;
+            font-size: 0.7em;
+            font-weight: 200;
+            letter-spacing: 0.5em;
+            margin-left: 20px;
+            opacity: 0.5;
+        }
+
+        /* 右侧 - 两栏文本 */
+        .text-right {
+            flex: 1;
+            display: flex;
+            padding: 80px 80px 80px 60px;
+            gap: 80px;
+        }
+
+        .text-column {
+            flex: 1;
+            color: rgba(80, 80, 80, 0.75);
+            font-size: 0.85em;
+            line-height: 2.6;
+            text-align: justify;
+            letter-spacing: 0.08em;
+            font-weight: 300;
+        }
+
+        .text-column p {
+            margin-bottom: 2em;
+            text-indent: 2em;
+        }
+
+        .text-column strong {
+            color: rgba(60, 60, 60, 0.85);
+            font-weight: 400;
+            position: relative;
+        }
+
+        /* 页码指示器 */
+        .page-indicator {
+            position: absolute;
+            bottom: 50px;
+            right: 80px;
+            font-size: 2.5em;
+            font-weight: 200;
+            color: rgba(0, 0, 0, 0.08);
+            letter-spacing: 0.15em;
+            font-family: 'Georgia', 'Times New Roman', serif;
+        }
+
+        /* 导航提示 */
+        .navigation-hint {
+            position: absolute;
+            top: 35px;
+            right: 80px;
+            font-size: 0.65em;
+            color: rgba(0, 0, 0, 0.25);
+            letter-spacing: 0.3em;
+            font-weight: 300;
+            animation: fadeInOut 4s ease-in-out infinite;
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.7; }
+        }
+
+        /* 页面过渡动画 */
+        .page-transition {
+            animation: fadeIn 1.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 装饰性细线 */
+        .corner-decoration {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 0.5px solid rgba(0, 0, 0, 0.06);
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        .corner-decoration.top-left {
+            top: 20px;
+            left: 20px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .corner-decoration.top-right {
+            top: 20px;
+            right: 20px;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .corner-decoration.bottom-left {
+            bottom: 20px;
+            left: 20px;
+            border-right: none;
+            border-top: none;
+        }
+
+        .corner-decoration.bottom-right {
+            bottom: 20px;
+            right: 20px;
+            border-left: none;
+            border-top: none;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 1000px) {
+            .text-right {
+                flex-direction: column;
+                gap: 50px;
+                padding: 60px 50px;
+            }
+
+            .vertical-title {
+                font-size: 1.2em;
+            }
+
+            .page-indicator {
+                font-size: 2em;
+                bottom: 40px;
+                right: 50px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 10px;
+            }
+
+            .image-section {
+                height: 300px;
+            }
+
+            .text-section {
+                flex-direction: column;
+                min-height: auto;
+            }
+
+            .text-left {
+                width: 100%;
+                height: 60px;
+                padding: 0;
+                border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
+            }
+
+            .vertical-title {
+                writing-mode: horizontal-tb;
+                font-size: 1em;
+                letter-spacing: 0.5em;
+            }
+
+            .vertical-subtitle {
+                writing-mode: horizontal-tb;
+                margin-left: 15px;
+                letter-spacing: 0.3em;
+            }
+
+            .text-right {
+                padding: 40px 30px;
+                gap: 30px;
+            }
+
+            .text-column {
+                font-size: 0.8em;
+                line-height: 2.4;
+            }
+
+            .page-indicator {
+                font-size: 1.8em;
+                bottom: 30px;
+                right: 30px;
+            }
+
+            .navigation-hint {
+                top: 25px;
+                right: 30px;
+                font-size: 0.6em;
+            }
         }
     </style>
 </head>
 <body>
-<svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
-    <!-- 左侧小菱形 -->
-    <line x1="705" y1="360" x2="745" y2="400" stroke="#c4c0b8" stroke-width="2" fill="none"/>
-    <line x1="745" y1="400" x2="785" y2="360" stroke="#c4c0b8" stroke-width="2" fill="none"/>
-    <line x1="745" y1="400" x2="705" y2="440" stroke="#c4c0b8" stroke-width="2" fill="none"/>
-    <line x1="745" y1="400" x2="785" y2="440" stroke="#c4c0b8" stroke-width="2" fill="none"/>
+<div class="container" id="vnContainer">
+    <!-- 装饰性角标 -->
+    <div class="corner-decoration top-left"></div>
+    <div class="corner-decoration top-right"></div>
+    <div class="corner-decoration bottom-left"></div>
+    <div class="corner-decoration bottom-right"></div>
 
-    <!-- 左侧横线 -->
-    <line x1="620" y1="418" x2="680" y2="418" stroke="#c4c0b8" stroke-width="2" fill="none"/>
+    <!-- 图片区域 -->
+    <div class="image-section">
+        <img id="currentImage" src="" alt="Scene">
+    </div>
 
-    <!-- 中心主矩形（外框） -->
-    <rect x="740" y="255" width="650" height="330" fill="none" stroke="#c4c0b8" stroke-width="5"/>
+    <!-- 文本区域 -->
+    <div class="text-section">
+        <!-- 左侧垂直标题 -->
+        <div class="text-left">
+            <div class="vertical-title" id="verticalTitle">
+                EVANGELION
+                <span class="vertical-subtitle">NEON GENESIS</span>
+            </div>
+        </div>
 
-    <!-- 中心主矩形（内框） -->
-    <rect x="760" y="275" width="610" height="290" fill="none" stroke="#c4c0b8" stroke-width="2"/>
+        <!-- 右侧两栏文本 -->
+        <div class="text-right page-transition" id="textRight">
+            <div class="text-column" id="textColumn1"></div>
+            <div class="text-column" id="textColumn2"></div>
+        </div>
 
-    <!-- 中心大菱形 -->
-    <line x1="1065" y1="195" x2="1065" y2="625" stroke="#d4d0c8" stroke-width="2" fill="none"/>
-    <line x1="1065" y1="195" x2="1175" y2="305" stroke="#d4d0c8" stroke-width="2" fill="none"/>
-    <line x1="1175" y1="305" x2="1065" y2="415" stroke="#d4d0c8" stroke-width="2" fill="none"/>
-    <line x1="1065" y1="415" x2="955" y2="305" stroke="#d4d0c8" stroke-width="2" fill="none"/>
-    <line x1="955" y1="305" x2="1065" y2="195" stroke="#d4d0c8" stroke-width="2" fill="none"/>
-    <line x1="1065" y1="415" x2="1175" y2="525" stroke="#d4d0c8" stroke-width="2" fill="none"/>
-    <line x1="1175" y1="525" x2="1065" y2="625" stroke="#d4d0c8" stroke-width="2" fill="none"/>
-    <line x1="1065" y1="625" x2="955" y2="525" stroke="#d4d0c8" stroke-width="2" fill="none"/>
-    <line x1="955" y1="525" x2="1065" y2="415" stroke="#d4d0c8" stroke-width="2" fill="none"/>
+        <!-- 页码 -->
+        <div class="page-indicator" id="pageIndicator">01</div>
 
-    <!-- 右侧横线 -->
-    <line x1="1400" y1="418" x2="1490" y2="418" stroke="#c4c0b8" stroke-width="2" fill="none"/>
+        <!-- 导航提示 -->
+        <div class="navigation-hint">点击继续</div>
+    </div>
+</div>
 
-    <!-- 右侧小菱形 -->
-    <line x1="1485" y1="405" x2="1510" y2="430" stroke="#c4c0b8" stroke-width="2" fill="none"/>
-    <line x1="1510" y1="430" x2="1535" y2="405" stroke="#c4c0b8" stroke-width="2" fill="none"/>
-    <line x1="1510" y1="430" x2="1485" y2="455" stroke="#c4c0b8" stroke-width="2" fill="none"/>
-    <line x1="1510" y1="430" x2="1535" y2="455" stroke="#c4c0b8" stroke-width="2" fill="none"/>
+<script>
+    // 视觉小说数据
+    const pages = [
+        {
+            image: 'https://images.unsplash.com/photo-1618022325802-7e5e732d97a1?w=1600&h=900&fit=crop',
+            title: 'EVANGELION',
+            subtitle: 'NEON GENESIS',
+            column1: `是一部日本机甲动画电视剧，由<strong>Hideaki Anno</strong>执导，由Gainax和Tatsunoko Production制作，于1995年3月至1996年播出。
 
-    <!-- 顶部小圆 -->
-    <circle cx="1065" cy="195" r="10" fill="#c4a999" stroke="none"/>
+演员包括Megumi Ogata、Megumi Hayashibara、Kotono Mitsuishi、Yuko Miyamura和Akira Ishida。音乐由Shiro Sagisu创作。
 
-    <!-- 底部小圆 -->
-    <circle cx="1065" cy="645" r="10" fill="#c4a999" stroke="none"/>
-</svg>
+《新世纪福音战士》获得了广泛好评，但也引发了争议。尤其是最后两集因探讨了<strong>人类存在的终结</strong>而备受争议，从不同视角展现结局。`,
+            column2: `《新世纪福音战士》的故事设定在第二次冲击（特别是东京-3这座强化城市）发生十五年后。
+
+主角是Shinji，一个被父亲Gendo召唤到影子组织Nerv的少年，目的是驾驶一台名为"Evangelion"的巨型机甲，与被称为<strong>Angels</strong>的生命体作战。
+
+该系列探讨了Evangelion飞行员和成员的经历和情感，因为他们试图阻止Angels引发更多灾难。在这个过程中，他们被要求理解灾难的最终原因以及人类行为的动机。`
+        },
+        {
+            image: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=1600&h=900&fit=crop',
+            title: '使徒来袭',
+            subtitle: 'ANGEL ATTACK',
+            column1: `第三使徒突然出现在东京-3市郊。联合国军队动用了所有常规武器，包括N²地雷，但都无法对其造成任何伤害。
+
+面对这个未知的敌人，人类第一次感受到了真正的无力感。所有的科技，所有的武器，在这个神秘生命体面前都变得毫无意义。
+
+<strong>NERV</strong>组织启动了紧急协议，准备出动人类最后的希望——EVA初号机。`,
+            column2: `碇真嗣被父亲召唤到NERV总部时，他并不知道等待自己的是什么。在地下深处，他第一次见到了那个紫色的巨人。
+
+"驾驶它，"父亲冷漠地说，"不然就让绫波丽带着伤再来一次。"
+
+真嗣犹豫了。他不明白为什么是自己，为什么要战斗。但当他看到重伤的绫波丽时，他做出了决定。就在那一刻，一个十四岁少年的命运被永远改变了。`
+        },
+        {
+            image: 'https://images.unsplash.com/photo-1635776062043-223faf322554?w=1600&h=900&fit=crop',
+            title: '暴走',
+            subtitle: 'BERSERKER',
+            column1: `初号机的第一次战斗是一场灾难。真嗣没有接受过任何训练，对EVA的操作一无所知。使徒轻易地击倒了初号机，系统不断发出刺耳的警报。
+
+<strong>同步率崩溃。</strong>神经连接中断。生命维持系统失效。
+
+葛城美里在指挥中心焦急地下达着命令，但一切都太迟了。就在所有人以为这是终结的时候——`,
+            column2: `初号机动了。
+
+不，那不是真嗣在操纵。机体自己动了起来，以完全超越人类反应速度的动作躲开了使徒的攻击。然后，它发出了野兽般的咆哮。
+
+<strong>暴走状态。</strong>
+
+紫色的巨人以狂暴的姿态扑向使徒，双手撕开了AT力场，将使徒残忍地撕成碎片。驾驶舱内，真嗣已经昏迷。没有人知道刚才到底发生了什么。
+
+这是人类对使徒的第一次胜利，但代价是看到了EVA真正的面目——它并非只是机器。`
+        },
+        {
+            image: 'https://images.unsplash.com/photo-1579566346927-c68383817a25?w=1600&h=900&fit=crop',
+            title: '日常',
+            subtitle: 'DAILY LIFE',
+            column1: `战斗之后，真嗣开始了在东京-3的新生活。他住进了葛城美里的公寓，开始上学，试图过正常的中学生活。
+
+早晨的课程，午后的训练，傍晚的同步测试。表面上看，这似乎是普通的日子，但每个人都知道，<strong>下一次使徒来袭只是时间问题。</strong>
+
+在学校里，同学们既羡慕又畏惧他。毕竟，他是驾驶EVA拯救了城市的英雄。`,
+            column2: `但真嗣并不觉得自己是英雄。他只是一个被命运裹挟的少年，被迫坐进那个可怕的机器里。
+
+他遇到了另一位驾驶员——<strong>绫波丽</strong>。这个沉默寡言的少女驾驶着零号机，全身都是绷带。她很少说话，眼神总是空洞而遥远。
+
+还有新来的转学生，<strong>明日香</strong>。这个自信而强势的女孩驾驶着从德国运来的二号机。她骄傲地宣称自己是世界上最优秀的驾驶员。
+
+三个少年，三台EVA，三种不同的命运，在这座城市里交织在一起。`
+        },
+        {
+            image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1600&h=900&fit=crop',
+            title: '真相',
+            subtitle: 'THE TRUTH',
+            column1: `在NERV总部的最深处，在那些禁止进入的区域里，隐藏着这一切的真相。
+
+<strong>人类补完计划。</strong>
+
+这是碇源堂和Seele组织的终极目标。使徒的来袭，EVA的开发，少年们的牺牲——这一切都只是这个宏大计划的一部分。
+
+EVA并非人类制造的机器，而是从第一使徒<strong>Adam</strong>复制而来的人造生命体。每一台EVA都有自己的灵魂，都是活着的。`,
+            column2: `而初号机的灵魂，正是真嗣的母亲——<strong>碇唯</strong>。
+
+这就是为什么只有真嗣能够驾驶它。这就是为什么初号机会暴走来保护他。这就是那个紫色巨人令人不安的真相。
+
+真嗣开始质疑一切。父亲的目的，NERV的真实面目，以及自己战斗的意义。
+
+<strong>人类真的值得拯救吗？</strong>
+
+这个问题，将在最后的使徒降临时得到答案。而那个答案，可能比使徒本身更加可怕。`
+        },
+        {
+            image: 'https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?w=1600&h=900&fit=crop',
+            title: '未完待续',
+            subtitle: 'TO BE CONTINUED',
+            column1: `故事还远未结束。
+
+每一次战斗都让真嗣更加接近真相，但同时也让他更加迷茫。在这个复杂的世界里，没有简单的答案，没有绝对的正义。
+
+人与人之间的理解是如此困难。每个人都被困在自己的内心深处，无法真正触及他人。这种绝望的孤独，比使徒的威胁更加可怕。
+
+<strong>但正是这种努力，定义了我们作为人类的存在。</strong>`,
+            column2: `真嗣将继续战斗，不是因为他想成为英雄，而是因为他别无选择。绫波丽将继续执行命令，尽管她开始思考自己存在的意义。明日香将继续证明自己，尽管她的自信正在一点点崩溃。
+
+使徒还会继续出现。秘密还在不断揭开。而人类补完计划，正在一步步接近完成。
+
+在那个时刻到来之前，这些少年们将守护这座城市，守护人类，守护彼此。
+
+<strong>故事的结局，还未到来...</strong>`
+        }
+    ];
+
+    let currentPage = 0;
+
+    function updatePage() {
+        const page = pages[currentPage];
+        const textRight = document.getElementById('textRight');
+        const img = document.getElementById('currentImage');
+
+        // 移除过渡动画类
+        textRight.classList.remove('page-transition');
+
+        // 强制重排
+        void textRight.offsetWidth;
+
+        // 添加过渡动画类
+        textRight.classList.add('page-transition');
+
+        // 更新图片
+        img.classList.remove('active');
+        setTimeout(() => {
+            img.src = page.image;
+            img.onload = () => {
+                img.classList.add('active');
+            };
+        }, 200);
+
+        // 更新垂直标题
+        document.getElementById('verticalTitle').innerHTML =
+            page.title + '<span class="vertical-subtitle">' + page.subtitle + '</span>';
+
+        // 更新文本列
+        document.getElementById('textColumn1').innerHTML = page.column1;
+        document.getElementById('textColumn2').innerHTML = page.column2;
+
+        // 更新页码
+        document.getElementById('pageIndicator').textContent =
+            String(currentPage + 1).padStart(2, '0');
+    }
+
+    function nextPage() {
+        currentPage = (currentPage + 1) % pages.length;
+        updatePage();
+    }
+
+    // 点击翻页
+    document.getElementById('vnContainer').addEventListener('click', nextPage);
+
+    // 键盘翻页
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') {
+            nextPage();
+        } else if (e.key === 'ArrowLeft') {
+            currentPage = (currentPage - 1 + pages.length) % pages.length;
+            updatePage();
+        }
+    });
+
+    // 初始化
+    updatePage();
+</script>
 </body>
 </html>

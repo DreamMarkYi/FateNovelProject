@@ -5,6 +5,7 @@ import SowakaPage from '../views/SowakaPage.vue'
 import ChapterPage from '../views/ChapterPage.vue'
 import MinimalistPage from '../views/MinimalistPage.vue'
 import CardCollectionPage from '../views/CardCollectionPage.vue'
+import VisualNovelPage from '../views/VisualNovelPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -38,6 +39,11 @@ const router = createRouter({
       path: '/cards',
       name: 'cards',
       component: CardCollectionPage
+    },
+    {
+      path: '/visual-novel',
+      name: 'visualNovel',
+      component: VisualNovelPage
     }
   ]
 })

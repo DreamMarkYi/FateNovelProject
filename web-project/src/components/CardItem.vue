@@ -1,15 +1,25 @@
 <template>
   <div 
     class="card" 
-    :class="{ 'card-locked': !unlocked }"
+    :class="{ 'card-locked': !unlocked, 'active': isActive }"
     @click="handleClick"
     ref="cardRef"
     :style="backgroundStyle"
   >
     <div class="card-background"></div>
     
-    <!-- 未选中时的覆盖图片层 -->
-    <div class="card-overlay-image"></div>
+    <!-- 渐变色层 - 未激活时在最顶层，激活后在最下层 -->
+    <div class="card-gradient-layer"></div>
+
+    <!-- 粒子特效层 -->
+    <div class="particles-container">
+      <div 
+        v-for="(style, index) in particles" 
+        :key="index" 
+        class="particle"
+        :style="style"
+      ></div>
+    </div>
 
     <div class="card-content" :class="{ 'content-blur': !unlocked }">
       <div class="card-season">{{ season }}</div>
@@ -29,11 +39,14 @@
     <div v-if="!unlocked" class="card-lock-overlay">
       <div class="lock-text">未解锁</div>
     </div>
+
+    <!-- 命令图片层 - 未激活时显示在最上层 -->
+    <div class="card-command-layer"></div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, defineProps, defineEmits } from 'vue'
+import { ref, computed, defineProps, defineEmits, onMounted } from 'vue'
 
 const props = defineProps({
   season: {
@@ -80,6 +93,22 @@ const props = defineProps({
   commandImage: {
     type: String,
     default: '/storyImage/command1.png'
+  },
+  overlayColor: {
+    type: String,
+    default: 'rgba(100, 150, 200, 0.3)' // 亮色（对应图片的白色部分）
+  },
+  overlayDarkColor: {
+    type: String,
+    default: 'rgba(50, 80, 120, 0.3)' // 暗色（对应图片的黑色部分）
+  },
+  overlayBackgroundImage: {
+    type: String,
+    default: '/storyImage/harukaBG.png' // 覆盖层背景图片
+  },
+  isActive: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -87,6 +116,41 @@ const emit = defineEmits(['click'])
 
 const cardRef = ref(null)
 const decoRefs = ref([])
+const particles = ref([])
+
+// 生成粒子数据
+const generateParticles = () => {
+  const count = 50
+  const newParticles = []
+  
+  for (let i = 0; i < count; i++) {
+    // 决定粒子上升高度：70% 的粒子在 50% 以下，30% 的粒子可以更高
+    const isLow = Math.random() < 0.7
+    const riseHeight = isLow 
+      ? 20 + Math.random() * 30  // 20vh - 50vh
+      : 50 + Math.random() * 70  // 50vh - 120vh
+      
+    // 速度（持续时间）：高度越高，时间越长，但增加随机性
+    // 基础时间 10s，每 10vh 增加 1-2s
+    const duration = 5 + (riseHeight / 10) * (1 + Math.random())
+    
+    newParticles.push({
+      '--delay': `-${Math.random() * 20}s`,
+      '--duration': `${duration}s`,
+      '--x-start': `${Math.random() * 100}%`,
+      '--x-end': `${Math.random() * 100 + (Math.random() - 0.5) * 50}%`,
+      '--y-end': `-${riseHeight}vh`,
+      '--size': `${1 + Math.random() * 4}px`,
+      '--opacity': 0.1 + Math.random() * 0.7
+    })
+  }
+  
+  particles.value = newParticles
+}
+
+onMounted(() => {
+  generateParticles()
+})
 
 // 将副标题字符串拆分为字符数组
 const subtitleChars = computed(() => {
@@ -99,6 +163,9 @@ const backgroundStyle = computed(() => {
     '--bg-image': `url(${props.backgroundImage})`,
     '--hover-gradient': props.hoverGradient,
     '--cmd-image': `url(${props.commandImage})`,
+    '--overlay-color': props.overlayColor,
+    '--overlay-dark-color': props.overlayDarkColor,
+    '--overlay-bg-image': `url(${props.overlayBackgroundImage})`,
   }
 })
 
@@ -129,6 +196,7 @@ const handleClick = (e) => {
   if (!props.unlocked) {
     return
   }
+  
   const card = e.currentTarget
   card.style.transform = 'skewY(-2deg) scale(0.98)'
   setTimeout(() => {
@@ -158,13 +226,13 @@ defineExpose({
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.card:hover {
+.card.active {
   flex: 1.8;
   transform: skewY(-2deg) scale(1.01);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 
-.card:not(:hover) {
+.card:not(.active) {
   flex: 0.9;
 }
 
@@ -174,13 +242,13 @@ defineExpose({
   opacity: 0.85;
 }
 
-.card-locked:hover {
+.card-locked.active {
   flex: 1;
   transform: skewY(-2deg);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.card-locked:hover .card-background {
+.card-locked.active .card-background {
   transform: none;
 }
 
@@ -192,13 +260,65 @@ defineExpose({
   width: 100%;
   height: 110%;
   transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden; /* 确保背景层内容不溢出 */
 }
 
-.card:hover .card-background {
+.card.active .card-background {
   transform: scale(1.05);
 }
 
-/* 背景渐变色层 - 在最底层 */
+/* 渐变色层 - 未悬停时在最顶层，悬停后在最下层 */
+.card-gradient-layer {
+  position: absolute;
+  top: -5%;
+  left: 0;
+  width: 100%;
+  height: 110%;
+  background: var(--hover-gradient);
+  
+  /* 使用 mask 实现柔和边缘 */
+  mask-image: linear-gradient(to bottom, transparent 40%, black 60%);
+  mask-size: 100% 300%;
+  mask-position: 0 100%; /* 初始状态：显示底部（黑色/可见部分） */
+  mask-repeat: no-repeat;
+  
+  /* 光感效果：边缘发光 + 整体提亮 */
+  filter: drop-shadow(0 -5px 15px rgba(255, 255, 255, 0.6)) brightness(1.2);
+  
+  opacity: 1;
+  z-index: 7; /* 未悬停时在最顶层 */
+  pointer-events: none; /* 不阻挡点击事件 */
+  
+  /* 
+     Appear (Active -> Inactive):
+     - mask-position: 0 0 -> 0 100% (从下往上长出来)
+     - z-index: 立即变回 7
+  */
+  transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+              mask-position 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+              z-index 0s 0s;
+}
+
+/* 激活时渐变色层先移到最底层再变化透明度 */
+.card.active .card-gradient-layer {
+  z-index: -1; /* 激活时在最底层 */
+  opacity: 1; 
+  transform: scale(1.05);
+  
+  /* 激活状态：显示顶部（透明/隐藏部分） */
+  mask-position: 0 0;
+  
+  /* 
+     Disappear (Inactive -> Active):
+     - mask-position: 0 100% -> 0 0 (从上往下消失)
+     - z-index: 延迟变化
+  */
+  transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+              mask-position 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+              z-index 0s 0.8s;
+}
+
+/* 覆盖层背景图片 - 未hover时在最上层，hover时在人物下方 */
 .card-background::before {
   content: '';
   position: absolute;
@@ -206,18 +326,24 @@ defineExpose({
   left: 0;
   width: 100%;
   height: 100%;
-    background: var(--hover-gradient);
+  background-image: var(--overlay-bg-image);
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
   transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-  opacity: 1;
-  z-index: 3;
+  opacity: 0.8;
+  z-index: 2; /* 未hover时在最上层 */
+
 }
 
-/* hover时添加彩色渐变叠加到底层 */
-.card:hover .card-background::before {
-  background: var(--hover-gradient);
-  z-index: 1;
-  opacity: 1;
+
+/* 激活时覆盖层移到人物下方 */
+.card.active .card-background::before {
+  z-index: 1; /* 激活时在人物下方 */
+  opacity: 0.2;
+  mix-blend-mode: screen;
 }
+
 
 /* 人物图片层 - 在渐变色上层 */
 .card-background::after {
@@ -230,40 +356,17 @@ defineExpose({
   background-image: var(--bg-image);
   background-size: cover;
   background-repeat: no-repeat;
-
   opacity: 1;
   transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 2;
 
 }
 
-/* hover时人物图片更明显 */
-.card:hover .card-background::after {
+/* 激活时人物图片更明显 */
+.card.active .card-background::after {
   opacity: 1;
   z-index: 5;
 
-}
-
-/* 未选中时的覆盖图片层 - 位于人物图片上层 */
-.card-overlay-image {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: var(--cmd-image);
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: center;
-  opacity: 0.1;
-  transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 4;
-  pointer-events: none;
-}
-
-/* 悬停时隐藏覆盖图片 */
-.card:hover .card-overlay-image {
-  opacity: 0;
 }
 
 /* 分割线 - 调整为适应新布局 */
@@ -283,27 +386,6 @@ defineExpose({
   z-index: 10;
 }
 
-/* 光泽效果 */
-.card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(168deg,
-  rgba(255, 255, 255, 0.6) 0%,
-  rgba(255, 255, 255, 0.1) 50%,
-  rgba(255, 255, 255, 0) 100%);
-  opacity: 0;
-  transition: opacity 0.6s ease;
-  pointer-events: none;
-  z-index: 3;
-}
-
-.card:hover::after {
-  opacity: 0.5;
-}
 
 /* 内容容器 - 增加内边距 */
 .card-content {
@@ -340,7 +422,7 @@ defineExpose({
   transition: all 0.6s ease;
 }
 
-.card:hover .card-number {
+.card.active .card-number {
   color: rgba(100, 100, 120, 0.6);
 }
 
@@ -364,7 +446,7 @@ defineExpose({
   transition: all 0.5s ease;
 }
 
-.card:hover .card-season {
+.card.active .card-season {
   border-color: rgba(120, 120, 140, 1);
   color: rgba(100, 100, 120, 1);
 }
@@ -375,15 +457,15 @@ defineExpose({
   text-orientation: upright;
   font-size: 24px;
   font-weight: 300;
-  color: rgba(70, 70, 90, 1);
+  color: rgba(20, 20, 20, 1);
   letter-spacing: 10px;
-  margin-top: -950px; /* 向上移动 */
+  margin-top: -1300px; /* 向上移动 */
   margin-bottom: 40px; /* 增加间距 */
   position: absolute;
   transition: all 0.6s ease;
 }
 
-.card:hover .card-title {
+.card.active .card-title {
   letter-spacing: 14px;
   color: rgba(50, 50, 70, 1);
 }
@@ -418,7 +500,7 @@ defineExpose({
   rgba(120, 120, 140, 0.4));
 }
 
-.card:hover .card-title::before {
+.card.active .card-title::before {
   height: 45px;
   top: -60px;
   background: linear-gradient(to bottom,
@@ -427,7 +509,7 @@ defineExpose({
   rgba(120, 120, 140, 0.5));
 }
 
-.card:hover .card-title::after {
+.card.active .card-title::after {
   height: 45px;
   bottom: -60px;
   background: linear-gradient(to top,
@@ -446,14 +528,14 @@ defineExpose({
   gap: 12px; /* 增加字符间距 */
   font-size: 14px;
   font-weight: 200;
-  color: rgba(100, 100, 120, 0.9);
+  color: rgba(20, 20, 20, 0.9);
   letter-spacing: 6px;
-  margin-top: -700px; /* 向上移动 */
+  margin-top: -1000px; /* 向上移动 */
   margin-bottom: 35px;
   transition: all 0.6s ease;
 }
 
-.card:hover .card-subtitle {
+.card.active .card-subtitle {
   letter-spacing: 8px;
   color: rgba(80, 80, 100, 0.85);
 }
@@ -463,7 +545,7 @@ defineExpose({
   transition-delay: calc(var(--i) * 0.05s);
 }
 
-.card:hover .card-subtitle span {
+.card.active .card-subtitle span {
   transform: translateY(-2px);
 }
 
@@ -478,7 +560,7 @@ defineExpose({
   transition: all 0.6s ease;
 }
 
-.card:hover .card-label {
+.card.active .card-label {
   letter-spacing: 5px;
   color: rgba(100, 100, 120, 0.65);
 }
@@ -527,7 +609,7 @@ defineExpose({
   border-top: none;
 }
 
-.card:hover .deco-corner {
+.card.active .deco-corner {
   border-color: rgba(120, 120, 140, 0.3);
   transform: scale(1.2);
 }
@@ -544,7 +626,7 @@ defineExpose({
   transition: all 0.6s ease;
 }
 
-.card:hover .deco-center {
+.card.active .deco-center {
   background: rgba(120, 120, 140, 0.3);
   transform: translate(-50%, -50%) rotate(45deg) scale(1.3);
 }
@@ -570,7 +652,7 @@ defineExpose({
   left: 15%; /* 靠左的装饰 */
 }
 
-.card:hover .deco-line {
+.card.active .deco-line {
   background: linear-gradient(to right,
   transparent,
   rgba(120, 120, 140, 0.35),
@@ -602,7 +684,7 @@ defineExpose({
   right: 20%; /* 靠右 */
 }
 
-.card:hover .deco-dash {
+.card.active .deco-dash {
   background: linear-gradient(to bottom,
   rgba(120, 120, 140, 0.3) 0%,
   rgba(120, 120, 140, 0.3) 40%,
@@ -642,14 +724,71 @@ defineExpose({
   font-family: 'Noto Sans JP', sans-serif;
 }
 
-@keyframes lockPulse {
-  0%, 100% {
-    opacity: 0.6;
-    transform: scale(1);
+/* 粒子特效 */
+.particles-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 8; /* 在所有层之上，确保可见 */
+  opacity: 1;
+  
+  /* Sync Mask with Gradient Layer */
+  mask-image: linear-gradient(to bottom, transparent 40%, black 60%);
+  mask-size: 100% 300%;
+  mask-position: 0 100%;
+  mask-repeat: no-repeat;
+  
+  /* Light Effect */
+  filter: drop-shadow(0 -5px 15px rgba(255, 255, 255, 0.6)) brightness(1.2);
+
+  transition: opacity 0.4s ease, mask-position 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.particle {
+  position: absolute;
+  bottom: -20px;
+  left: var(--x-start);
+  width: var(--size);
+  height: var(--size);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.5) 30%, transparent 70%);
+  border-radius: 50%;
+  animation: particle-rise var(--duration) linear var(--delay) infinite;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8),
+              0 0 15px rgba(200, 220, 255, 0.4);
+}
+
+/* 激活状态下粒子更明显 */
+.card.active .particles-container {
+  opacity: 1;
+  mask-position: 0 0;
+}
+
+.card.active .particle {
+  background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(200, 220, 255, 0.8) 30%, rgba(150, 180, 255, 0.3) 50%, transparent 70%);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 1),
+              0 0 20px rgba(200, 220, 255, 0.6),
+              0 0 30px rgba(150, 180, 255, 0.3);
+}
+
+/* 粒子上升动画 */
+@keyframes particle-rise {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+    opacity: 0;
   }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.05);
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(var(--y-end)) translateX(calc(var(--x-end) - var(--x-start))) rotate(360deg);
+    opacity: 0;
   }
 }
 
@@ -659,5 +798,56 @@ defineExpose({
     padding: 70px 30px;
   }
 }
+
+/* 命令图片层 */
+.card-command-layer {
+  position: absolute;
+  top: 550px;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: var(--cmd-image);
+  background-size:300% 60%;
+  background-repeat: no-repeat;
+  background-position: center;
+  z-index: 15; /* 在内容之上，但在锁层之下 */
+  pointer-events: none;
+  
+  /* Sync Mask with Gradient Layer */
+  mask-image: linear-gradient(to bottom, transparent 40%, black 60%);
+  mask-size: 100% 300%;
+  mask-position: 0 100%;
+  mask-repeat: no-repeat;
+
+  transition: opacity 0.4s ease, mask-position 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Bloom 效果和质感增强 */
+  filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.4)) brightness(1.1) contrast(1.1) saturate(1.1);
+  /* 混合模式让亮部更亮 */
+  mix-blend-mode: screen;
+  
+  /* 透明度呼吸动画 */
+  animation: command-pulse 4s ease-in-out infinite;
+}
+
+.card.active .card-command-layer {
+  mask-position: 0 0;
+}
+
+@keyframes command-pulse {
+  0%, 100% {
+    opacity: 0.2;
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3)) brightness(1.05) contrast(1.1) saturate(1.1);
+  }
+  50% {
+    opacity: 0.4;
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.6)) brightness(1.15) contrast(1.1) saturate(1.1);
+  }
+}
 </style>
+
+
+
+
+
 

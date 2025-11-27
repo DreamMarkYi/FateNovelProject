@@ -19,13 +19,13 @@
           <feColorMatrix
             in="noise"
             type="saturate"
-            values="0"
+            values="1"
             result="noise"/>
           <feComposite
             in="SourceGraphic"
             in2="noise"
             operator="overlay"
-            opacity="0.15"/>
+            opacity="1"/>
         </filter>
         <filter id="textNoiseFilterSubtle" x="0%" y="0%" width="100%" height="100%">
           <feTurbulence
@@ -37,7 +37,7 @@
           <feColorMatrix
             in="noise"
             type="saturate"
-            values="0"
+            values="1"
             result="noise"/>
           <feComposite
             in="SourceGraphic"
@@ -108,7 +108,9 @@
            'section-hidden': isFullRight,
            'section-solid-bg': leftBgMode === 'solid'
          }">
-      <div class="sky-background" :class="{ 'bg-solid': leftBgMode === 'solid' }">
+      <div class="sky-background" 
+           :class="{ 'bg-solid': leftBgMode === 'solid' }"
+           :style="leftBgMode !== 'solid' ? { backgroundPosition: leftBgPosition + '% 50%' } : {}">
         <!-- 多层背景叠加 -->
         <div class="bg-layer bg-default" :class="{ active: currentBg === 0 }"></div>
         <div class="bg-layer bg-1" :class="{ active: currentBg === 1 }"></div>
@@ -216,7 +218,9 @@
          }">
 
       <!-- 使用与左侧相同的背景结构 -->
-      <div class="sky-background" :class="{ 'bg-solid': rightBgMode === 'solid' }">
+      <div class="sky-background" 
+           :class="{ 'bg-solid': rightBgMode === 'solid' }"
+           :style="rightBgMode !== 'solid' ? { backgroundPosition: rightBgPosition + '% 50%' } : {}">
         <!-- 多层背景叠加 -->
         <div class="bg-layer bg-default2" :class="{ active: currentBg === 0 }"></div>
         <div class="bg-layer bg-4" :class="{ active: currentBg === 1 }"></div>
@@ -302,7 +306,7 @@ import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import MinimalCard from '@/components/MinimalCard.vue';
 
 const currentBg = ref(0);
-const leftWidth = ref(30); // 左侧区域宽度百分比
+const leftWidth = ref(20); // 左侧区域宽度百分比
 const isDragging = ref(false);
 const isTransitioning = ref(false);
 const dragStartX = ref(0); // 拖拽起始时的鼠标X坐标
@@ -345,6 +349,32 @@ const rightBgMode = ref('solid'); // 'gradient' 或 'solid'
 
 // 计算标题位置（跟随分割线）
 const titlePosition = computed(() => leftWidth.value);
+
+// 计算左侧背景图片位置（蒙版效果）
+// 当 leftWidth 从 0% 到 100% 时，背景位置从左侧移动到右侧
+// 由于背景图片固定为 300vw，需要计算合适的显示位置
+const leftBgPosition = computed(() => {
+  // 将 leftWidth (0-100) 映射到背景位置
+  // 背景图片是 300vw 宽，所以可以显示从 0% 到约 66.67% 的范围
+  // 左侧区域变窄时显示图片左侧，变宽时显示图片右侧
+  // 使用线性映射：0% -> 0%, 100% -> 66.67%
+  const maxPosition = 66.67; // 对应图片的右边缘（300vw 的 66.67% = 200vw，正好是视口宽度的2倍）
+  const position = (leftWidth.value / 100) * maxPosition;
+  return Math.max(0, Math.min(maxPosition, position));
+});
+
+// 计算右侧背景图片位置（图片靠右加载，往左拖动显示被覆盖的部分）
+// 当 leftWidth 从 0% 到 100% 时，右侧区域从 100% 到 0%
+// 图片靠右加载：初始显示图片右侧部分，拖动时显示左侧部分
+const rightBgPosition = computed(() => {
+  const maxPosition = 66.67;
+  // 图片靠右加载，所以初始位置应该在右侧（66.67%）
+  // leftWidth 0% -> 右侧宽度 100% -> 显示图片右侧（66.67%位置）
+  // leftWidth 100% -> 右侧宽度 0% -> 显示图片左侧（0%位置）
+  // 使用反向计算：从右侧（66.67%）到左侧（0%）
+  const position = (leftWidth.value / 100) * maxPosition;
+  return Math.max(0, Math.min(maxPosition, position));
+});
 
 // 判断是否完全拖到左边或右边（阈值改为20%和80%）
 const isFullLeft = computed(() => leftWidth.value <= 2);
@@ -900,20 +930,47 @@ onMounted(() => {
   position: relative;
 }
 
-/* 第一个字 "白" - 左偏移 + 冷色调 */
+/* 第一个字 "白" - 右偏移 + 暖色调 */
 .title-composition .title-kanji:nth-child(1) {
   transform: translateX(-25px);
   background: linear-gradient(
     to bottom,
-    #f4efec 0%,
-    #ffffff 50%,
-    #ece8e2 100%
+    #4a5a6a 0%,
+    #8b9aaa 50%,
+    #4a5a6a 100%
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(2px 2px 0 rgba(50, 50, 50, 0.6))
-          drop-shadow(-2px -2px 0 rgba(122, 143, 163, 0.1));
+  filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
+          drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
+}
+
+/* 为"白"字添加额外的噪点层 - 使用 ::before 创建更明显的效果 */
+.title-composition .title-kanji:nth-child(1)::before {
+  content: '白';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.0' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2b)' opacity='0.4'/%3E%3C/svg%3E"),
+    linear-gradient(
+      to bottom,
+      #4a5a6a 0%,
+      #8b9aaa 50%,
+      #4a5a6a 100%
+    );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  mix-blend-mode: screen;
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+  filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
+          drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
 }
 
 /* 为"白"字添加噪点纹理叠加层 - 使用 ::after 确保显示在文字上方 */
@@ -925,22 +982,22 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   background:
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise1)' opacity='0.8'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='6' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0.3 0.7 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2)'/%3E%3C/svg%3E"),
     linear-gradient(
       to bottom,
-      #f4efec 0%,
-      #ffffff 50%,
-      #ece8e2 100%
+      #4a5a6a 0%,
+      #8b9aaa 50%,
+      #4a5a6a 100%
     );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  mix-blend-mode: multiply;
-  opacity: 0.6;
+  mix-blend-mode: overlay;
+  opacity: 1;
   pointer-events: none;
   z-index: 1;
-  filter: drop-shadow(2px 2px 0 rgba(50, 50, 50, 0.6))
-          drop-shadow(-2px -2px 0 rgba(122, 143, 163, 0.1));
+  filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
+          drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
 }
 
 /* 第二个字 "夜" - 右偏移 + 暖色调 */
@@ -1015,19 +1072,19 @@ onMounted(() => {
 
 /* hover 效果 - 第一个字 */
 .title-composition .title-kanji:nth-child(1):hover {
-  transform: translateX(-25px) scale(1.08);
+  transform: translateX(30px) scale(1.08);
   filter: drop-shadow(3px 3px 0 rgba(255, 255, 255, 0.9))
-          drop-shadow(-3px -3px 0 rgba(122, 143, 163, 0.15))
-          drop-shadow(0 6px 30px rgba(122, 143, 163, 0.4))
-          drop-shadow(0 0 80px rgba(122, 143, 163, 0.3));
+          drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
+          drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
+          drop-shadow(0 0 80px rgba(255, 192, 203, 0.3));
 }
 
 .title-composition .title-kanji:nth-child(1):hover::after {
-  opacity: 0.95;
+  opacity: 1;
   filter: drop-shadow(3px 3px 0 rgba(255, 255, 255, 0.9))
-          drop-shadow(-3px -3px 0 rgba(122, 143, 163, 0.15))
-          drop-shadow(0 6px 30px rgba(122, 143, 163, 0.4))
-          drop-shadow(0 0 80px rgba(122, 143, 163, 0.3));
+          drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
+          drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
+          drop-shadow(0 0 80px rgba(255, 192, 203, 0.3));
 }
 
 /* hover 效果 - 第二个字 */
@@ -1320,9 +1377,53 @@ onMounted(() => {
   transition: background 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* 左侧区域使用图片背景 - 渐变模式时显示图片 */
+.left-section .sky-background:not(.bg-solid) {
+  background-image: url('/minRightWidth.png') !important;
+  /* 使用固定的大尺寸，确保图片不会因容器变化而放大或缩小 */
+  /* 宽度设为视口的3倍，高度填满视口，保持图片比例 */
+  background-size: 100vw 100vh !important;
+  background-repeat: no-repeat !important;
+  position: relative;
+  transition: background-position 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 左侧渐变模式时隐藏背景层 */
+.left-section .sky-background:not(.bg-solid) .bg-layer {
+  opacity: 0 !important;
+}
+
+/* 右侧区域使用图片背景 - 渐变模式时显示图片 */
+.right-section .sky-background:not(.bg-solid) {
+  background-image: url('/minLeftWidth2.png') !important;
+  /* 使用固定的大尺寸，确保图片不会因容器变化而放大或缩小 */
+  /* 宽度设为视口的3倍，高度填满视口，保持图片比例 */
+  background-size: 100vw 100vh !important;
+  background-repeat: no-repeat !important;
+  position: relative;
+  transition: background-position 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 右侧渐变模式时隐藏背景层 */
+.right-section .sky-background:not(.bg-solid) .bg-layer {
+  opacity: 0 !important;
+}
+
 /* 纯色背景模式 */
 .sky-background.bg-solid {
   background: #f5f3f0 !important;
+}
+
+/* 左侧区域使用图片背景 - 背景与卡片保持相对位置固定 */
+.left-section .sky-background.bg-solid {
+  /* 背景图片定位：使用百分比定位，确保与卡片容器保持相对位置 */
+  /* 可以通过调整 background-position 的值来微调对齐（例如：120% 50% 表示向右偏移） */
+  background: url('/minimalistBG.png') 50% 50% / cover no-repeat !important;
+  position: relative;
+  /* 确保背景覆盖整个区域 */
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center center;
 }
 
 /* 右侧区域使用图片背景 - 背景与卡片保持相对位置固定 */
@@ -1978,19 +2079,18 @@ onMounted(() => {
 
 /* 左侧卡片容器 */
 .left-card-container {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   display: flex;
   gap: 30px;
   align-items: center;
   justify-content: center;
-  z-index: 20;
+  position: relative;
+  z-index: 2;
   flex-wrap: wrap;
-  max-width: 90%;
+  max-width: 100%;
   opacity: 1;
   transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 添加 padding 以保持原有布局 */
+  padding: 40px 60px;
 }
 
 /* 左侧卡片淡出动画 */
