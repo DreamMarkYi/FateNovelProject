@@ -1,21 +1,21 @@
 <template>
-  <div 
-    class="card" 
+  <div
+    class="card"
     :class="{ 'card-locked': !unlocked, 'active': isActive }"
     @click="handleClick"
     ref="cardRef"
     :style="backgroundStyle"
   >
     <div class="card-background"></div>
-    
+
     <!-- 渐变色层 - 未激活时在最顶层，激活后在最下层 -->
     <div class="card-gradient-layer"></div>
 
     <!-- 粒子特效层 -->
     <div class="particles-container">
-      <div 
-        v-for="(style, index) in particles" 
-        :key="index" 
+      <div
+        v-for="(style, index) in particles"
+        :key="index"
         class="particle"
         :style="style"
       ></div>
@@ -26,8 +26,8 @@
       <div class="card-number">{{ number }}</div>
       <div class="card-title">{{ title }}</div>
       <div class="card-subtitle">
-        <span 
-          v-for="(char, index) in subtitleChars" 
+        <span
+          v-for="(char, index) in subtitleChars"
           :key="index"
           :style="{ '--i': index }"
         >{{ char }}</span>
@@ -122,18 +122,18 @@ const particles = ref([])
 const generateParticles = () => {
   const count = 50
   const newParticles = []
-  
+
   for (let i = 0; i < count; i++) {
     // 决定粒子上升高度：70% 的粒子在 50% 以下，30% 的粒子可以更高
     const isLow = Math.random() < 0.7
-    const riseHeight = isLow 
+    const riseHeight = isLow
       ? 20 + Math.random() * 30  // 20vh - 50vh
       : 50 + Math.random() * 70  // 50vh - 120vh
-      
+
     // 速度（持续时间）：高度越高，时间越长，但增加随机性
     // 基础时间 10s，每 10vh 增加 1-2s
     const duration = 5 + (riseHeight / 10) * (1 + Math.random())
-    
+
     newParticles.push({
       '--delay': `-${Math.random() * 20}s`,
       '--duration': `${duration}s`,
@@ -144,7 +144,7 @@ const generateParticles = () => {
       '--opacity': 0.1 + Math.random() * 0.7
     })
   }
-  
+
   particles.value = newParticles
 }
 
@@ -196,7 +196,7 @@ const handleClick = (e) => {
   if (!props.unlocked) {
     return
   }
-  
+
   const card = e.currentTarget
   card.style.transform = 'skewY(-2deg) scale(0.98)'
   setTimeout(() => {
@@ -275,21 +275,21 @@ defineExpose({
   width: 100%;
   height: 110%;
   background: var(--hover-gradient);
-  
+
   /* 使用 mask 实现柔和边缘 */
   mask-image: linear-gradient(to bottom, transparent 40%, black 60%);
   mask-size: 100% 300%;
   mask-position: 0 100%; /* 初始状态：显示底部（黑色/可见部分） */
   mask-repeat: no-repeat;
-  
+
   /* 光感效果：边缘发光 + 整体提亮 */
   filter: drop-shadow(0 -5px 0px rgba(255, 255, 255, 0.6)) brightness(1.2);
-  
+
   opacity: 1;
   z-index: 7; /* 未悬停时在最顶层 */
   pointer-events: none; /* 不阻挡点击事件 */
-  
-  /* 
+
+  /*
      Appear (Active -> Inactive):
      - mask-position: 0 0 -> 0 100% (从下往上长出来)
      - z-index: 立即变回 7
@@ -302,13 +302,13 @@ defineExpose({
 /* 激活时渐变色层先移到最底层再变化透明度 */
 .card.active .card-gradient-layer {
   z-index: -1; /* 激活时在最底层 */
-  opacity: 1; 
+  opacity: 1;
   transform: scale(1.05);
-  
+
   /* 激活状态：显示顶部（透明/隐藏部分） */
   mask-position: 0 0;
-  
-  /* 
+
+  /*
      Disappear (Inactive -> Active):
      - mask-position: 0 100% -> 0 0 (从上往下消失)
      - z-index: 延迟变化
@@ -459,7 +459,8 @@ defineExpose({
   font-weight: 300;
   color: rgba(20, 20, 20, 1);
   letter-spacing: 10px;
-  margin-top: -1300px; /* 向上移动 */
+  margin-top: -1200px; /* 向上移动 */
+  padding: 30px;
   margin-bottom: 40px; /* 增加间距 */
   position: absolute;
   transition: all 0.6s ease;
@@ -530,7 +531,7 @@ defineExpose({
   font-weight: 200;
   color: rgba(20, 20, 20, 0.9);
   letter-spacing: 6px;
-  margin-top: -1000px; /* 向上移动 */
+  margin-top: -900px; /* 向上移动 */
   margin-bottom: 35px;
   transition: all 0.6s ease;
 }
@@ -735,13 +736,13 @@ defineExpose({
   pointer-events: none;
   z-index: 8; /* 在所有层之上，确保可见 */
   opacity: 1;
-  
+
   /* Sync Mask with Gradient Layer */
   mask-image: linear-gradient(to bottom, transparent 40%, black 60%);
   mask-size: 100% 300%;
   mask-position: 0 100%;
   mask-repeat: no-repeat;
-  
+
   /* Light Effect */
   filter: drop-shadow(0 -5px 15px rgba(255, 255, 255, 0.6)) brightness(1.2);
 
@@ -812,7 +813,7 @@ defineExpose({
   background-position: center;
   z-index: 15; /* 在内容之上，但在锁层之下 */
   pointer-events: none;
-  
+
   /* Sync Mask with Gradient Layer */
   mask-image: linear-gradient(to bottom, transparent 40%, black 60%);
   mask-size: 100% 300%;
@@ -820,12 +821,12 @@ defineExpose({
   mask-repeat: no-repeat;
 
   transition: opacity 0.4s ease, mask-position 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-  
+
   /* Bloom 效果和质感增强 */
   filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.4)) brightness(1.1) contrast(1.1) saturate(1.1);
   /* 混合模式让亮部更亮 */
   mix-blend-mode: screen;
-  
+
   /* 透明度呼吸动画 */
   animation: command-pulse 4s ease-in-out infinite;
 }
