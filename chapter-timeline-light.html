@@ -4,12 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 空间无限延伸时间轴 - 多重宇宙版</title>
+    <title>3D 空间无限延伸时间轴 - 霓虹多重宇宙版</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #f0f0f0;
+            background-color: #050505;
+            /*改为深色背景以突出发光*/
             font-family: 'Helvetica Neue', Arial, sans-serif;
             cursor: grab;
         }
@@ -28,9 +29,11 @@
             position: absolute;
             top: 20px;
             left: 20px;
-            color: #333;
+            color: #fff;
+            /* 文字改为白色 */
             pointer-events: none;
             z-index: 10;
+            mix-blend-mode: difference;
         }
 
         h1 {
@@ -39,15 +42,19 @@
             margin: 0;
             text-transform: uppercase;
             font-size: 1.2rem;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid #00ffff;
+            /* 标题下划线改为青色 */
             display: inline-block;
             padding-bottom: 5px;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
         }
 
         p {
             font-size: 0.8rem;
-            opacity: 0.7;
+            opacity: 0.8;
             margin-top: 5px;
+            color: #ccc;
         }
 
         .loading {
@@ -55,10 +62,11 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: #666;
+            color: #00ffff;
             font-size: 1.5rem;
             letter-spacing: 5px;
             transition: opacity 0.5s;
+            text-shadow: 0 0 15px #00ffff;
         }
     </style>
 </head>
@@ -66,38 +74,56 @@
 <body>
 
     <div id="ui">
-        <h1>CHRONO INFINITY // MULTIVERSE</h1>
-        <p>5 PARALLEL TIMELINES • CROSS-LINKS ACTIVE<br>5条并行主线 • 随机跨线连接 • 滚轮拉远查看全貌</p>
+        <h1>NEON INFINITY // MULTIVERSE</h1>
+        <p>5 PARALLEL TIMELINES • NEON GLOW ACTIVE<br>5条并行主线 • 自发光边框 • 滚轮拉远查看全貌</p>
     </div>
 
-    <div id="loading" class="loading">CONSTRUCTING MULTIVERSE...</div>
+    <div id="loading" class="loading">SYSTEM INITIALIZING...</div>
     <div id="canvas-container"></div>
 
+    <!-- Three.js Core -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Post-Processing Dependencies (来自 GitHub CDN) -->
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/CopyShader.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/ShaderPass.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/UnrealBloomPass.js"></script>
 
     <script>
         // --- 配置参数 ---
         const config = {
-            bgColor: 0xf0f0f0,
-            fogColor: 0xf0f0f0,
-            heightFogDensity: 0.005, // 雾气更淡，以便看清远处的第5条线
-            heightFogBase: -20.0,
+            // 环境颜色调整为深色
+            bgColor: 0x050505,
+            fogColor: 0x050505,
+            heightFogDensity: 0.005,
+            heightFogBase: -50.0,
 
-            blockColor: 0xffffff,
-            lineColor: 0x333333,
-            textColor: '#1a1a1a',
+            // 材质颜色
+            blockColor: 0x111111,    // 块体改为深灰，作为发光线条的背景
+            lineColor: 0x222222,     // 普通连接线颜色
+
+            // 发光配置
+            mainEdgeColor: 0x00ffff, // 主线发光边框颜色 (青色)
+            dimEdgeColor: 0x333333,  // 装饰性建筑的边框颜色 (不发光)
+
+            textColor: '#ffffff',    // 贴图文字颜色
             spacingZ: 40,
 
             renderRange: 45,
 
-            // --- 多重宇宙配置 ---
-            laneCount: 5,   // 主线数量
-            laneDist: 350,  // 线间距
-            crossLinkChance: 0.35 // 15% 概率生成跨线连接
+            laneCount: 5,
+            laneDist: 350,
+            crossLinkChance: 0.15
         };
 
         // --- 核心变量 ---
-        let scene, camera, renderer;
+        let scene, camera, renderer, composer; // 增加 composer
         let scrollPos = -50;
         let targetScrollPos = -50;
 
@@ -111,7 +137,8 @@
 
         let objects = [];
 
-        let boxMat, lineMat, edgesMat, personMat;
+        // 材质区分
+        let boxMat, lineMat, dimEdgesMat, glowEdgesMat, personMat;
         let heightFogShaderLogic;
 
         // --- 初始化 ---
@@ -121,9 +148,9 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(config.bgColor);
 
-            scene.fog = new THREE.FogExp2(config.fogColor, 0.0006); // 降低全局雾
+            scene.fog = new THREE.FogExp2(config.fogColor, 0.0006);
 
-            // Shader 注入逻辑
+            // Shader 注入逻辑 (保持雾效)
             heightFogShaderLogic = (shader) => {
                 shader.uniforms.hFogColor = { value: new THREE.Color(config.fogColor) };
                 shader.uniforms.hFogDensity = { value: config.heightFogDensity };
@@ -164,33 +191,59 @@
                 );
             };
 
+            // 实体材质 (深色)
             boxMat = new THREE.MeshLambertMaterial({ color: config.blockColor });
             boxMat.onBeforeCompile = heightFogShaderLogic;
 
-            lineMat = new THREE.LineBasicMaterial({ color: config.lineColor, transparent: true, opacity: 0.5 });
+            // 连接线材质
+            lineMat = new THREE.LineBasicMaterial({ color: config.lineColor, transparent: true, opacity: 0.3 });
             lineMat.onBeforeCompile = heightFogShaderLogic;
 
-            edgesMat = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
-            edgesMat.onBeforeCompile = heightFogShaderLogic;
+            // 【关键】不发光的暗淡边框 (用于背景建筑)
+            dimEdgesMat = new THREE.LineBasicMaterial({ color: config.dimEdgeColor, transparent: true, opacity: 0.4 });
+            dimEdgesMat.onBeforeCompile = heightFogShaderLogic;
 
-            personMat = new THREE.MeshBasicMaterial({ color: 0x333333 });
-            personMat.onBeforeCompile = heightFogShaderLogic;
+            // 【关键】发光的主线边框 (高亮青色)
+            glowEdgesMat = new THREE.LineBasicMaterial({ color: config.mainEdgeColor, linewidth: 2 });
+            // 注意：LineBasicMaterial 不受光照影响，它的颜色就是最终颜色，配合 BloomPass 即可发光
+            glowEdgesMat.onBeforeCompile = heightFogShaderLogic;
+
+            personMat = new THREE.MeshBasicMaterial({ color: 0x00aaaa }); // 小人也稍微改亮一点
 
             camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 10, 10000);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            // 开启物理正确的灯光计算通常有助于 Bloom 效果，但在这种抽象风格中可选
+            // renderer.toneMapping = THREE.ReinhardToneMapping; 
             container.appendChild(renderer.domElement);
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            // --- Post-Processing: Bloom (泛光) ---
+            const renderScene = new THREE.RenderPass(scene, camera);
+
+            // 参数: resolution, strength, radius, threshold
+            // strength: 泛光强度 (1.5 很强)
+            // radius: 泛光扩散半径 (0.4 适中)
+            // threshold: 亮度阈值 (0: 所有东西都发光, 1: 只有极亮的发光)
+            const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+            bloomPass.threshold = 0; // 设置为0让线条更容易发光，因为我们通过颜色控制
+            bloomPass.strength = 1.8; // 增强发光强度
+            bloomPass.radius = 0.5;
+
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+            // -------------------------------------
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // 降低环境光，增加对比度
             scene.add(ambientLight);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-            dirLight.name = "mainLight";
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(100, 200, 100);
             dirLight.castShadow = true;
-            // 扩大阴影贴图和范围以覆盖所有并行线
             dirLight.shadow.mapSize.width = 4096;
             dirLight.shadow.mapSize.height = 4096;
             const shadowRange = config.laneCount * config.laneDist + 500;
@@ -200,12 +253,17 @@
             dirLight.shadow.camera.bottom = -500;
             dirLight.shadow.camera.near = 0.1;
             dirLight.shadow.camera.far = 2000;
+            // 稍微偏蓝的灯光
+            dirLight.color.setHSL(0.6, 0.2, 1.0);
             scene.add(dirLight);
 
-            const gridHelper = new THREE.GridHelper(20000, 1000, 0xcccccc, 0xe5e5e5);
+            // 地面网格改为极暗
+            const gridHelper = new THREE.GridHelper(20000, 1000, 0x111111, 0x0a0a0a);
             gridHelper.position.y = -20;
             if (gridHelper.material instanceof THREE.Material) {
                 gridHelper.material.onBeforeCompile = heightFogShaderLogic;
+                gridHelper.material.transparent = true;
+                gridHelper.material.opacity = 0.2;
             }
             scene.add(gridHelper);
 
@@ -232,11 +290,8 @@
                 "System upgrade.",
                 "Link established."
             ];
-
-            // 动态生成轨道代号
             const laneNames = ["ALPHA", "BETA", "GAMMA", "DELTA", "EPSILON", "ZETA", "ETA", "THETA"];
             const laneName = laneNames[laneIdx % laneNames.length];
-
             const safeIdx = Math.abs(i);
             return {
                 year: year.toString(),
@@ -245,31 +300,25 @@
             };
         }
 
-        // --- 包装函数：生成同一行的多个并行区块 ---
         function createRow(index) {
             const laneGroups = [];
-
-            // 1. 生成所有 Lane 的主要节点
             for (let l = 0; l < config.laneCount; l++) {
                 const group = createLane(index, l);
                 laneGroups.push(group);
             }
 
-            // 2. 跨线连接逻辑 (Cross-Linking)
-            // 遍历每对相邻的 Lane (0-1, 1-2, 2-3...)
+            // 跨线连接
             for (let l = 0; l < config.laneCount - 1; l++) {
-                // 使用确定的随机种子来决定是否连接
                 const linkSeed = Math.sin(index * 999 + l * 777) * 43758.5453;
                 const shouldLink = ((linkSeed - Math.floor(linkSeed)) < config.crossLinkChance);
 
                 if (shouldLink) {
                     const groupA = laneGroups[l];
                     const groupB = laneGroups[l + 1];
-
                     const posA = groupA.position;
                     const posB = groupB.position;
 
-                    const startLocal = new THREE.Vector3(0, 0, 0); // A 的中心
+                    const startLocal = new THREE.Vector3(0, 0, 0);
                     const endLocal = new THREE.Vector3(
                         posB.x - posA.x,
                         posB.y - posA.y,
@@ -277,11 +326,10 @@
                     );
 
                     const linkGeo = new THREE.BufferGeometry().setFromPoints([startLocal, endLocal]);
-                    // 使用虚线或更淡的线来表示这种“弱连接”
+                    // 跨线连接使用普通线材质，不发光
                     const linkLine = new THREE.Line(linkGeo, lineMat);
                     groupA.add(linkLine);
 
-                    // 在连线中间加一个小标记
                     const midPoint = endLocal.clone().multiplyScalar(0.5);
                     const markerGeo = new THREE.BoxGeometry(2, 2, 2);
                     const marker = new THREE.Mesh(markerGeo, boxMat);
@@ -291,13 +339,11 @@
             }
         }
 
-        // --- 单个轨道区块生成函数 ---
         function createLane(index, laneIdx) {
             const boxGeo = new THREE.BoxGeometry(1, 1, 1);
             const personGeo = new THREE.ConeGeometry(0.15, 0.8, 8);
             const data = generateDataForIndex(index, laneIdx);
 
-            // 使用 laneIdx 偏移种子，确保不同线的随机地形不一样
             const seedBase = index * 12.9898 + (laneIdx * 999.99);
             const seed = Math.sin(seedBase) * 43758.5453;
             const pseudoRand = (offset) => (Math.sin(seed + offset) * 10000) % 1;
@@ -307,7 +353,6 @@
 
             // --- 1. 主体时间线 (Main Timeline) ---
             const group = new THREE.Group();
-            // 在 laneOffsetX 的基础上加随机抖动
             const xPos = laneOffsetX + pseudoRand(1) * 20;
             const yPos = pseudoRand(2) * 10;
 
@@ -315,7 +360,7 @@
             group.userData = { baseY: yPos, type: 'main', index: index, lane: laneIdx };
             group.scale.set(0, 0, 0);
 
-            // --- 纵向连接线 (Connecting Line along Z) ---
+            // 纵向连接线
             const nextIndex = index + 1;
             const nextSeedBase = nextIndex * 12.9898 + (laneIdx * 999.99);
             const nextSeed = Math.sin(nextSeedBase) * 43758.5453;
@@ -337,9 +382,8 @@
             ]);
             const timelineConnLine = new THREE.Line(timelineConnGeo, lineMat);
             group.add(timelineConnLine);
-            // ----------------------------------------
 
-            // 主平台尺寸
+            // 主平台
             const mainSx = 4 + Math.abs(pseudoRand(3)) * 4;
             const mainSy = 1 + Math.abs(pseudoRand(4)) * 2;
             const mainSz = 4 + Math.abs(pseudoRand(5)) * 4;
@@ -349,12 +393,13 @@
             platform.castShadow = true;
             platform.receiveShadow = true;
 
+            // 【关键】主平台使用发光材质 (glowEdgesMat)
             const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(mainSx, mainSy, mainSz));
-            const edgeLines = new THREE.LineSegments(edges, edgesMat);
+            const edgeLines = new THREE.LineSegments(edges, glowEdgesMat);
             platform.add(edgeLines);
             group.add(platform);
 
-            // === 复杂水平延伸分支 ===
+            // 水平分支 (使用暗淡线条)
             if (Math.abs(pseudoRand(10)) > 0.6) {
                 const branchDir = pseudoRand(11) > 0 ? 1 : -1;
                 const segments = 2 + Math.floor(Math.abs(pseudoRand(12)) * 3);
@@ -383,8 +428,9 @@
                     const bSy = 1 + Math.abs(pseudoRand(16 + s));
                     const bSz = 3 + Math.abs(pseudoRand(17 + s)) * 30;
 
+                    // 分支平台使用暗淡边框
                     const bEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(bSx, bSy, bSz));
-                    const bEdgeLines = new THREE.LineSegments(bEdges, edgesMat);
+                    const bEdgeLines = new THREE.LineSegments(bEdges, dimEdgesMat);
                     bEdgeLines.position.set(nextX, nextY, nextZ);
                     group.add(bEdgeLines);
 
@@ -403,7 +449,8 @@
                     const bPanelMat = new THREE.MeshBasicMaterial({
                         map: bPanelText,
                         side: THREE.DoubleSide,
-                        transparent: true
+                        transparent: true,
+                        blending: THREE.AdditiveBlending // 增加文字的发光感
                     });
                     bPanelMat.onBeforeCompile = heightFogShaderLogic;
 
@@ -418,12 +465,14 @@
                 }
             }
 
+            // 信息面板连接线 (主线)
             const lineHeight = 10 + Math.abs(pseudoRand(6)) * 10;
             const lineGeo = new THREE.BufferGeometry().setFromPoints([
                 new THREE.Vector3(0, 0, 0),
                 new THREE.Vector3(0, lineHeight, 0)
             ]);
-            const line = new THREE.Line(lineGeo, lineMat);
+            // 使用发光材质使连接线也发光，增加科技感
+            const line = new THREE.Line(lineGeo, glowEdgesMat);
             line.position.set(mainSx / 2 - 0.5, mainSy / 2, mainSz / 2 - 0.5);
             group.add(line);
 
@@ -434,7 +483,9 @@
             const panelMat = new THREE.MeshBasicMaterial({
                 map: panelTexture,
                 side: THREE.DoubleSide,
-                transparent: true
+                transparent: true,
+                depthWrite: false, // 防止透明遮挡
+                blending: THREE.AdditiveBlending // 叠加混合模式让文字更亮
             });
             panelMat.onBeforeCompile = heightFogShaderLogic;
 
@@ -450,31 +501,24 @@
             scene.add(group);
             objects.push(group);
 
-            // --- 2. 密集底部建筑群 (High Density Bottom City) ---
-            // 增加数量，并优化分布策略以填充主线之间的空隙
-            const bottomCount = 2 + Math.floor(Math.abs(pseudoRand(7)) * 4); // 数量提升至 2-6 个
+            // --- 2. 密集底部建筑群 (Background) ---
+            // 使用暗淡材质
+            const bottomCount = 2 + Math.floor(Math.abs(pseudoRand(7)) * 4);
             for (let k = 0; k < bottomCount; k++) {
                 const bGroup = new THREE.Group();
                 const zOffset = pseudoRand(k * 10) * 120;
                 const bZPos = zPos + zOffset;
 
-                // 修改分布逻辑：混合“中心”和“间隙”分布
-                // 使用随机数决定建筑是紧贴主线，还是去填充主线之间的空隙
-                // 0: 中心区域 (33%), 1: 右侧间隙 (33%), 2: 左侧间隙 (33%)
                 const placeType = Math.floor(Math.abs(pseudoRand(k * 123)) * 3);
                 let bXOffset = 0;
-                const halfDist = config.laneDist / 2; // 175
+                const halfDist = config.laneDist / 2;
 
                 if (placeType === 0) {
-                    // 靠近主线：在主线周围小范围波动 (-80 ~ 80)
                     bXOffset = pseudoRand(k * 20) * 80;
-                    // 避开正下方，防止穿模
                     if (Math.abs(bXOffset) < 25) bXOffset += (bXOffset > 0 ? 25 : -25);
                 } else if (placeType === 1) {
-                    // 右侧间隙：填充当前线与右侧线的中点 (175 +/- 随机)
                     bXOffset = halfDist + pseudoRand(k * 30) * 100;
                 } else {
-                    // 左侧间隙：填充当前线与左侧线的中点 (-175 +/- 随机)
                     bXOffset = -halfDist + pseudoRand(k * 40) * 100;
                 }
 
@@ -491,7 +535,7 @@
                 const baseD = 15 + Math.abs(pseudoRand(k * 60)) * 25;
 
                 for (let f = 0; f < floors; f++) {
-                    const h = 20 + Math.abs(pseudoRand(k * 70 + f)) * 60;
+                    const h = 20 + Math.abs(pseudoRand(k * 70 + f)) * 30;
                     const taper = 1.0 - (f * 0.08);
                     const w = baseW * taper;
                     const d = baseD * taper;
@@ -504,7 +548,8 @@
                     bGroup.add(bMesh);
 
                     const bEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d));
-                    const bLines = new THREE.LineSegments(bEdges, edgesMat);
+                    // 背景建筑使用暗淡边框
+                    const bLines = new THREE.LineSegments(bEdges, dimEdgesMat);
                     bLines.position.set(0, currentY + h / 2, 0);
                     bGroup.add(bLines);
                     currentY += h;
@@ -524,8 +569,8 @@
                 objects.push(bGroup);
             }
 
-            // --- 3. 倒置天空建筑群 (Inverted Top City) ---
-            const topCount = 1 + Math.floor(Math.abs(pseudoRand(50)) * 2);
+            // --- 3. 倒置天空建筑群 (Background) ---
+            const topCount = 1 + Math.floor(Math.abs(pseudoRand(100)) * 2);
             for (let k = 0; k < topCount; k++) {
                 const tGroup = new THREE.Group();
                 const zOffset = pseudoRand(k * 15) * 120;
@@ -535,7 +580,7 @@
                 if (Math.abs(randOffset) < 30) randOffset += (randOffset > 0 ? 30 : -30);
                 const tXPos = laneOffsetX + randOffset;
 
-                const tYBase = 600 + Math.abs(pseudoRand(k * 35)) * 300;
+                const tYBase = 350 + Math.abs(pseudoRand(k * 35)) * 150;
 
                 tGroup.position.set(tXPos, tYBase, tZPos);
                 tGroup.userData = { baseY: tYBase, type: 'top', index: index, lane: laneIdx };
@@ -547,7 +592,7 @@
                 const baseD = 15 + Math.abs(pseudoRand(k * 65)) * 25;
 
                 for (let f = 0; f < floors; f++) {
-                    const h = 20 + Math.abs(pseudoRand(k * 75 + f)) * 80;
+                    const h = 20 + Math.abs(pseudoRand(k * 75 + f)) * 40;
                     const taper = 1.0 - (f * 0.05);
                     const w = baseW * taper;
                     const d = baseD * taper;
@@ -560,7 +605,8 @@
                     tGroup.add(tMesh);
 
                     const tEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d));
-                    const tLines = new THREE.LineSegments(tEdges, edgesMat);
+                    // 天空建筑使用暗淡边框
+                    const tLines = new THREE.LineSegments(tEdges, dimEdgesMat);
                     tLines.position.set(0, currentY - h / 2, 0);
                     tGroup.add(tLines);
 
@@ -581,22 +627,20 @@
                 objects.push(tGroup);
             }
 
-            return group; // 返回主组以便创建跨线连接
+            return group;
         }
-
-        // --- 交互控制 ---
 
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            if (composer) composer.setSize(window.innerWidth, window.innerHeight);
         }
 
         function onDocumentMouseWheel(event) {
             event.preventDefault();
-            targetCameraHeight += event.deltaY * 0.5; // 加快高度调整速度
+            targetCameraHeight += event.deltaY * 0.5;
             if (targetCameraHeight < 10) targetCameraHeight = 10;
-            // 增加最大高度，以便能看到所有线
             if (targetCameraHeight > 3000) targetCameraHeight = 3000;
         }
 
@@ -618,7 +662,7 @@
             targetScrollPos += deltaY * 0.5;
         }
 
-        // --- 材质生成 ---
+        // --- 纹理生成 (反色处理以适应深色背景) ---
         function createTextTexture(year, title, desc) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -627,23 +671,29 @@
             canvas.width = width;
             canvas.height = height;
 
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            // 背景半透明黑
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
             ctx.fillRect(0, 0, width, height);
 
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 4;
+            // 边框青色
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 6;
             ctx.strokeRect(0, 0, width, height);
 
             ctx.fillStyle = config.textColor;
             ctx.textAlign = 'left';
 
             ctx.font = 'bold 120px Helvetica, Arial';
+            ctx.shadowColor = "#00ffff";
+            ctx.shadowBlur = 10;
             ctx.fillText(year, 40, 140);
+            ctx.shadowBlur = 0; // 重置
 
             ctx.beginPath();
             ctx.moveTo(40, 160);
             ctx.lineTo(width - 40, 160);
             ctx.lineWidth = 2;
+            ctx.strokeStyle = '#00ffff';
             ctx.stroke();
 
             ctx.font = 'bold 40px Helvetica, Arial';
@@ -666,7 +716,8 @@
             }
             ctx.fillText(line, 40, y);
 
-            ctx.fillStyle = '#000';
+            // 装饰点
+            ctx.fillStyle = '#00ffff';
             ctx.fillRect(40, height - 40, 20, 20);
             ctx.fillRect(70, height - 40, 20, 20);
 
@@ -688,7 +739,7 @@
 
             for (let i = minIdx; i <= maxIdx; i++) {
                 if (!activeIndices.has(i)) {
-                    createRow(i); // 改为调用 createRow 生成双线
+                    createRow(i);
                     activeIndices.add(i);
                 }
             }
@@ -701,8 +752,6 @@
             const currentDistX = baseRelX * scale;
             const currentDistZ = baseRelZ * scale;
 
-            // --- 动态视角中心逻辑 ---
-            // 修改：始终对准最中心的主线
             const centerLaneIndex = Math.floor(config.laneCount / 2);
             const centerLineX = centerLaneIndex * config.laneDist;
 
@@ -743,9 +792,7 @@
                 }
 
                 const dist = obj.position.z - currentFocusZ;
-                // 扩大可见范围，防止边缘消失过快
-                const isVisible = dist > -750 && dist < 500;
-
+                const isVisible = dist > -650 && dist < 300;
                 const targetScale = isVisible ? 1 : 0;
 
                 let hiddenOffset = -50;
@@ -772,7 +819,12 @@
                 }
             }
 
-            renderer.render(scene, camera);
+            // 使用 composer 代替 renderer
+            if (composer) {
+                composer.render();
+            } else {
+                renderer.render(scene, camera);
+            }
         }
 
         init();

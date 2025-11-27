@@ -76,7 +76,6 @@ const cardsData = [
     season: 'Archer',
     number: 'H O 2',
     title: '天宮院 菲娜',
-
     subtitle: '烈阳之詩',
     label: 'Thinker',
     backgroundImage: '/storyImage/Ruri1.png',

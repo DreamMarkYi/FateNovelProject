@@ -283,7 +283,7 @@ defineExpose({
   mask-repeat: no-repeat;
   
   /* 光感效果：边缘发光 + 整体提亮 */
-  filter: drop-shadow(0 -5px 15px rgba(255, 255, 255, 0.6)) brightness(1.2);
+  filter: drop-shadow(0 -5px 0px rgba(255, 255, 255, 0.6)) brightness(1.2);
   
   opacity: 1;
   z-index: 7; /* 未悬停时在最顶层 */
@@ -807,7 +807,7 @@ defineExpose({
   width: 100%;
   height: 100%;
   background-image: var(--cmd-image);
-  background-size:300% 60%;
+  background-size:cover;
   background-repeat: no-repeat;
   background-position: center;
   z-index: 15; /* 在内容之上，但在锁层之下 */

@@ -6,6 +6,12 @@
          'page-day-mode': isFullLeft,
          'page-night-mode': isFullRight
        }">
+
+    <SowakaNavigation
+        :mobile-menu-open="mobileMenuOpen"
+        @toggle-mobile-menu="toggleMobileMenu"
+        @scroll-to-section="scrollToSection"
+    />
     <!-- SVG 噪点滤镜定义 -->
     <svg class="noise-filter-svg" style="position: absolute; width: 0; height: 0;">
       <defs>
@@ -50,7 +56,7 @@
 
     <!-- 中央大标题 -->
     <div class="center-main-title"
-         :class="'title-theme-' + currentBg"
+         :class="['title-theme-' + currentBg, { 'animate-from-right-title': fromExtremeRight }]"
          :style="{ left: titlePosition + '%' }">
 
       <!-- 完全拖到左边时显示的内容 - 昼之页面 -->
@@ -84,7 +90,7 @@
       </div>
 
       <!-- 正常状态的标题组合 -->
-      <div v-else class="title-composition">
+      <div v-else class="title-composition" :class="{ 'animate-from-right-title': fromExtremeRight }">
         <!-- 第一个字 -->
         <span class="title-kanji">白</span>
 
@@ -106,7 +112,8 @@
          :style="{ width: leftWidth + '%' }"
          :class="{
            'section-hidden': isFullRight,
-           'section-solid-bg': leftBgMode === 'solid'
+           'section-solid-bg': leftBgMode === 'solid',
+           'animate-from-right-section': fromExtremeRight
          }">
       <div class="sky-background" 
            :class="{ 'bg-solid': leftBgMode === 'solid' }"
@@ -205,8 +212,54 @@
          :style="{ left: leftWidth + '%' }">
       <div class="divider-handle">
         <span class="handle-line"></span>
+        
+        <!-- 普通模式：两个按钮 -->
+        <div class="button-group" v-if="!isFullLeft && !isFullRight">
+          <!-- 向左按钮 -->
+          <button 
+            class="nav-button nav-button-left"
+            @mousedown.stop="navigateLeft"
+            title="切换到左侧模式">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          
+          <!-- 向右按钮 -->
+          <button 
+            class="nav-button nav-button-right"
+            @mousedown.stop="navigateRight"
+            title="切换到右侧模式">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        
+        <!-- 极昼模式：只有向右按钮 -->
+        <button 
+          class="nav-button nav-button-single"
+          @mousedown.stop="navigateRight"
+          v-if="isFullLeft"
+          title="返回">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        
+        <!-- 极夜模式：只有向左按钮 -->
+        <button 
+          class="nav-button nav-button-single"
+          @mousedown.stop="navigateLeft"
+          v-if="isFullRight"
+          title="返回">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
     </div>
+
 
     <!-- 右侧卡片区域 -->
     <div class="right-section"
@@ -214,7 +267,8 @@
          :class="{
            'section-hidden': isFullLeft,
            'section-fullscreen': isFullRight,
-           'section-gradient-bg': rightBgMode === 'gradient'
+           'section-gradient-bg': rightBgMode === 'gradient',
+           'animate-from-right-section': fromExtremeRight
          }">
 
       <!-- 使用与左侧相同的背景结构 -->
@@ -304,13 +358,18 @@
 <script setup>
 import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import MinimalCard from '@/components/MinimalCard.vue';
+import SowakaNavigation from "@/components/sowaka/SowakaNavigation.vue";
+import {useSowakaPage} from "@/composables/useSowakaPage.js";
 
 const currentBg = ref(0);
-const leftWidth = ref(20); // 左侧区域宽度百分比
+const leftWidth = ref(25); // 左侧区域宽度百分比，初始为左侧模式
 const isDragging = ref(false);
 const isTransitioning = ref(false);
 const dragStartX = ref(0); // 拖拽起始时的鼠标X坐标
-const dragStartWidth = ref(30); // 拖拽起始时的分割线位置
+const dragStartWidth = ref(25); // 拖拽起始时的分割线位置
+const {mobileMenuOpen, toggleMobileMenu , scrollToSection} = useSowakaPage();
+const currentMode = ref('left'); // 当前模式：'left' (25%), 'right' (75%), 'center' (50%)
+const fromExtremeRight = ref(false); // 是否从极夜模式返回
 
 // 卡片状态（使用 key 来强制重新生成）
 const cards = ref([
@@ -376,13 +435,11 @@ const rightBgPosition = computed(() => {
   return Math.max(0, Math.min(maxPosition, position));
 });
 
-// 判断是否完全拖到左边或右边（阈值改为20%和80%）
+// 判断是否完全拖到左边或右边（极昼/极夜模式）
 const isFullLeft = computed(() => leftWidth.value <= 2);
 const isFullRight = computed(() => leftWidth.value >= 98);
 
 // 判断是否在过渡区域
-const isNearLeft = computed(() => leftWidth.value > 2 && leftWidth.value <= 20);
-const isNearRight = computed(() => leftWidth.value >= 80 && leftWidth.value < 98);
 
 // 处理拖拽
 const startDrag = (e) => {
@@ -411,9 +468,13 @@ const stopDrag = () => {
   document.body.style.cursor = '';
   document.body.style.userSelect = '';
 
-  // 自动吸附到边缘
+  const dragDelta = leftWidth.value - dragStartWidth.value;
+  
+  // 判断拖动方向和目标位置
   if (leftWidth.value <= 10) {
+    // 极昼模式 - 完全拖到左边
     isTransitioning.value = true;
+    currentMode.value = 'extreme-left';
     setTimeout(() => {
       leftWidth.value = 0;
       setTimeout(() => {
@@ -421,13 +482,41 @@ const stopDrag = () => {
       }, 600);
     }, 50);
   } else if (leftWidth.value >= 90) {
+    // 极夜模式 - 完全拖到右边
     isTransitioning.value = true;
+    currentMode.value = 'extreme-right';
     setTimeout(() => {
       leftWidth.value = 100;
       setTimeout(() => {
         isTransitioning.value = false;
       }, 600);
     }, 50);
+  } else {
+    // 根据拖动方向决定吸附位置
+    isTransitioning.value = true;
+    
+    if (dragDelta > 0) {
+      // 向右拖动 - 切换到左侧模式 (75:25)
+      currentMode.value = 'left';
+      setTimeout(() => {
+        leftWidth.value = 75;
+        setTimeout(() => {
+          isTransitioning.value = false;
+        }, 600);
+      }, 50);
+    } else if (dragDelta < 0) {
+      // 向左拖动 - 切换到右侧模式 (25:75)
+      currentMode.value = 'right';
+      setTimeout(() => {
+        leftWidth.value = 25;
+        setTimeout(() => {
+          isTransitioning.value = false;
+        }, 600);
+      }, 50);
+    } else {
+      // 没有拖动，保持当前位置
+      isTransitioning.value = false;
+    }
   }
 };
 
@@ -464,9 +553,9 @@ const burnAllCards = () => {
 
 // 监听分割线位置，处理各种效果
 watch(leftWidth, (newWidth) => {
-  // 以50为分界线
-  if (newWidth > 50) {
-    // 大于50：左边显示卡牌，右边显示颜色
+  // 使用25%和75%作为分界线
+  if (newWidth >= 50) {
+    // 大于等于50%：左边显示卡牌，右边显示颜色（左侧模式）
     leftCardsFading.value = false;
     rightCardsFading.value = true;
 
@@ -482,7 +571,7 @@ watch(leftWidth, (newWidth) => {
     // 隐藏右侧卡片
     hideRightCards();
   } else {
-    // 小于等于50：右边显示卡牌，左边显示颜色
+    // 小于50%：右边显示卡牌，左边显示颜色（右侧模式）
     leftCardsFading.value = true;
     rightCardsFading.value = false;
 
@@ -598,6 +687,85 @@ const showRightCards = async () => {
       }, index * 100);
     });
   }, 50);
+};
+
+// 向左导航函数
+const navigateLeft = () => {
+  if (isTransitioning.value) return;
+  
+  isTransitioning.value = true;
+  if(leftWidth.value == 75)
+  {
+    currentMode.value = 'left';
+    setTimeout(() => {
+      leftWidth.value = 25;
+      setTimeout(() => {
+        isTransitioning.value = false;
+      }, 600);
+    }, 50);
+  }
+  else if(leftWidth.value == 25)
+  {
+      isFullLeft.value = true;
+      setTimeout(() => {
+      leftWidth.value = 0;
+      setTimeout(() => {
+        isTransitioning.value = false;
+      }, 600);
+    }, 0);
+  }
+  else if(leftWidth.value == 100)
+  {
+    currentMode.value = 'right';
+    fromExtremeRight.value = true; // 标记从极夜模式返回
+    setTimeout(() => {
+      leftWidth.value = 75;
+      setTimeout(() => {
+        isTransitioning.value = false;
+        fromExtremeRight.value = false; // 动画结束后重置
+      }, 1000);
+    }, 50);
+  }
+
+
+};
+
+// 向右导航函数
+const navigateRight = () => {
+  if (isTransitioning.value) return;
+  
+  isTransitioning.value = true;
+
+  if(leftWidth.value == 25)
+  {
+    currentMode.value = 'right';
+    setTimeout(() => {
+      leftWidth.value = 75;
+      setTimeout(() => {
+        isTransitioning.value = false;
+      }, 600);
+    }, 50);
+  }
+  else if(leftWidth.value == 75)
+  {
+    setTimeout(() => {
+      leftWidth.value = 100;
+      setTimeout(() => {
+        isTransitioning.value = false;
+      }, 600);
+    }, 50);
+  }
+  else if(leftWidth.value == 0)
+  {
+    currentMode.value = 'left';
+    setTimeout(() => {
+      leftWidth.value = 25;
+      setTimeout(() => {
+        isTransitioning.value = false;
+      }, 600);
+    }, 50);
+  }
+
 };
 
 // 确保右侧卡片可见
@@ -740,7 +908,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 20px;
-  transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1), all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: right 0.6s cubic-bezier(0.4, 0, 0.2, 1), all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 
 }
 
@@ -1332,6 +1500,151 @@ onMounted(() => {
     rgba(139, 125, 107, 0.7),
     transparent
   );
+}
+
+/* 按钮组容器 */
+.button-group {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+  z-index: 10;
+  opacity: 0;
+  animation: buttonGroupFadeIn 0.3s ease 0.2s forwards;
+}
+
+@keyframes buttonGroupFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* 导航按钮基础样式 */
+.nav-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(139, 125, 107, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+}
+
+.nav-button:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(139, 125, 107, 0.5);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: scale(1.1);
+}
+
+.nav-button:active {
+  transform: scale(0.95);
+}
+
+/* 单个按钮样式（极端模式） */
+.nav-button-single {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  animation: singleButtonFadeIn 0.3s ease 0.2s forwards;
+}
+
+@keyframes singleButtonFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.nav-button-single:hover {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.nav-button-single:active {
+  transform: translate(-50%, -50%) scale(0.9);
+}
+
+/* 图标样式 */
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  color: rgba(139, 125, 107, 0.7);
+  transition: all 0.3s ease;
+}
+
+.nav-button:hover .nav-icon {
+  color: rgba(139, 125, 107, 1);
+}
+
+/* 向左按钮悬停效果 */
+.nav-button-left:hover .nav-icon {
+  transform: translateX(-2px);
+}
+
+/* 向右按钮悬停效果 */
+.nav-button-right:hover .nav-icon {
+  transform: translateX(2px);
+}
+
+/* 单个按钮的箭头动画 */
+.nav-button-single:hover .nav-icon {
+  animation: arrowPulse 0.6s ease infinite;
+}
+
+@keyframes arrowPulse {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+
+/* 极昼模式的向右箭头 */
+.divider.edge-left .nav-button-single:hover .nav-icon {
+  animation: arrowPulseRight 0.6s ease infinite;
+}
+
+@keyframes arrowPulseRight {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+
+/* 极夜模式的向左箭头 */
+.divider.edge-right .nav-button-single:hover .nav-icon {
+  animation: arrowPulseLeft 0.6s ease infinite;
+}
+
+@keyframes arrowPulseLeft {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-3px);
+  }
 }
 
 /* 左侧区域 - 30% */
@@ -2099,6 +2412,38 @@ onMounted(() => {
 }
 
 /* 响应式设计 */
+
+/* 从极夜模式返回时的动画 - 标题 (保持垂直居中) */
+.animate-from-right-title {
+  animation: slideInFromRightTitle 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+}
+
+@keyframes slideInFromRightTitle {
+  0% {
+    opacity: 0;
+ 
+  }
+  100% {
+    opacity: 1;
+ 
+  }
+}
+
+/* 从极夜模式返回时的动画 - 区块 (普通位移) */
+.animate-from-right-section {
+  animation: slideInFromRightSection 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+}
+
+@keyframes slideInFromRightSection {
+  0% {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 @media (max-width: 1400px) {
   .left-section {
     flex: 0 0 35%;

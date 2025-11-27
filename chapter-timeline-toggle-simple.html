@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Infinite Timeline - Dual Mode</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            cursor: grab;
+            transition: background-color 0.5s ease;
+        }
+
+        body.mode-light {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+
+        body.mode-neon {
+            background-color: #050505;
+            color: #fff;
+        }
+
+        body.grabbing {
+            cursor: grabbing;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            z-index: 10;
+            transition: all 0.5s ease;
+        }
+
+        /* 标题样式适配 */
+        h1 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin: 0;
+            text-transform: uppercase;
+            font-size: 1.2rem;
+            display: inline-block;
+            padding-bottom: 5px;
+            transition: all 0.5s;
+        }
+
+        body.mode-light h1 {
+            border-bottom: 1px solid #333;
+            color: #1a1a1a;
+        }
+
+        body.mode-neon h1 {
+            border-bottom: 1px solid #00ffff;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        body.mode-light #ui { color: #333; }
+        body.mode-neon #ui { color: #fff; mix-blend-mode: difference; }
+
+        p {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        /* 切换按钮样式 */
+        #toggle-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border: 1px solid;
+            cursor: pointer;
+            font-family: inherit;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: transparent;
+            z-index: 20;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        body.mode-light #toggle-btn {
+            border-color: #333;
+            color: #333;
+        }
+        body.mode-light #toggle-btn:hover {
+            background: #333;
+            color: #fff;
+        }
+
+        body.mode-neon #toggle-btn {
+            border-color: #00ffff;
+            color: #00ffff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+        }
+        body.mode-neon #toggle-btn:hover {
+            background: rgba(0, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            letter-spacing: 5px;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        body.mode-light .loading { color: #666; }
+        body.mode-neon .loading { color: #00ffff; text-shadow: 0 0 15px #00ffff; }
+    </style>
+</head>
+
+<body class="mode-light">
+
+<div id="ui">
+    <h1 id="ui-title">CHRONO INFINITY</h1>
+    <p id="ui-desc">Initializing...</p>
+</div>
+
+<button id="toggle-btn">SWITCH MODE</button>
+
+<div id="loading" class="loading">SYSTEM INITIALIZING...</div>
+<div id="canvas-container"></div>
+
+<!-- Three.js Core -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<!-- Post-Processing Dependencies -->
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+<script>
+    // --- 双模式配置参数 ---
+    const MODES = {
+        LIGHT: 'light',
+        NEON: 'neon'
+    };
+
+    const config = {
+        // 通用配置
+        spacingZ: 40,
+        renderRange: 45,
+        laneCount: 5,
+        laneDist: 350,
+
+        // 当前模式状态
+        currentMode: MODES.LIGHT,
+
+        // 模式特定配置 getter
+        get bgColor() { return this.currentMode === MODES.LIGHT ? 0xf0f0f0 : 0x050505; },
+        get fogColor() { return this.currentMode === MODES.LIGHT ? 0xf0f0f0 : 0x050505; },
+        get heightFogDensity() { return 0.005; },
+        get heightFogBase() { return this.currentMode === MODES.LIGHT ? -20.0 : -50.0; },
+
+        get blockColor() { return this.currentMode === MODES.LIGHT ? 0xffffff : 0x111111; },
+        get lineColor() { return this.currentMode === MODES.LIGHT ? 0x333333 : 0x222222; },
+
+        // 霓虹模式特有颜色
+        mainEdgeColor: 0x00ffff,
+        dimEdgeColor: 0x333333,
+
+        get crossLinkChance() { return this.currentMode === MODES.LIGHT ? 0.35 : 0.15; },
+        get textColor() { return this.currentMode === MODES.LIGHT ? '#1a1a1a' : '#ffffff'; },
+
+        // UI 文本
+        get uiTitle() { return this.currentMode === MODES.LIGHT ? "CHRONO INFINITY // DAY" : "NEON INFINITY // MULTIVERSE"; },
+        get uiDesc() { return this.currentMode === MODES.LIGHT ? "5 PARALLEL TIMELINES • CROSS-LINKS ACTIVE" : "5 PARALLEL TIMELINES • ALL BRANCHES GLOWING"; }
+    };
+
+    // --- 核心变量 ---
+    let scene, camera, renderer, composer;
+    let scrollPos = -50;
+    let targetScrollPos = -50;
+    let activeIndices = new Set();
+    let cameraHeight = 100;
+    let targetCameraHeight = 100;
+    let isDragging = false;
+    let previousMouseY = 0;
+    let objects = [];
+
+    // 材质 (动态生成)
+    let mats = {};
+    
+    // 流动光效粒子
+    let flowingLights = [];
+
+    // --- 初始化 ---
+    function init() {
+        const container = document.getElementById('canvas-container');
+
+        // 基础 Three.js 设置
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 10, 10000);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false }); // Alpha设为false以配合Bloom
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // 事件监听
+        window.addEventListener('resize', onWindowResize, false);
+        document.addEventListener('wheel', onDocumentMouseWheel, { passive: false });
+        document.addEventListener('mousedown', onMouseDown, false);
+        document.addEventListener('mouseup', onMouseUp, false);
+        document.addEventListener('mousemove', onMouseMove, false);
+        document.addEventListener('mouseleave', onMouseUp, false);
+
+        document.getElementById('toggle-btn').addEventListener('click', toggleMode);
+
+        // 初始构建场景
+        setupSceneMode();
+
+        document.getElementById('loading').style.opacity = 0;
+        animate();
+    }
+
+    // --- 核心：模式切换与场景重建 ---
+    function toggleMode() {
+        // 1. 切换状态
+        config.currentMode = (config.currentMode === MODES.LIGHT) ? MODES.NEON : MODES.LIGHT;
+
+        // 2. 更新 DOM 样式
+        const body = document.body;
+        body.className = config.currentMode === MODES.LIGHT ? 'mode-light' : 'mode-neon';
+        document.getElementById('toggle-btn').innerText = config.currentMode === MODES.LIGHT ? 'SWITCH TO NEON' : 'SWITCH TO LIGHT';
+
+        // 3. 重新构建场景
+        setupSceneMode();
+    }
+
+    function setupSceneMode() {
+        // 清理旧对象
+        clearScene();
+
+        // 更新 UI
+        document.getElementById('ui-title').innerText = config.uiTitle;
+        document.getElementById('ui-desc').innerHTML = config.uiDesc + "<br>滚轮拉远查看全貌 • 拖拽移动";
+
+        // 设置背景与雾
+        scene.background = new THREE.Color(config.bgColor);
+        scene.fog = new THREE.FogExp2(config.fogColor, 0.0006);
+
+        // 初始化材质
+        initMaterials();
+
+        // 设置灯光
+        setupLights();
+
+        // 设置后期处理 (仅 Neon 模式)
+        setupPostProcessing();
+
+        // 强制重新生成当前视野内的物体
+        activeIndices.clear();
+        // 这里的 objects 数组已经在 clearScene 中清空了
+    }
+
+    function clearScene() {
+        // 移除所有动态生成的物体
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            scene.remove(obj);
+            disposeHierarchy(obj);
+        }
+        objects = [];
+
+        // 移除环境光和主光
+        const oldLights = scene.children.filter(c => c.isLight || c.type === 'GridHelper');
+        oldLights.forEach(l => {
+            scene.remove(l);
+            if(l.dispose) l.dispose();
+        });
+    }
+
+    function disposeHierarchy(node) {
+        node.traverse((child) => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(m => {
+                        if(m.map) m.map.dispose();
+                        m.dispose();
+                    });
+                } else {
+                    if(child.material.map) child.material.map.dispose();
+                    child.material.dispose();
+                }
+            }
+        });
+    }
+
+    // --- Shader 注入逻辑 (保持原样，参数动态化) ---
+    function getHeightFogShaderLogic() {
+        return (shader) => {
+            shader.uniforms.hFogColor = { value: new THREE.Color(config.fogColor) };
+            shader.uniforms.hFogDensity = { value: config.heightFogDensity };
+            shader.uniforms.hFogBase = { value: config.heightFogBase };
+
+            shader.vertexShader = shader.vertexShader.replace(
+                `#include <common>`,
+                `#include <common>
+                    varying vec3 vWorldPosition;`
+            );
+            shader.vertexShader = shader.vertexShader.replace(
+                `#include <begin_vertex>`,
+                `#include <begin_vertex>
+                    vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;`
+            );
+
+            shader.fragmentShader = shader.fragmentShader.replace(
+                `#include <common>`,
+                `#include <common>
+                    uniform vec3 hFogColor;
+                    uniform float hFogDensity;
+                    uniform float hFogBase;
+                    varying vec3 vWorldPosition;`
+            );
+
+            shader.fragmentShader = shader.fragmentShader.replace(
+                `#include <fog_fragment>`,
+                `
+                    float heightFactor = 0.0;
+                    if (vWorldPosition.y < hFogBase) {
+                        float dist = hFogBase - vWorldPosition.y;
+                        heightFactor = 1.0 - exp(-dist * hFogDensity);
+                    }
+                    heightFactor = clamp(heightFactor, 0.0, 1.0);
+                    gl_FragColor.rgb = mix(gl_FragColor.rgb, hFogColor, heightFactor);
+                    #include <fog_fragment>
+                    `
+            );
+        };
+    }
+
+    function initMaterials() {
+        const shaderLogic = getHeightFogShaderLogic();
+
+        mats = {};
+
+        // 1. 盒子材质
+        mats.box = new THREE.MeshLambertMaterial({ color: config.blockColor });
+        mats.box.onBeforeCompile = shaderLogic;
+
+        // 2. 普通连线材质
+        mats.line = new THREE.LineBasicMaterial({
+            color: config.lineColor,
+            transparent: true,
+            opacity: config.currentMode === MODES.NEON ? 0.3 : 0.5
+        });
+        mats.line.onBeforeCompile = shaderLogic;
+
+        // 3. 边框/发光材质
+        if (config.currentMode === MODES.LIGHT) {
+            // Light模式：黑色实线
+            mats.edges = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+            mats.edges.onBeforeCompile = shaderLogic;
+            // 分支也是普通线
+            mats.branchEdges = mats.edges;
+            // 分支连接线 (New)
+            mats.branchConnectors = mats.line;
+        } else {
+            // Neon模式：发光线
+            mats.glowEdges = new THREE.LineBasicMaterial({ color: config.mainEdgeColor, linewidth: 2 });
+            mats.glowEdges.onBeforeCompile = shaderLogic;
+
+            mats.dimEdges = new THREE.LineBasicMaterial({ color: config.dimEdgeColor, transparent: true, opacity: 0.4 });
+            mats.dimEdges.onBeforeCompile = shaderLogic;
+
+            // 重点：在Neon模式下，分支(Branch)使用发光材质
+            mats.branchEdges = mats.glowEdges;
+            // 分支连接线 (New - 使用发光材质)
+            mats.branchConnectors = mats.glowEdges;
+            // 背景建筑(dim)使用 dimEdges
+            mats.bgEdges = mats.dimEdges;
+        }
+
+        // 4. 小人材质
+        const personColor = config.currentMode === MODES.LIGHT ? 0x333333 : 0x00aaaa;
+        mats.person = new THREE.MeshBasicMaterial({ color: personColor });
+        mats.person.onBeforeCompile = shaderLogic;
+        
+        // 5. 流动光效材质 (仅 Neon 模式)
+        if (config.currentMode === MODES.NEON) {
+            mats.flowingLight = new THREE.MeshBasicMaterial({ 
+                color: 0x00ffff,
+                transparent: true,
+                opacity: 0.8
+            });
+        }
+    }
+
+    function setupLights() {
+        const ambientIntensity = config.currentMode === MODES.LIGHT ? 0.7 : 0.5;
+        const ambientLight = new THREE.AmbientLight(0xffffff, ambientIntensity);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, config.currentMode === MODES.LIGHT ? 0.6 : 0.8);
+        dirLight.name = "mainLight";
+
+        if (config.currentMode === MODES.NEON) {
+            dirLight.position.set(100, 200, 100);
+            dirLight.color.setHSL(0.6, 0.2, 1.0); // 偏蓝冷光
+        }
+
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 4096;
+        dirLight.shadow.mapSize.height = 4096;
+
+        const shadowRange = config.laneCount * config.laneDist + 500;
+        dirLight.shadow.camera.left = -500;
+        dirLight.shadow.camera.right = shadowRange;
+        dirLight.shadow.camera.top = 500;
+        dirLight.shadow.camera.bottom = -500;
+        dirLight.shadow.camera.near = 0.1;
+        dirLight.shadow.camera.far = 2000;
+        scene.add(dirLight);
+
+        // 地面网格
+        const gridColor1 = config.currentMode === MODES.LIGHT ? 0xcccccc : 0x111111;
+        const gridColor2 = config.currentMode === MODES.LIGHT ? 0xe5e5e5 : 0x0a0a0a;
+        const gridHelper = new THREE.GridHelper(20000, 1000, gridColor1, gridColor2);
+        gridHelper.position.y = -20;
+        if (gridHelper.material instanceof THREE.Material) {
+            gridHelper.material.onBeforeCompile = getHeightFogShaderLogic();
+            if (config.currentMode === MODES.NEON) {
+                gridHelper.material.transparent = true;
+                gridHelper.material.opacity = 0.2;
+            }
+        }
+        scene.add(gridHelper);
+    }
+
+    function setupPostProcessing() {
+        if (config.currentMode === MODES.NEON) {
+            const renderScene = new THREE.RenderPass(scene, camera);
+
+            const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+            bloomPass.threshold = 0;
+            bloomPass.strength = 1.8;
+            bloomPass.radius = 0.5;
+
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+        } else {
+            composer = null;
+        }
+    }
+
+    // --- 数据生成逻辑 ---
+    function generateDataForIndex(i, laneIdx) {
+        const year = 2024 - i;
+        const prefixes = ["INIT", "CORE", "NODE", "DATA", "SYNC"];
+        const descs = [
+            "Analysis complete.",
+            "Foundation sector.",
+            "Integration core.",
+            "System upgrade.",
+            "Link established."
+        ];
+        const laneNames = ["ALPHA", "BETA", "GAMMA", "DELTA", "EPSILON", "ZETA", "ETA", "THETA"];
+        const laneName = laneNames[laneIdx % laneNames.length];
+        const safeIdx = Math.abs(i);
+        return {
+            year: year.toString(),
+            title: `${prefixes[safeIdx % prefixes.length]} ${laneName}-${safeIdx + 1}`,
+            desc: descs[safeIdx % descs.length]
+        };
+    }
+
+    function createRow(index) {
+        const laneGroups = [];
+        for (let l = 0; l < config.laneCount; l++) {
+            const group = createLane(index, l);
+            laneGroups.push(group);
+        }
+
+        // 跨线连接逻辑
+        for (let l = 0; l < config.laneCount - 1; l++) {
+            const linkSeed = Math.sin(index * 999 + l * 777) * 43758.5453;
+            const shouldLink = ((linkSeed - Math.floor(linkSeed)) < config.crossLinkChance);
+
+            if (shouldLink) {
+                const groupA = laneGroups[l];
+                const groupB = laneGroups[l + 1];
+                const posA = groupA.position;
+                const posB = groupB.position;
+
+                const startLocal = new THREE.Vector3(0, 0, 0);
+                const endLocal = new THREE.Vector3(posB.x - posA.x, posB.y - posA.y, posB.z - posA.z);
+
+                const linkGeo = new THREE.BufferGeometry().setFromPoints([startLocal, endLocal]);
+                const linkLine = new THREE.Line(linkGeo, mats.line);
+                groupA.add(linkLine);
+
+                const midPoint = endLocal.clone().multiplyScalar(0.5);
+                const markerGeo = new THREE.BoxGeometry(2, 2, 2);
+                const marker = new THREE.Mesh(markerGeo, mats.box);
+                marker.position.copy(midPoint);
+                groupA.add(marker);
+                
+                // 在跨线连接上添加流动光点 (Neon模式)
+                if (config.currentMode === MODES.NEON) {
+                    const crossLightGeo = new THREE.SphereGeometry(0.4, 8, 8);
+                    const crossLight = new THREE.Mesh(crossLightGeo, mats.flowingLight);
+                    
+                    crossLight.position.set(0, 0, 0);
+                    crossLight.userData = {
+                        type: 'crossFlowingLight',
+                        speed: 0.008 + Math.random() * 0.012,
+                        progress: Math.random(),
+                        target: endLocal.clone(),
+                        linkIndex: l
+                    };
+                    groupA.add(crossLight);
+                }
+            }
+        }
+    }
+
+    function createLane(index, laneIdx) {
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const personGeo = new THREE.ConeGeometry(0.15, 0.8, 8);
+        const data = generateDataForIndex(index, laneIdx);
+
+        const seedBase = index * 12.9898 + (laneIdx * 999.99);
+        const seed = Math.sin(seedBase) * 43758.5453;
+        const pseudoRand = (offset) => (Math.sin(seed + offset) * 10000) % 1;
+
+        const zPos = -index * config.spacingZ;
+        const laneOffsetX = laneIdx * config.laneDist;
+
+        // --- 1. 主体时间线 (Main Timeline) ---
+        const group = new THREE.Group();
+        const xPos = laneOffsetX + pseudoRand(1) * 20;
+        const yPos = pseudoRand(2) * 10;
+
+        group.position.set(xPos, yPos, zPos);
+        group.userData = { baseY: yPos, type: 'main', index: index, lane: laneIdx };
+        group.scale.set(1, 1, 1); // 修改：初始化 scale 为 1
+
+        // 纵向连接线
+        const nextIndex = index + 1;
+        const nextSeedBase = nextIndex * 12.9898 + (laneIdx * 999.99);
+        const nextSeed = Math.sin(nextSeedBase) * 43758.5453;
+        const nextPseudoRand = (offset) => (Math.sin(nextSeed + offset) * 10000) % 1;
+
+        const nextXPos = laneOffsetX + nextPseudoRand(1) * 20;
+        const nextYPos = nextPseudoRand(2) * 10;
+        const nextZPos = -nextIndex * config.spacingZ;
+
+        const lineEndLocal = new THREE.Vector3(nextXPos - xPos, nextYPos - yPos, nextZPos - zPos);
+        const timelineConnGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), lineEndLocal]);
+        const timelineConnLine = new THREE.Line(timelineConnGeo, mats.line);
+        group.add(timelineConnLine);
+
+        // 主平台
+        const mainSx = 4 + Math.abs(pseudoRand(3)) * 4;
+        const mainSy = 1 + Math.abs(pseudoRand(4)) * 2;
+        const mainSz = 4 + Math.abs(pseudoRand(5)) * 4;
+
+        const platform = new THREE.Mesh(boxGeo, mats.box);
+        platform.scale.set(mainSx, mainSy, mainSz);
+        platform.castShadow = true;
+        platform.receiveShadow = true;
+
+        // 主平台边框：Neon模式下发光，Light模式下普通
+        const mainEdgesMat = (config.currentMode === MODES.NEON) ? mats.glowEdges : mats.edges;
+        const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(mainSx, mainSy, mainSz));
+        const edgeLines = new THREE.LineSegments(edges, mainEdgesMat);
+        platform.add(edgeLines);
+        group.add(platform);
+
+        // === 复杂水平延伸分支 ===
+        if (Math.abs(pseudoRand(10)) > 0.6) {
+            const branchDir = pseudoRand(11) > 0 ? 1 : -1;
+            const segments = 2 + Math.floor(Math.abs(pseudoRand(12)) * 3);
+
+            let currentBranchX = (mainSx / 2) * branchDir;
+            let currentBranchY = 0;
+            let currentBranchZ = 0;
+
+            for (let s = 0; s < segments; s++) {
+                const distX = (25 + Math.abs(pseudoRand(20 + s)) * 35) * branchDir;
+                const distY = (pseudoRand(14 + s) - 0.5) * 30;
+                const distZ = (pseudoRand(19 + s) - 0.5) * 30;
+
+                const nextX = currentBranchX + distX;
+                const nextY = currentBranchY + distY;
+                const nextZ = currentBranchZ + distZ;
+
+                const connGeo = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(currentBranchX, currentBranchY, currentBranchZ),
+                    new THREE.Vector3(nextX, nextY, nextZ)
+                ]);
+                // 修改：使用 branchConnectors 材质
+                const connLine = new THREE.Line(connGeo, mats.branchConnectors);
+                group.add(connLine);
+
+                const bSx = 3 + Math.abs(pseudoRand(15 + s)) * 30;
+                const bSy = 1 + Math.abs(pseudoRand(16 + s));
+                const bSz = 3 + Math.abs(pseudoRand(17 + s)) * 30;
+
+                // 【核心修改点】分支边框材质
+                // mats.branchEdges 在 NEON 模式下是 mats.glowEdges (发光)，在 LIGHT 模式下是 mats.edges (普通)
+                const bEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(bSx, bSy, bSz));
+                const bEdgeLines = new THREE.LineSegments(bEdges, mats.branchEdges);
+                bEdgeLines.position.set(nextX, nextY, nextZ);
+                group.add(bEdgeLines);
+
+                const bLineHeight = 8 + Math.abs(pseudoRand(18 + s)) * 8;
+                const bVertLine = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints([
+                        new THREE.Vector3(nextX, nextY, nextZ),
+                        new THREE.Vector3(nextX, nextY + bLineHeight, nextZ)
+                    ]),
+                    // 修改：使用 branchConnectors 材质
+                    mats.branchConnectors
+                );
+                group.add(bVertLine);
+
+                const bPanelGeo = new THREE.PlaneGeometry(6, 6);
+                const bPanelText = createTextTexture(data.year, "NODE " + s, "Sub-branch");
+                const bPanelMat = new THREE.MeshBasicMaterial({
+                    map: bPanelText,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    blending: config.currentMode === MODES.NEON ? THREE.AdditiveBlending : THREE.NormalBlending
+                });
+                bPanelMat.onBeforeCompile = getHeightFogShaderLogic();
+
+                const bPanel = new THREE.Mesh(bPanelGeo, bPanelMat);
+                bPanel.position.set(nextX + 4, nextY + bLineHeight, nextZ);
+                bPanel.rotation.y = -Math.PI / 4;
+                group.add(bPanel);
+
+                // 在分支连接线上添加流动光点 (Neon模式)
+                if (config.currentMode === MODES.NEON && Math.abs(pseudoRand(s * 200)) > 0.5) {
+                    const branchLightGeo = new THREE.SphereGeometry(0.35, 8, 8);
+                    const branchLight = new THREE.Mesh(branchLightGeo, mats.flowingLight);
+                    
+                    branchLight.position.set(currentBranchX, currentBranchY, currentBranchZ);
+                    branchLight.userData = {
+                        type: 'branchFlowingLight',
+                        speed: 0.01 + Math.abs(pseudoRand(s * 300)) * 0.02,
+                        progress: Math.random(),
+                        startPos: new THREE.Vector3(currentBranchX, currentBranchY, currentBranchZ),
+                        endPos: new THREE.Vector3(nextX, nextY, nextZ),
+                        phase: s / segments
+                    };
+                    group.add(branchLight);
+                }
+
+                currentBranchX = nextX;
+                currentBranchY = nextY;
+                currentBranchZ = nextZ;
+            }
+        }
+
+        // 信息面板连接线
+        const lineHeight = 10 + Math.abs(pseudoRand(6)) * 10;
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, lineHeight, 0)
+        ]);
+        // Neon模式下主连接线发光，Light模式下普通
+        const panelLineMat = (config.currentMode === MODES.NEON) ? mats.glowEdges : mats.line;
+        const line = new THREE.Line(lineGeo, panelLineMat);
+        line.position.set(mainSx / 2 - 0.5, mainSy / 2, mainSz / 2 - 0.5);
+        group.add(line);
+
+        const panelWidth = 8;
+        const panelHeight = 8;
+        const panelGeo = new THREE.PlaneGeometry(panelWidth, panelHeight);
+        const panelTexture = createTextTexture(data.year, data.title, data.desc);
+        const panelMat = new THREE.MeshBasicMaterial({
+            map: panelTexture,
+            side: THREE.DoubleSide,
+            transparent: true,
+            depthWrite: false,
+            blending: config.currentMode === MODES.NEON ? THREE.AdditiveBlending : THREE.NormalBlending
+        });
+        panelMat.onBeforeCompile = getHeightFogShaderLogic();
+
+        const panel = new THREE.Mesh(panelGeo, panelMat);
+        panel.position.set(mainSx / 2 - 0.5 + panelWidth / 2, mainSy / 2 + lineHeight, mainSz / 2 - 0.5);
+        panel.rotation.y = -Math.PI / 4;
+        group.add(panel);
+
+        const person = new THREE.Mesh(personGeo, mats.person);
+        person.position.set(0, mainSy / 2 + 0.4, 0);
+        group.add(person);
+        
+        // 在信息面板连接线上添加流动光点 (Neon模式)
+        if (config.currentMode === MODES.NEON && Math.abs(pseudoRand(97)) > 0.3) {
+            const panelLightGeo = new THREE.SphereGeometry(0.35, 8, 8);
+            const panelLight = new THREE.Mesh(panelLightGeo, mats.flowingLight);
+            
+            const startY = mainSy / 2;
+            const endY = mainSy / 2 + lineHeight;
+            
+            panelLight.position.set(mainSx / 2 - 0.5, startY, mainSz / 2 - 0.5);
+            panelLight.userData = {
+                type: 'panelFlowingLight',
+                speed: 0.012 + Math.abs(pseudoRand(98)) * 0.018,
+                progress: Math.random(),
+                startY: startY,
+                endY: endY,
+                xPos: mainSx / 2 - 0.5,
+                zPos: mainSz / 2 - 0.5
+            };
+            group.add(panelLight);
+        }
+
+        scene.add(group);
+        objects.push(group);
+        
+        // === 流动光效 (仅 Neon 模式) ===
+        if (config.currentMode === MODES.NEON) {
+            // 在主平台边框上添加流动光点
+            const numLights = 3 + Math.floor(Math.abs(pseudoRand(90)) * 3); // 3-6个光点
+            for (let i = 0; i < numLights; i++) {
+                const lightGeo = new THREE.SphereGeometry(0.3, 8, 8);
+                const light = new THREE.Mesh(lightGeo, mats.flowingLight);
+                
+                // 随机初始位置在平台边缘
+                const angle = (i / numLights) * Math.PI * 2;
+                const radius = Math.sqrt(mainSx * mainSx + mainSz * mainSz) / 2;
+                light.position.set(
+                    Math.cos(angle) * radius,
+                    mainSy / 2,
+                    Math.sin(angle) * radius
+                );
+                
+                light.userData = {
+                    type: 'flowingLight',
+                    speed: 0.02 + Math.abs(pseudoRand(i * 111)) * 0.03,
+                    angle: angle,
+                    radius: radius,
+                    phase: i / numLights
+                };
+                
+                group.add(light);
+            }
+            
+            // 在纵向连接线上添加流动光点
+            if (Math.abs(pseudoRand(95)) > 0.4) {
+                const verticalLightGeo = new THREE.SphereGeometry(0.4, 8, 8);
+                const verticalLight = new THREE.Mesh(verticalLightGeo, mats.flowingLight);
+                verticalLight.position.set(0, 0, 0);
+                verticalLight.userData = {
+                    type: 'verticalFlowingLight',
+                    speed: 0.015 + Math.abs(pseudoRand(96)) * 0.02,
+                    progress: Math.random(),
+                    target: lineEndLocal.clone()
+                };
+                group.add(verticalLight);
+            }
+        }
+
+        // --- 2. 密集底部建筑群 (Background) ---
+        const bottomCount = 2 + Math.floor(Math.abs(pseudoRand(7)) * 4);
+        for (let k = 0; k < bottomCount; k++) {
+            const bGroup = new THREE.Group();
+            const zOffset = pseudoRand(k * 10) * 120;
+            const bZPos = zPos + zOffset;
+
+            const placeType = Math.floor(Math.abs(pseudoRand(k * 123)) * 3);
+            let bXOffset = 0;
+            const halfDist = config.laneDist / 2;
+
+            if (placeType === 0) {
+                bXOffset = pseudoRand(k * 20) * 80;
+                if (Math.abs(bXOffset) < 25) bXOffset += (bXOffset > 0 ? 25 : -25);
+            } else if (placeType === 1) {
+                bXOffset = halfDist + pseudoRand(k * 30) * 100;
+            } else {
+                bXOffset = -halfDist + pseudoRand(k * 40) * 100;
+            }
+
+            const bXPos = laneOffsetX + bXOffset;
+            const bYBase = -100 - Math.abs(pseudoRand(k * 30)) * 250;
+
+            bGroup.position.set(bXPos, bYBase, bZPos);
+            bGroup.userData = { baseY: bYBase, type: 'bottom', index: index, lane: laneIdx };
+            bGroup.scale.set(1, 1, 1); // 修改：初始化 scale 为 1
+
+            const floors = 1 + Math.floor(Math.abs(pseudoRand(k * 40)) * 6);
+            let currentY = 0;
+            const baseW = 15 + Math.abs(pseudoRand(k * 50)) * 25;
+            const baseD = 15 + Math.abs(pseudoRand(k * 60)) * 25;
+
+            for (let f = 0; f < floors; f++) {
+                const h = 25 + Math.abs(pseudoRand(k * 70 + f)) * 45; // 从 20-50 增加到 25-70
+                const taper = 1.0 - (f * 0.08);
+                const w = baseW * taper;
+                const d = baseD * taper;
+
+                const bMesh = new THREE.Mesh(boxGeo, mats.box);
+                bMesh.scale.set(w, h, d);
+                bMesh.position.set(0, currentY + h / 2, 0);
+                bMesh.castShadow = true;
+                bMesh.receiveShadow = true;
+                bGroup.add(bMesh);
+
+                const bEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d));
+                // 底部建筑使用背景边框材质 (Neon下是dim，Light下是normal)
+                const bgEdgeMat = (config.currentMode === MODES.NEON) ? mats.bgEdges : mats.edges;
+                const bLines = new THREE.LineSegments(bEdges, bgEdgeMat);
+                bLines.position.set(0, currentY + h / 2, 0);
+                bGroup.add(bLines);
+                currentY += h;
+            }
+
+            const antennaH = 60 + Math.abs(pseudoRand(k * 80)) * 180; // 从 50-200 增加到 60-240
+            const antenna = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, currentY, 0), new THREE.Vector3(0, currentY + antennaH, 0)]),
+                mats.line
+            );
+            bGroup.add(antenna);
+
+            scene.add(bGroup);
+            objects.push(bGroup);
+        }
+
+        // --- 3. 倒置天空建筑群 (Background) ---
+        const topCount = 1 + Math.floor(Math.abs(pseudoRand(50)) * 2);
+        for (let k = 0; k < topCount; k++) {
+            const tGroup = new THREE.Group();
+            const zOffset = pseudoRand(k * 15) * 120;
+            const tZPos = zPos + zOffset;
+
+            let randOffset = pseudoRand(k * 25) * 240;
+            if (Math.abs(randOffset) < 30) randOffset += (randOffset > 0 ? 30 : -30);
+            const tXPos = laneOffsetX + randOffset;
+
+            const tYBase = (config.currentMode === MODES.LIGHT ? 600 : 600) + Math.abs(pseudoRand(k * 35)) * (config.currentMode === MODES.LIGHT ? 300 : 300);
+
+            tGroup.position.set(tXPos, tYBase, tZPos);
+            tGroup.userData = { baseY: tYBase, type: 'top', index: index, lane: laneIdx };
+            tGroup.scale.set(1, 1, 1); // 修改：初始化 scale 为 1
+
+            const floors = 2 + Math.floor(Math.abs(pseudoRand(k * 45)) * 4);
+            let currentY = 0;
+            const baseW = 15 + Math.abs(pseudoRand(k * 55)) * 25;
+            const baseD = 15 + Math.abs(pseudoRand(k * 65)) * 25;
+
+            for (let f = 0; f < floors; f++) {
+                const h = 20 + Math.abs(pseudoRand(k * 75 + f)) * 40;
+                const taper = 1.0 - (f * 0.05);
+                const w = baseW * taper;
+                const d = baseD * taper;
+
+                const tMesh = new THREE.Mesh(boxGeo, mats.box);
+                tMesh.scale.set(w, h, d);
+                tMesh.position.set(0, currentY - h / 2, 0);
+                tMesh.castShadow = true;
+                tMesh.receiveShadow = true;
+                tGroup.add(tMesh);
+
+                const tEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d));
+                // 天空建筑使用背景边框材质
+                const bgEdgeMat = (config.currentMode === MODES.NEON) ? mats.bgEdges : mats.edges;
+                const tLines = new THREE.LineSegments(tEdges, bgEdgeMat);
+                tLines.position.set(0, currentY - h / 2, 0);
+                tGroup.add(tLines);
+
+                currentY -= h;
+            }
+
+            // 天线
+            const antennaH = 50 + Math.abs(pseudoRand(k * 95)) * 150;
+            const antenna = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, currentY, 0), new THREE.Vector3(0, currentY - antennaH, 0)]),
+                mats.line
+            );
+            tGroup.add(antenna);
+
+            scene.add(tGroup);
+            objects.push(tGroup);
+        }
+
+        return group;
+    }
+
+    // --- 交互控制 ---
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function onDocumentMouseWheel(event) {
+        event.preventDefault();
+        targetCameraHeight += event.deltaY * 0.5;
+        if (targetCameraHeight < 10) targetCameraHeight = 10;
+        if (targetCameraHeight > 3000) targetCameraHeight = 3000;
+    }
+
+    function onMouseDown(event) {
+        isDragging = true;
+        previousMouseY = event.clientY;
+        document.body.classList.add('grabbing');
+    }
+
+    function onMouseUp() {
+        isDragging = false;
+        document.body.classList.remove('grabbing');
+    }
+
+    function onMouseMove(event) {
+        if (!isDragging) return;
+        const deltaY = event.clientY - previousMouseY;
+        previousMouseY = event.clientY;
+        targetScrollPos += deltaY * 0.5;
+    }
+
+    // --- 纹理生成 ---
+    function createTextTexture(year, title, desc) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const width = 512;
+        const height = 512;
+        canvas.width = width;
+        canvas.height = height;
+
+        if (config.currentMode === MODES.LIGHT) {
+            // Light Mode Texture
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(0, 0, width, height);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(0, 0, width, height);
+            ctx.fillStyle = config.textColor;
+        } else {
+            // Neon Mode Texture
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+            ctx.fillRect(0, 0, width, height);
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(0, 0, width, height);
+            ctx.fillStyle = config.textColor;
+            ctx.shadowColor = "#00ffff";
+            ctx.shadowBlur = 10;
+        }
+
+        ctx.textAlign = 'left';
+
+        // Year
+        ctx.font = 'bold 120px Helvetica, Arial';
+        ctx.fillText(year, 40, 140);
+
+        // Reset Shadow for lines
+        ctx.shadowBlur = 0;
+
+        // Divider Line
+        ctx.beginPath();
+        ctx.moveTo(40, 160);
+        ctx.lineTo(width - 40, 160);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = config.currentMode === MODES.LIGHT ? '#000' : '#00ffff';
+        ctx.stroke();
+
+        // Title
+        ctx.font = 'bold 40px Helvetica, Arial';
+        ctx.fillStyle = config.textColor;
+        ctx.fillText(title, 40, 220);
+
+        // Desc
+        ctx.font = 'normal 28px Helvetica, Arial';
+        // Neon mode desc color handling
+        if (config.currentMode === MODES.NEON) ctx.fillStyle = '#ccc';
+
+        const words = desc.split(' ');
+        let line = '';
+        let y = 280;
+        for (let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > width - 80 && n > 0) {
+                ctx.fillText(line, 40, y);
+                line = words[n] + ' ';
+                y += 40;
+            } else {
+                line = testLine;
+            }
+        }
+        ctx.fillText(line, 40, y);
+
+        // Decor
+        ctx.fillStyle = config.currentMode === MODES.LIGHT ? '#000' : '#00ffff';
+        ctx.fillRect(40, height - 40, 20, 20);
+        ctx.fillRect(70, height - 40, 20, 20);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        return texture;
+    }
+
+    // --- 动画循环 ---
+    function animate() {
+        requestAnimationFrame(animate);
+
+        scrollPos += (targetScrollPos - scrollPos) * 0.05;
+        cameraHeight += (targetCameraHeight - cameraHeight) * 0.05;
+
+        const currentIndex = Math.floor(scrollPos / config.spacingZ);
+        const minIdx = currentIndex - config.renderRange;
+        const maxIdx = currentIndex + config.renderRange;
+
+        // 动态生成新区块
+        for (let i = minIdx; i <= maxIdx; i++) {
+            if (!activeIndices.has(i)) {
+                createRow(i);
+                activeIndices.add(i);
+            }
+        }
+
+        // 相机逻辑
+        const baseHeight = 100;
+        const baseRelX = -100;
+        const baseRelZ = 120;
+        const scale = cameraHeight / baseHeight;
+
+        const currentDistX = baseRelX * scale;
+        const currentDistZ = baseRelZ * scale;
+
+        const centerLaneIndex = Math.floor(config.laneCount / 2);
+        const centerLineX = centerLaneIndex * config.laneDist;
+
+        const targetX = centerLineX;
+        const targetY = 0;
+        const currentFocusZ = -scrollPos;
+
+        const camX = targetX + currentDistX;
+        const camY = cameraHeight;
+        const camZ = currentFocusZ + currentDistZ;
+
+        camera.position.set(camX, camY, camZ);
+        camera.lookAt(targetX, targetY, currentFocusZ);
+
+        // 灯光跟随
+        const light = scene.getObjectByName("mainLight");
+        if (light) {
+            light.position.set(camX + 50, camY + 50, camZ + 50);
+            light.target.position.set(targetX, targetY, currentFocusZ);
+            light.target.updateMatrixWorld();
+        }
+
+        // 清理与动画逻辑
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            const objIndex = obj.userData.index;
+
+            if (objIndex < minIdx || objIndex > maxIdx) {
+                scene.remove(obj);
+                disposeHierarchy(obj);
+                objects.splice(i, 1);
+                activeIndices.delete(objIndex);
+                continue;
+            }
+
+            const dist = obj.position.z - currentFocusZ;
+            const visibleMin = config.currentMode === MODES.LIGHT ? -750 : -650;
+            const visibleMax = config.currentMode === MODES.LIGHT ? 500 : 300;
+
+            const isVisible = dist > visibleMin && dist < visibleMax;
+            // 修改：移除了缩放动画逻辑，缩放始终为 1
+            // const targetScale = isVisible ? 1 : 0; 
+
+            let hiddenOffset = -50;
+            if (obj.userData.type === 'top') hiddenOffset = 50;
+
+            const targetY = isVisible ? obj.userData.baseY : (obj.userData.baseY + hiddenOffset);
+
+            const lerpSpeed = 0.05;
+            if (Math.abs(obj.position.y - targetY) > 0.01) {
+                // 修改：移除了 obj.scale 插值
+                obj.position.y = THREE.MathUtils.lerp(obj.position.y, targetY, lerpSpeed);
+            } else {
+                obj.position.y = targetY;
+            }
+
+            // 微动浮动动画 (现在始终执行，只要在可视范围内)
+            const time = Date.now() * 0.001;
+            if (isVisible) {
+                obj.children.forEach(c => {
+                    if (c.geometry && c.geometry.type === 'PlaneGeometry') {
+                        c.position.y += Math.sin(time + i + (obj.userData.lane || 0)) * 0.005;
+                    }
+                    
+                    // 流动光效动画
+                    if (c.userData && c.userData.type === 'flowingLight') {
+                        // 绕平台边缘旋转
+                        c.userData.angle += c.userData.speed;
+                        c.position.x = Math.cos(c.userData.angle) * c.userData.radius;
+                        c.position.z = Math.sin(c.userData.angle) * c.userData.radius;
+                        
+                        // 添加呼吸效果
+                        const pulse = Math.sin(time * 3 + c.userData.phase * Math.PI * 2) * 0.5 + 0.5;
+                        c.scale.setScalar(0.8 + pulse * 0.4);
+                        if (c.material && c.material.opacity !== undefined) {
+                            c.material.opacity = 0.6 + pulse * 0.4;
+                        }
+                    }
+                    
+                    if (c.userData && c.userData.type === 'verticalFlowingLight') {
+                        // 沿纵向线移动
+                        c.userData.progress += c.userData.speed;
+                        if (c.userData.progress > 1) c.userData.progress = 0;
+                        
+                        const target = c.userData.target;
+                        c.position.x = target.x * c.userData.progress;
+                        c.position.y = target.y * c.userData.progress;
+                        c.position.z = target.z * c.userData.progress;
+                        
+                        // 呼吸效果
+                        const pulse = Math.sin(c.userData.progress * Math.PI) * 0.5 + 0.5;
+                        c.scale.setScalar(0.7 + pulse * 0.5);
+                        if (c.material && c.material.opacity !== undefined) {
+                            c.material.opacity = 0.5 + pulse * 0.5;
+                        }
+                    }
+                    
+                    if (c.userData && c.userData.type === 'branchFlowingLight') {
+                        // 沿分支连接线移动
+                        c.userData.progress += c.userData.speed;
+                        if (c.userData.progress > 1) c.userData.progress = 0;
+                        
+                        const start = c.userData.startPos;
+                        const end = c.userData.endPos;
+                        const t = c.userData.progress;
+                        
+                        c.position.x = start.x + (end.x - start.x) * t;
+                        c.position.y = start.y + (end.y - start.y) * t;
+                        c.position.z = start.z + (end.z - start.z) * t;
+                        
+                        // 呼吸效果
+                        const pulse = Math.sin(time * 2.5 + c.userData.phase * Math.PI * 2) * 0.5 + 0.5;
+                        c.scale.setScalar(0.8 + pulse * 0.4);
+                        if (c.material && c.material.opacity !== undefined) {
+                            c.material.opacity = 0.6 + pulse * 0.4;
+                        }
+                    }
+                    
+                    if (c.userData && c.userData.type === 'panelFlowingLight') {
+                        // 沿信息面板连接线上下移动
+                        c.userData.progress += c.userData.speed;
+                        if (c.userData.progress > 1) c.userData.progress = 0;
+                        
+                        const startY = c.userData.startY;
+                        const endY = c.userData.endY;
+                        const t = c.userData.progress;
+                        
+                        c.position.x = c.userData.xPos;
+                        c.position.y = startY + (endY - startY) * t;
+                        c.position.z = c.userData.zPos;
+                        
+                        // 呼吸效果
+                        const pulse = Math.sin(t * Math.PI) * 0.5 + 0.5;
+                        c.scale.setScalar(0.7 + pulse * 0.5);
+                        if (c.material && c.material.opacity !== undefined) {
+                            c.material.opacity = 0.5 + pulse * 0.5;
+                        }
+                    }
+                    
+                    if (c.userData && c.userData.type === 'crossFlowingLight') {
+                        // 沿跨线连接移动
+                        c.userData.progress += c.userData.speed;
+                        if (c.userData.progress > 1) c.userData.progress = 0;
+                        
+                        const target = c.userData.target;
+                        const t = c.userData.progress;
+                        
+                        c.position.x = target.x * t;
+                        c.position.y = target.y * t;
+                        c.position.z = target.z * t;
+                        
+                        // 呼吸效果 - 更明显
+                        const pulse = Math.sin(time * 2 + c.userData.linkIndex) * 0.5 + 0.5;
+                        c.scale.setScalar(0.9 + pulse * 0.6);
+                        if (c.material && c.material.opacity !== undefined) {
+                            c.material.opacity = 0.7 + pulse * 0.3;
+                        }
+                    }
+                });
+            }
+        }
+
+        // 渲染：区分是否使用 Composer
+        if (config.currentMode === MODES.NEON && composer) {
+            composer.render();
+        } else {
+            renderer.render(scene, camera);
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
