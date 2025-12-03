@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Timeline - Full Interaction</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            cursor: grab;
+            background-color: #020205;
+            color: #fff;
+        }
+
+        body.grabbing {
+            cursor: grabbing;
+        }
+
+        /* 交互时的鼠标样式 */
+        body.pointer {
+            cursor: pointer !important;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            z-index: 10;
+            transition: all 0.5s ease;
+        }
+
+        h1 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin: 0;
+            text-transform: uppercase;
+            font-size: 1.2rem;
+            display: inline-block;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #00ffff;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        #ui {
+            color: #fff;
+            mix-blend-mode: difference;
+        }
+
+        p {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            letter-spacing: 5px;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            color: #00ffff;
+            text-shadow: 0 0 15px #00ffff;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="ui">
+    <h1 id="ui-title">CHRONO INFINITY</h1>
+    <p id="ui-desc">Initializing...</p>
+</div>
+
+<div id="loading" class="loading">SYSTEM INITIALIZING...</div>
+<div id="canvas-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/CopyShader.js"></script>
+<script
+        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script
+        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/ShaderPass.js"></script>
+<script
+        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+<script>
+    // --- 配置参数 ---
+    const config = {
+        spacingZ: 40,
+        renderRange: 45,
+        laneCount: 5,
+        laneDist: 350,
+        maxPixelRatio: 1.5,
+
+        bgColor: 0x020205,
+        fogColor: 0x020205,
+        heightFogDensity: 0.02,
+        heightFogBase: -1.0,
+
+        mainBlockColor: 0xc4f0ff,
+        bgBlockColor: 0x80d2ff,
+        lineColor: 0x222222,
+
+        mainEdgeColor: 0x00E0FF,
+        dimEdgeColor: 0x005070,
+
+        textColor: '#ffffff',
+        uiTitle: "NEON CONFIG // HDR",
+        uiDesc: "HDR EMISSIVE ACTIVE"
+    };
+
+    const globalUniforms = { time: { value: 0 } };
+
+    // --- 数据配置 ---
+    const STORY_EVENTS = [
+        { tick: 0, year: "2024", title: "GENESIS", desc: "System Start.", lane: 2 },
+        { tick: 15, year: "2023", title: "ALPHA", desc: "Prototype.", lane: 1 },
+        { tick: 30, year: "2022", title: "BETA", desc: "Testing phase.", lane: 3 },
+        { tick: 50, year: "2020", title: "CRISIS", desc: "Data Crash.", lane: 2 },
+        { tick: 70, year: "2015", title: "SEED", desc: "First idea.", lane: 0 },
+        { tick: 90, year: "2000", title: "Y2K", desc: "Bug fix.", lane: 4 },
+    ];
+
+    const STORY_MAP = new Map();
+    STORY_EVENTS.forEach(evt => STORY_MAP.set(evt.tick, evt));
+
+    const CONNECTION_CONFIG = [
+        { fromTick: 0, fromLane: 2, toTick: 15, toLane: 1, title: "DOWNGRADE", desc: "Ver 1.0 -> 0.9" },
+        { fromTick: 15, fromLane: 1, toTick: 15, toLane: 3, title: "SYNC", desc: "Lateral Sync" },
+        { fromTick: 30, fromLane: 3, toTick: 70, toLane: 0, title: "TIME LEAP", desc: "Deep Backup Restore" },
+        { fromTick: 50, fromLane: 2, toTick: 55, toLane: 4, title: "FORK", desc: "Emergency Branch" },
+        { fromTick: 55, fromLane: 4, toTick: 70, toLane: 4, title: "ISOLATION", desc: "Safe Mode" }
+    ];
+
+    // --- 核心变量 ---
+    let scene, camera, renderer;
+    let bloomComposer, finalComposer;
+
+    let scrollPos = 320;
+    let targetScrollPos = 320;
+
+    let cameraOffsetX = 0;
+    let targetCameraOffsetX = 0;
+
+    let activeIndices = new Set();
+    let cameraHeight = 100;
+    let targetCameraHeight = 100;
+
+    let isDragging = false;
+    let previousMouseY = 0;
+    let previousMouseX = 0;
+
+    let objects = [];
+    let mats = {};
+    const BLOOM_LAYER = 1;
+
+    let allParticles = [];
+    const particleGeo = new THREE.SphereGeometry(0.2, 6, 6);
+    let particleMat;
+
+    // --- 交互相关变量 ---
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let interactiveObjects = [];
+    let hoveredObject = null;
+
+    function init() {
+        const container = document.getElementById('canvas-container');
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 10, 20000);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        renderer.setPixelRatio(dpr);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        window.addEventListener('resize', onWindowResize, false);
+        document.addEventListener('wheel', onDocumentMouseWheel, { passive: false });
+
+        document.addEventListener('mousedown', onMouseDown, false);
+        document.addEventListener('mouseup', onMouseUp, false);
+        document.addEventListener('mousemove', onMouseMove, false);
+        document.addEventListener('mouseleave', onMouseUp, false);
+
+        document.addEventListener('click', onMouseClick, false);
+
+        setupSceneMode();
+
+        document.getElementById('loading').style.opacity = 0;
+        animate();
+    }
+
+    function setupSceneMode() {
+        scene.add(camera);
+        clearScene();
+        document.getElementById('ui-title').innerText = config.uiTitle;
+        document.getElementById('ui-desc').innerHTML = config.uiDesc + "<br>左上↔右下：前后移动 • 左下↔右上：左右移动<br>任意节点可点击";
+        scene.background = new THREE.Color(config.bgColor);
+        scene.fog = new THREE.FogExp2(config.fogColor, 0.0006);
+
+        initMaterials();
+        setupLights();
+        setupPostProcessing();
+        activeIndices.clear();
+        interactiveObjects = [];
+    }
+
+    function clearScene() {
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            scene.remove(obj);
+            disposeHierarchy(obj);
+        }
+        objects = [];
+        allParticles = [];
+        const oldLights = scene.children.filter(c => c.isLight || c.type === 'GridHelper');
+        oldLights.forEach(l => { scene.remove(l); if (l.dispose) l.dispose(); });
+    }
+
+    function disposeHierarchy(node) {
+        node.traverse((child) => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) child.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+                else { if (child.material.map) child.material.map.dispose(); child.material.dispose(); }
+            }
+        });
+    }
+
+    function getHeightFogShaderLogic() {
+        return (shader) => {
+            shader.uniforms.hFogColor = { value: new THREE.Color(config.fogColor) };
+            shader.uniforms.hFogDensity = { value: config.heightFogDensity };
+            shader.uniforms.hFogBase = { value: config.heightFogBase };
+            shader.vertexShader = shader.vertexShader.replace(`#include <common>`, `#include <common>\nvarying vec3 vWorldPosition;`);
+            shader.vertexShader = shader.vertexShader.replace(`#include <begin_vertex>`, `#include <begin_vertex>\nvWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;`);
+            shader.fragmentShader = shader.fragmentShader.replace(`#include <common>`, `#include <common>\nuniform vec3 hFogColor;\nuniform float hFogDensity;\nuniform float hFogBase;\nvarying vec3 vWorldPosition;`);
+            shader.fragmentShader = shader.fragmentShader.replace(`#include <fog_fragment>`, `
+            float heightFactor = 0.0;
+            if (vWorldPosition.y < hFogBase) {
+                float dist = hFogBase - vWorldPosition.y;
+                heightFactor = 1.0 - exp(-dist * hFogDensity);
+            }
+            heightFactor = clamp(heightFactor, 0.0, 1.0);
+            gl_FragColor.rgb = mix(gl_FragColor.rgb, hFogColor, heightFactor);
+            #include <fog_fragment>
+            `);
+        };
+    }
+
+    function initMaterials() {
+        const shaderLogic = getHeightFogShaderLogic();
+        mats = {};
+
+        particleMat = new THREE.MeshBasicMaterial({ 
+            color: config.mainEdgeColor, 
+            transparent: true, 
+            opacity: 1.0, 
+            blending: THREE.AdditiveBlending 
+        });
+
+        const mainBoxColor = new THREE.Color(config.mainBlockColor);
+        mainBoxColor.multiplyScalar(1.0);
+        mats.mainBox = new THREE.MeshLambertMaterial({ color: mainBoxColor });
+        mats.mainBox.onBeforeCompile = shaderLogic;
+
+        const bgBoxColor = new THREE.Color(config.bgBlockColor);
+        bgBoxColor.multiplyScalar(1.0);
+        mats.bgBox = new THREE.MeshLambertMaterial({ color: bgBoxColor });
+        mats.bgBox.onBeforeCompile = shaderLogic;
+
+        const lineColor = new THREE.Color(config.mainEdgeColor);
+        lineColor.multiplyScalar(1.0);
+        mats.line = new THREE.LineBasicMaterial({
+            color: lineColor,
+            transparent: true,
+            opacity: 0.95
+        });
+        mats.line.onBeforeCompile = shaderLogic;
+
+        const glowEdgeColor = new THREE.Color(config.mainEdgeColor);
+        glowEdgeColor.multiplyScalar(1.0);
+        mats.glowEdges = new THREE.LineBasicMaterial({
+            color: glowEdgeColor,
+            linewidth: 2,
+            transparent: true,
+            opacity: 1.0
+        });
+        mats.glowEdges.onBeforeCompile = shaderLogic;
+
+        const dimEdgeColor = new THREE.Color(config.dimEdgeColor);
+        dimEdgeColor.multiplyScalar(1.0);
+        mats.dimEdges = new THREE.LineBasicMaterial({
+            color: dimEdgeColor,
+            transparent: true,
+            opacity: 0.85,
+            linewidth: 2
+        });
+        mats.dimEdges.onBeforeCompile = shaderLogic;
+        mats.bgEdges = mats.dimEdges;
+
+        mats.mainEdges = mats.glowEdges;
+
+        mats.person = new THREE.MeshBasicMaterial({ color: 0x00aaaa });
+        mats.person.onBeforeCompile = shaderLogic;
+    }
+
+    function setupLights() {
+        scene.add(new THREE.AmbientLight(0x222222, 0.5));
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        dirLight.name = "mainLight";
+        dirLight.position.set(100, 200, 100);
+        dirLight.color.setHSL(0.6, 0.2, 0.5);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        const shadowRange = config.laneCount * config.laneDist + 4000;
+        dirLight.shadow.camera.left = -2000; 
+        dirLight.shadow.camera.right = shadowRange;
+        dirLight.shadow.camera.top = 2000; 
+        dirLight.shadow.camera.bottom = -2000;
+        scene.add(dirLight);
+    }
+
+    function setupPostProcessing() {
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const renderScene = new THREE.RenderPass(scene, camera);
+        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(width * dpr, height * dpr), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0; 
+        bloomPass.strength = 2; 
+        bloomPass.radius = 0.2;
+
+        bloomComposer = new THREE.EffectComposer(renderer);
+        bloomComposer.renderToScreen = false;
+        bloomComposer.addPass(renderScene);
+        bloomComposer.addPass(bloomPass);
+
+        const finalPass = new THREE.ShaderPass(
+            new THREE.ShaderMaterial({
+                uniforms: { 
+                    baseTexture: { value: null }, 
+                    bloomTexture: { value: bloomComposer.renderTarget2.texture } 
+                },
+                vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }`,
+                fragmentShader: `uniform sampler2D baseTexture; uniform sampler2D bloomTexture; varying vec2 vUv; void main() { vec4 base = texture2D( baseTexture, vUv ); vec4 bloom = texture2D( bloomTexture, vUv ); gl_FragColor = base + bloom; }`,
+            }), "baseTexture"
+        );
+        finalPass.needsSwap = true;
+        finalComposer = new THREE.EffectComposer(renderer);
+        finalComposer.addPass(renderScene);
+        finalComposer.addPass(finalPass);
+        bloomComposer.setSize(width, height); 
+        bloomComposer.setPixelRatio(dpr);
+        finalComposer.setSize(width, height); 
+        finalComposer.setPixelRatio(dpr);
+    }
+
+    function enableBloom(obj) { obj.layers.set(BLOOM_LAYER); }
+
+    function spawnFlowingParticles(startPointLocal, endVectorLocal, parentGroup, count = 4) {
+        const len = endVectorLocal.length();
+        const density = Math.max(count, Math.floor(len / 40));
+
+        const dirNorm = endVectorLocal.clone().normalize();
+        let sideVec = new THREE.Vector3().crossVectors(dirNorm, new THREE.Vector3(0, 1, 0)).normalize();
+        if (sideVec.lengthSq() < 0.01) sideVec = new THREE.Vector3(1, 0, 0);
+
+        for (let i = 0; i < density; i++) {
+            const pMesh = new THREE.Mesh(particleGeo, particleMat);
+            enableBloom(pMesh);
+            pMesh.userData.isParticle = true;
+            pMesh.userData.type = 'flow';
+            pMesh.userData.flowData = {
+                start: startPointLocal.clone(), endVec: endVectorLocal, sideVec: sideVec,
+                sideModifier: i % 2 === 0 ? 1 : -1, progress: Math.random(),
+                speed: 0.002 + Math.random() * 0.005, phase: Math.random() * Math.PI * 2,
+                wobbleSpeed: 2.0 + Math.random() * 3.0, wobbleAmp: 0.5 + Math.random() * 0.5
+            };
+            pMesh.position.copy(pMesh.userData.flowData.start);
+            parentGroup.add(pMesh);
+            allParticles.push(pMesh);
+        }
+    }
+
+    function spawnRisingParticles(parentGroup, count = 20) {
+        const totalWidth = config.laneCount * config.laneDist;
+        for (let i = 0; i < count; i++) {
+            const pMesh = new THREE.Mesh(particleGeo, particleMat);
+            enableBloom(pMesh);
+            const rX = (Math.random() - 0.5) * totalWidth * 1.5;
+            const startY = -200 - Math.random() * 400;
+            pMesh.position.set(rX, startY, (Math.random() - 0.5) * 100);
+            pMesh.userData.isParticle = true;
+            pMesh.userData.type = 'rise';
+            pMesh.userData.riseData = {
+                minY: startY, maxY: 50 + Math.random() * 100, speed: 0.2 + Math.random() * 0.4,
+                driftSpeed: 0.01 + Math.random() * 0.02, driftPhase: Math.random() * Math.PI * 2
+            };
+            parentGroup.add(pMesh);
+            allParticles.push(pMesh);
+        }
+    }
+
+    function createRow(index) {
+        const laneGroups = [];
+        for (let l = 0; l < config.laneCount; l++) laneGroups.push(createLane(index, l));
+
+        if (laneGroups.length > 2) spawnRisingParticles(laneGroups[2], 200);
+
+        const outboundConnections = CONNECTION_CONFIG.filter(c => c.fromTick === index);
+
+        outboundConnections.forEach(conn => {
+            if (conn.fromLane < config.laneCount && conn.toLane < config.laneCount && laneGroups[conn.fromLane]) {
+                const groupA = laneGroups[conn.fromLane];
+                const deltaX = (conn.toLane - conn.fromLane) * config.laneDist;
+                const deltaZ = -(conn.toTick - conn.fromTick) * config.spacingZ;
+                const vecAB = new THREE.Vector3(deltaX, 0, deltaZ);
+
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), vecAB]);
+                const linkLine = new THREE.Line(lineGeo, mats.glowEdges);
+                enableBloom(linkLine);
+                groupA.add(linkLine);
+                spawnFlowingParticles(new THREE.Vector3(0, 0, 0), vecAB, groupA);
+
+                const midPoint = vecAB.clone().multiplyScalar(0.5);
+                const bridgeNode = new THREE.Group();
+                bridgeNode.position.copy(midPoint);
+
+                const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+                const scaleX = 12, scaleY = 2, scaleZ = 6;
+                const mesh = new THREE.Mesh(boxGeo, mats.mainBox);
+                mesh.scale.set(scaleX, scaleY, scaleZ);
+                // 不对mesh使用enableBloom，只对边框使用
+                bridgeNode.add(mesh);
+
+                const edgeGeo = new THREE.EdgesGeometry(boxGeo);
+                const edges = new THREE.LineSegments(edgeGeo, mats.mainEdges);
+                edges.scale.set(scaleX, scaleY, scaleZ);
+                enableBloom(edges);
+                bridgeNode.add(edges);
+
+                if (conn.title) {
+                    const textTex = createTextTexture("", conn.title, conn.desc || "LINK");
+                    const pMat = new THREE.MeshBasicMaterial({
+                        map: textTex, 
+                        side: THREE.DoubleSide, 
+                        transparent: true, 
+                        depthWrite: false,
+                        blending: THREE.AdditiveBlending
+                    });
+                    pMat.onBeforeCompile = getHeightFogShaderLogic();
+                    const panel = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), pMat);
+                    panel.position.set(0, 4, 0);
+                    panel.rotation.y = -Math.PI / 4;
+                    bridgeNode.add(panel);
+
+                    const stick = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 4, 0)]), mats.line);
+                    enableBloom(stick);
+                    bridgeNode.add(stick);
+                }
+                groupA.add(bridgeNode);
+            }
+        });
+    }
+
+    function createLane(index, laneIdx) {
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const personGeo = new THREE.ConeGeometry(0.15, 0.8, 8);
+        const data = generateDataForIndex(index, laneIdx);
+
+        const seed = Math.sin(index * 12.9898 + (laneIdx * 999.99)) * 43758.5453;
+        const pseudoRand = (offset) => (Math.sin(seed + offset) * 10000) % 1;
+
+        const zPos = -index * config.spacingZ;
+        const laneOffsetX = laneIdx * config.laneDist;
+        const group = new THREE.Group();
+
+        const xPos = laneOffsetX + pseudoRand(1) * 20;
+        const yPos = pseudoRand(2) * 5;
+        group.position.set(xPos, yPos, zPos);
+        group.userData = { baseY: yPos, type: 'main', index: index, lane: laneIdx };
+
+        const nextIndex = index + 1;
+        const nextSeed = Math.sin(nextIndex * 12.9898 + (laneIdx * 999.99)) * 43758.5453;
+        const nextPseudoRand = (offset) => (Math.sin(nextSeed + offset) * 10000) % 1;
+        const nextXPos = laneOffsetX + nextPseudoRand(1) * 20;
+        const nextYPos = nextPseudoRand(2) * 5;
+        const nextZPos = -nextIndex * config.spacingZ;
+        const lineEndLocal = new THREE.Vector3(nextXPos - xPos, nextYPos - yPos, nextZPos - zPos);
+
+        const mainLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), lineEndLocal]), mats.line);
+        enableBloom(mainLine);
+        group.add(mainLine);
+
+        const isStoryNode = data.isStory;
+        const scaleMult = isStoryNode ? 5 : 3;
+        const mainSx = (3 + Math.abs(pseudoRand(3)) * 2) * scaleMult;
+        const mainSy = (1 + Math.abs(pseudoRand(4)) * 1) * scaleMult * 0.5;
+        const mainSz = (3 + Math.abs(pseudoRand(5)) * 2) * scaleMult;
+
+        const platform = new THREE.Mesh(boxGeo, mats.mainBox);
+        // 不对mesh使用enableBloom，否则最终渲染时看不见mesh本体
+        platform.scale.set(mainSx, mainSy, mainSz);
+        platform.castShadow = true; platform.receiveShadow = true;
+
+        // [修改] --- 将所有主线节点都设为可交互，不区分是否为 storyNode ---
+        platform.userData = {
+            isInteractive: true,
+            originScale: new THREE.Vector3(mainSx, mainSy, mainSz),
+            storyData: data
+        };
+        interactiveObjects.push(platform);
+        // -----------------------------------------------------------
+
+        const platformEdges = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), mats.mainEdges);
+        enableBloom(platformEdges);
+        platform.add(platformEdges);
+        group.add(platform);
+
+        const lineHeight = 10 + Math.abs(pseudoRand(6)) * 5;
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, lineHeight, 0)]), mats.glowEdges);
+        line.position.set(mainSx / 2 - 0.5, mainSy / 2, mainSz / 2 - 0.5);
+        enableBloom(line);
+        group.add(line);
+
+        const panelMat = new THREE.MeshBasicMaterial({
+            map: createTextTexture(data.year, data.title, data.desc),
+            side: THREE.DoubleSide,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+        panelMat.onBeforeCompile = getHeightFogShaderLogic();
+        const panel = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), panelMat);
+        panel.position.set(mainSx / 2 - 0.5 + 4, mainSy / 2 + lineHeight, mainSz / 2 - 0.5);
+        panel.rotation.y = -Math.PI / 4;
+        group.add(panel);
+
+        const person = new THREE.Mesh(personGeo, mats.person);
+        person.position.set(0, mainSy / 2 + 0.4, 0);
+        group.add(person);
+
+        scene.add(group); objects.push(group);
+
+        createDecorBuildings(index, laneIdx, zPos, laneOffsetX, pseudoRand, boxGeo);
+
+        return group;
+    }
+
+    function createDecorBuildings(index, laneIdx, zPos, laneOffsetX, pseudoRand, boxGeo) {
+        const bottomCount = 3 + Math.floor(Math.abs(pseudoRand(7)) * 2);
+        for (let k = 0; k < bottomCount; k++) {
+            const bGroup = new THREE.Group();
+            const bZPos = zPos + pseudoRand(k * 10) * 80;
+            const bXOffset = (pseudoRand(k * 20) > 0 ? 1 : -1) * (40 + Math.abs(pseudoRand(k)) * 200);
+            const bYBase = -200 - Math.abs(pseudoRand(k * 30)) * 200;
+            bGroup.position.set(laneOffsetX + bXOffset, bYBase, bZPos);
+
+            bGroup.userData = {
+                baseY: bYBase,
+                type: 'bottom',
+                index: index,
+                animSpeed: 0.075 + Math.abs(pseudoRand(k * 100)) * 0.26,
+                animPhase: pseudoRand(k * 200) * Math.PI * 2,
+                animAmp: 2 + Math.abs(pseudoRand(k * 300)) * 4
+            };
+
+            const h = 50 + Math.abs(pseudoRand(k * 70)) * 300;
+            const w = 10 + Math.abs(pseudoRand(k * 50)) * 20;
+
+            const bMesh = new THREE.Mesh(boxGeo, mats.bgBox);
+            bMesh.scale.set(w, h, w); bMesh.position.set(0, h / 2, 0);
+            bGroup.add(bMesh);
+
+            const bLines = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, w)), mats.bgEdges);
+            bLines.position.set(0, h / 2, 0);
+
+            bGroup.add(bLines);
+            scene.add(bGroup); objects.push(bGroup);
+        }
+
+        const topCount = 1 + Math.floor(Math.abs(pseudoRand(2)) * 2);
+        for (let k = 0; k < topCount; k++) {
+            const tGroup = new THREE.Group();
+            const tZPos = zPos + pseudoRand(k * 15) * 120;
+            let tXOffset = pseudoRand(k * 25) * 240;
+            if (Math.abs(tXOffset) < 30) tXOffset += (tXOffset > 0 ? 30 : -30);
+            const tYBase = 600 + Math.abs(pseudoRand(k * 35)) * 300;
+            tGroup.position.set(laneOffsetX + tXOffset, tYBase, tZPos);
+
+            tGroup.userData = {
+                baseY: tYBase,
+                type: 'top',
+                index: index,
+                animSpeed: 0.1 + Math.abs(pseudoRand(k * 400)) * 1.5,
+                animPhase: pseudoRand(k * 500) * Math.PI * 2,
+                animAmp: 5 + Math.abs(pseudoRand(k * 600)) * 15
+            };
+
+            const floors = 2 + Math.floor(Math.abs(pseudoRand(k * 45)) * 4);
+            let cY = 0;
+            const baseW = 15 + Math.abs(pseudoRand(k * 55)) * 25, baseD = 15 + Math.abs(pseudoRand(k * 65)) * 25;
+            for (let f = 0; f < floors; f++) {
+                const h = 50 + Math.abs(pseudoRand(k * 75 + f)) * 40;
+                const taper = 1.0 - (f * 0.05);
+                const w = baseW * taper, d = baseD * taper;
+
+                const tMesh = new THREE.Mesh(boxGeo, mats.bgBox);
+                tMesh.scale.set(w, h, d); tMesh.position.set(0, cY - h / 2, 0);
+                tMesh.castShadow = true; tMesh.receiveShadow = true;
+                tGroup.add(tMesh);
+
+                const tLines = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d)), mats.bgEdges);
+                tLines.position.set(0, cY - h / 2, 0);
+                tGroup.add(tLines);
+                cY -= h;
+            }
+            scene.add(tGroup); objects.push(tGroup);
+        }
+    }
+
+    function interpolateYear(tick) {
+        let prev = STORY_EVENTS[0];
+        let next = STORY_EVENTS[STORY_EVENTS.length - 1];
+
+        for (let i = 0; i < STORY_EVENTS.length; i++) {
+            if (STORY_EVENTS[i].tick <= tick) prev = STORY_EVENTS[i];
+            if (STORY_EVENTS[i].tick >= tick) {
+                next = STORY_EVENTS[i];
+                break;
+            }
+        }
+
+        if (prev === next) return prev.year;
+
+        const range = next.tick - prev.tick;
+        const dist = tick - prev.tick;
+        const ratio = dist / range;
+
+        const y1 = parseInt(prev.year);
+        const y2 = parseInt(next.year);
+        if (!isNaN(y1) && !isNaN(y2)) {
+            return (y1 + (y2 - y1) * ratio).toFixed(1);
+        }
+        return "";
+    }
+
+    function generateDataForIndex(i, laneIdx) {
+        if (STORY_MAP.has(i)) {
+            const evt = STORY_MAP.get(i);
+            if (evt.lane === laneIdx) {
+                return { year: evt.year, title: evt.title, desc: evt.desc, isStory: true };
+            }
+        }
+        const seed = Math.sin(i * 9999 + laneIdx * 777) * 43758.5453;
+        const hasText = (Math.abs(seed) % 1) > 0.3;
+        const yearStr = interpolateYear(i);
+
+        return {
+            year: hasText ? yearStr : "",
+            title: hasText ? `N-${i}` : "",
+            desc: hasText ? "..." : "",
+            isStory: false
+        };
+    }
+
+    function createTextTexture(year, title, desc) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const width = 512, height = 512;
+        canvas.width = width; 
+        canvas.height = height;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'; 
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = '#00ffff'; 
+        ctx.lineWidth = 6; 
+        ctx.strokeRect(0, 0, width, height);
+        ctx.fillStyle = config.textColor;
+        ctx.shadowColor = "#00ffff"; 
+        ctx.shadowBlur = 10;
+
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 100px Helvetica, Arial';
+        ctx.fillText(year, 40, 130);
+        ctx.shadowBlur = 0;
+
+        ctx.beginPath(); 
+        ctx.moveTo(40, 150); 
+        ctx.lineTo(width - 40, 150); 
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#00ffff'; 
+        ctx.stroke();
+
+        ctx.font = 'bold 40px Helvetica, Arial';
+        ctx.fillStyle = config.textColor;
+        ctx.fillText(title, 40, 210);
+
+        ctx.font = 'normal 28px Helvetica, Arial';
+        ctx.fillStyle = '#ccc';
+
+        const words = desc.split(' '); 
+        let line = '', y = 270;
+        for (let n = 0; n < words.length; n++) {
+            if (ctx.measureText(line + words[n]).width > width - 80) { 
+                ctx.fillText(line, 40, y); 
+                line = words[n] + ' '; 
+                y += 40; 
+            }
+            else line += words[n] + ' ';
+        }
+        ctx.fillText(line, 40, y);
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    function onWindowResize() {
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        if (bloomComposer) { bloomComposer.setSize(window.innerWidth, window.innerHeight); bloomComposer.setPixelRatio(dpr); }
+        if (finalComposer) { finalComposer.setSize(window.innerWidth, window.innerHeight); finalComposer.setPixelRatio(dpr); }
+    }
+
+    function onDocumentMouseWheel(event) { event.preventDefault(); targetCameraHeight = Math.max(50, Math.min(400, targetCameraHeight + event.deltaY * 0.5)); }
+
+    function onMouseDown(event) {
+        isDragging = true;
+        previousMouseY = event.clientY;
+        previousMouseX = event.clientX;
+        document.body.classList.add('grabbing');
+    }
+
+    function onMouseUp() {
+        isDragging = false;
+        document.body.classList.remove('grabbing');
+    }
+
+    // --- 交互逻辑 ---
+
+    function onMouseClick(event) {
+        if (isDragging) return;
+
+        if (hoveredObject) {
+            const info = hoveredObject.userData.storyData;
+            console.log("选中节点:", info);
+
+            // [新增] 更加友好的弹窗信息，处理无标题的情况
+            const displayTitle = info.title ? info.title : "普通节点";
+            const displayYear = info.year ? `[${info.year}]` : "";
+            const displayDesc = info.desc ? info.desc : "无详细描述数据...";
+
+            alert(`选中: ${displayYear} ${displayTitle}\n\n${displayDesc}`);
+        }
+    }
+
+    function checkIntersection() {
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(interactiveObjects);
+
+        if (intersects.length > 0) {
+            const object = intersects[0].object;
+            if (hoveredObject !== object) {
+                if (hoveredObject) restoreObject(hoveredObject);
+                hoveredObject = object;
+                highlightObject(hoveredObject);
+            }
+        } else {
+            if (hoveredObject) {
+                restoreObject(hoveredObject);
+                hoveredObject = null;
+            }
+        }
+    }
+
+    function highlightObject(mesh) {
+        document.body.classList.add('pointer');
+        const targetScale = mesh.userData.originScale.clone().multiplyScalar(1.2);
+        mesh.scale.copy(targetScale);
+    }
+
+    function restoreObject(mesh) {
+        document.body.classList.remove('pointer');
+        mesh.scale.copy(mesh.userData.originScale);
+    }
+
+    function onMouseMove(event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        if (!isDragging) {
+            checkIntersection();
+            return;
+        }
+
+        const deltaX = event.clientX - previousMouseX;
+        const deltaY = event.clientY - previousMouseY;
+
+        const scrollInput = (deltaX + deltaY);
+        targetScrollPos += scrollInput * 0.35;
+
+        const panInput = (deltaX - deltaY);
+        targetCameraOffsetX -= panInput * 0.35;
+
+        previousMouseX = event.clientX;
+        previousMouseY = event.clientY;
+    }
+
+    function updateParticles() {
+        const t = globalUniforms.time.value;
+        allParticles.forEach(pMesh => {
+            if (pMesh.userData.type === 'flow') {
+                const data = pMesh.userData.flowData;
+                data.progress = (data.progress + data.speed) % 1;
+                const wobble = Math.sin(t * data.wobbleSpeed + data.phase) * data.wobbleAmp;
+                pMesh.position.copy(data.start).add(data.endVec.clone().multiplyScalar(data.progress)).add(data.sideVec.clone().multiplyScalar((1.2 + wobble) * data.sideModifier));
+            } else if (pMesh.userData.type === 'rise') {
+                const data = pMesh.userData.riseData;
+                pMesh.position.y += data.speed;
+                if (pMesh.position.y > data.maxY) pMesh.position.y = data.minY;
+                pMesh.position.x += Math.sin(t * data.driftSpeed + data.driftPhase) * 0.1;
+            }
+        });
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        globalUniforms.time.value += 0.02;
+        updateParticles();
+
+        scrollPos += (targetScrollPos - scrollPos) * 0.05;
+        cameraOffsetX += (targetCameraOffsetX - cameraOffsetX) * 0.05;
+
+        cameraHeight += (targetCameraHeight - cameraHeight) * 0.05;
+        const currentIndex = Math.floor(scrollPos / config.spacingZ);
+        const minIdx = currentIndex - config.renderRange, maxIdx = currentIndex + config.renderRange;
+
+        for (let i = minIdx; i <= maxIdx; i++) {
+            if (!activeIndices.has(i)) { createRow(i); activeIndices.add(i); }
+        }
+
+        const baseCenterX = Math.floor(config.laneCount / 2) * config.laneDist;
+        const currentFocusZ = -scrollPos;
+
+        const finalCamX = baseCenterX + cameraOffsetX - 100 * (cameraHeight / 100);
+
+        camera.position.set(finalCamX, cameraHeight, currentFocusZ + 120 * (cameraHeight / 100));
+        camera.lookAt(baseCenterX + cameraOffsetX, 0, currentFocusZ);
+
+        const light = scene.getObjectByName("mainLight");
+        if (light) {
+            light.position.set(baseCenterX + cameraOffsetX + 200, 1500, currentFocusZ + 200);
+            light.target.position.set(baseCenterX + cameraOffsetX, 0, currentFocusZ);
+            light.target.updateMatrixWorld();
+        }
+
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            if (obj.userData.index < minIdx || obj.userData.index > maxIdx) {
+                // 清理交互对象
+                obj.traverse((child) => {
+                    if (child.userData && child.userData.isInteractive) {
+                        const idx = interactiveObjects.indexOf(child);
+                        if (idx > -1) interactiveObjects.splice(idx, 1);
+                        if (hoveredObject === child) {
+                            hoveredObject = null;
+                            document.body.classList.remove('pointer');
+                        }
+                    }
+                });
+
+                scene.remove(obj); disposeHierarchy(obj); objects.splice(i, 1); activeIndices.delete(obj.userData.index);
+            } else {
+                let hiddenOffset = -50;
+                if (obj.userData.type === 'top') hiddenOffset = 50;
+
+                const isVisible = (obj.position.z - currentFocusZ) > -1200 && (obj.position.z - currentFocusZ) < 800;
+
+                let floatOffset = 0;
+                if ((obj.userData.type === 'top' || obj.userData.type === 'bottom') && obj.userData.animSpeed) {
+                    const t = globalUniforms.time.value;
+                    floatOffset = Math.sin(t * obj.userData.animSpeed + obj.userData.animPhase) * obj.userData.animAmp;
+                }
+
+                const targetY = isVisible ? (obj.userData.baseY + floatOffset) : (obj.userData.baseY + hiddenOffset);
+                obj.position.y = THREE.MathUtils.lerp(obj.position.y, targetY, 0.05);
+            }
+        }
+
+        if (bloomComposer) {
+            scene.background = new THREE.Color(0x000000); 
+            camera.layers.set(BLOOM_LAYER); 
+            bloomComposer.render();
+            scene.background = new THREE.Color(config.bgColor); 
+            camera.layers.set(0); 
+            finalComposer.render();
+        }
+    }
+
+    init();
+</script>
+</body>
+
+</html>
+

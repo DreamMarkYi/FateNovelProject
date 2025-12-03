@@ -1,0 +1,17 @@
+{
+  "nodes": [
+    { "tick": 0, "year": "2024", "title": "GENESIS", "desc": "System Start.", "lane": 2, "color": "#ff0000" },
+    { "tick": 15, "year": "2023", "title": "ALPHA", "desc": "Prototype.", "lane": 1, "color": "#00ff00" },
+    { "tick": 30, "year": "2022", "title": "BETA", "desc": "Testing phase.", "lane": 3 },
+    { "tick": 50, "year": "2020", "title": "CRISIS", "desc": "Data Crash.", "lane": 2, "color": "#ffff00" },
+    { "tick": 70, "year": "2015", "title": "SEED", "desc": "First idea.", "lane": 0 },
+    { "tick": 90, "year": "2000", "title": "Y2K", "desc": "Bug fix.", "lane": 4 }
+  ],
+  "connections": [
+    { "fromTick": 0, "fromLane": 2, "toTick": 15, "toLane": 1, "title": "DOWNGRADE", "desc": "Ver 1.0 -> 0.9", "color": "#ff00ff" },
+    { "fromTick": 15, "fromLane": 1, "toTick": 15, "toLane": 3, "title": "SYNC", "desc": "Lateral Sync" },
+    { "fromTick": 30, "fromLane": 3, "toTick": 70, "toLane": 0, "title": "TIME LEAP", "desc": "Deep Backup Restore", "color": "#00ffff" },
+    { "fromTick": 50, "fromLane": 2, "toTick": 55, "toLane": 4, "title": "FORK", "desc": "Emergency Branch" },
+    { "fromTick": 55, "fromLane": 4, "toTick": 70, "toLane": 4, "title": "ISOLATION", "desc": "Safe Mode" }
+  ]
+}

@@ -176,10 +176,10 @@
         get lineColor() { return this.currentMode === MODES.LIGHT ? 0x333333 : 0x222222; },
 
         // 霓虹模式特有颜色
-        mainEdgeColor: 0x00ffff,
+        mainEdgeColor: 0xffffff,
         dimEdgeColor: 0x333333,
 
-        get crossLinkChance() { return this.currentMode === MODES.LIGHT ? 0.35 : 0.15; },
+        get crossLinkChance() { return this.currentMode === MODES.LIGHT ? 0.35 : 0.35; },
         get textColor() { return this.currentMode === MODES.LIGHT ? '#1a1a1a' : '#ffffff'; },
 
         // UI 文本

@@ -1,0 +1,856 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Timeline - Shaders Separated</title>
+    <style>
+        /* 样式保持不变 */
+        body { margin: 0; overflow: hidden; font-family: 'Helvetica Neue', Arial, sans-serif; cursor: grab; background-color: #020205; color: #fff; }
+        body.grabbing { cursor: grabbing; }
+        body.pointer { cursor: pointer !important; }
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+        #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 10; transition: all 0.5s ease; color: #fff; mix-blend-mode: difference; }
+        h1 { font-weight: 300; letter-spacing: 2px; margin: 0; text-transform: uppercase; font-size: 1.2rem; display: inline-block; padding-bottom: 5px; border-bottom: 1px solid #00ffff; color: #00ffff; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5); }
+        p { font-size: 0.8rem; opacity: 0.8; margin-top: 5px; }
+        .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.5rem; letter-spacing: 5px; transition: opacity 0.5s; pointer-events: none; color: #00ffff; text-shadow: 0 0 15px #00ffff; }
+    </style>
+</head>
+
+<body>
+
+<div id="ui">
+    <h1 id="ui-title">MANUAL TRIGGER</h1>
+    <p id="ui-desc">Press [1] to Check & Unlock</p>
+</div>
+
+<div id="loading" class="loading">LOADING SHADERS...</div>
+<div id="canvas-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+<script>
+    // --- JSON 数据定义 (保持不变) ---
+    const timelineData = {
+        "roots": ["node_1"],
+        "nodes": [
+            { "id": "node_1", "status": "unlocked", "unlockCondition": [], "pos": [0, -100], "children": ["node_2", "node_3"], "info": { "title": "START", "desc": "Project Initialization", "url": "" } },
+            { "id": "node_2", "status": "locked", "unlockCondition": ["node_1"], "pos": [-60, -250], "children": ["node_4"], "info": { "title": "BRANCH A", "desc": "Development Phase", "url": "" } },
+            { "id": "node_3", "status": "locked", "unlockCondition": ["node_1"], "pos": [60, -300], "children": ["node_4"], "info": { "title": "BRANCH B", "desc": "Design Phase", "url": "" } },
+            { "id": "node_7", "status": "locked", "unlockCondition": ["node_4"], "pos": [-180, -300], "children": ["node_2"], "info": { "title": "BRANCH B", "desc": "Design Phase", "url": "" } },
+            { "id": "node_4", "status": "locked", "unlockCondition": ["node_2", "node_3"], "pos": [0, -450], "children": ["node_5"], "info": { "title": "MERGE", "desc": "Integration (Wait for A & B)", "url": "" } },
+            { "id": "node_5", "status": "locked", "unlockCondition": ["node_4"], "pos": [0, -600], "children": [], "info": { "title": "RELEASE", "desc": "Version 1.0 Launch", "url": "" } }
+        ]
+    };
+
+    // --- 全局变量 ---
+    const nodeAnimRegistry = {};
+    const edgeAnimRegistry = [];
+    const clock = new THREE.Clock();
+    const TIME_SCALE = 60.0;
+
+    let buildingIdCounter = 0;
+    let buildingRegistry = new Map();
+    let zoneToBuildings = new Map();
+    const BUILDING_AVOID_RADIUS = 120;
+    const BUILDING_ANIMATION_SPEED = 0.4;
+    const VISIBLE_ZONE_RADIUS = 3;
+    const BUILDING_ZONE_SIZE = 200;
+
+    // --- SHADER 管理系统 ---
+    // [新] 存储加载后的 shader 内容
+    const loadedShaders = {};
+
+    // [新] Shader 文件路径配置
+    const shaderFiles = {
+        noise: 'shaders/noise.glsl',
+        cloudVert: 'shaders/cloud_vert.glsl',
+        cloudFrag: 'shaders/cloud_frag.glsl',
+        particlesVert: 'shaders/particles_vert.glsl',
+        particlesFrag: 'shaders/particles_frag.glsl',
+        volFogVert: 'shaders/vol_fog_vert.glsl',
+        volFogFrag: 'shaders/vol_fog_frag.glsl',
+        bloomVert: 'shaders/bloom_vert.glsl',
+        bloomFrag: 'shaders/bloom_frag.glsl'
+    };
+
+    // --- 配置参数 ---
+    const config = {
+        spacingZ: 2, renderRange: 20, laneCount: 5, laneDist: 60, maxPixelRatio: 1.5,
+        bgColor: 0x6a868f, fogColor: 0x6a868f, cloudBaseColor: 0x6a868f, cloudHighlightColor: 0x6a868f,
+        heightFogDensity: 0.008, heightFogBase: -200.0,
+        mainBlockColor: 0x64b4ff, bgBlockColor: 0x80d2ff, lineColor: 0x222222,
+        mainEdgeColor: 0x51d0ff, dimEdgeColor: 0x00E0FF,
+        textColor: '#ffffff', uiTitle: "MANUAL UNLOCK", uiDesc: "Wait for animations, then press [1]",
+        seed: 12345
+    };
+
+    const globalUniforms = {
+        time: { value: 0 },
+        cloudBaseColor: { value: new THREE.Color(config.cloudBaseColor) },
+        cloudHighlightColor: { value: new THREE.Color(config.cloudHighlightColor) },
+        fogColor: { value: new THREE.Color(config.fogColor) }
+    };
+
+    let scene, camera, renderer;
+    let bloomComposer, finalComposer;
+    let cloudMesh;
+    let scrollPos = 0, targetScrollPos = 0;
+    let cameraOffsetX = 0, targetCameraOffsetX = 0;
+    let cameraHeight = 100, targetCameraHeight = 100;
+    let generatedBuildingZones = new Set();
+    let isDragging = false, previousMouseY = 0, previousMouseX = 0;
+    let objects = [], mats = {};
+    const BLOOM_LAYER = 1;
+    let allParticles = [];
+    const particleGeo = new THREE.SphereGeometry(0.2, 6, 6);
+    let particleMat;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let interactiveObjects = [], hoveredObject = null;
+
+    class SeededRandom {
+        constructor(seed) { this.seed = seed; }
+        next() { this.seed = (this.seed * 9301 + 49297) % 233280; return this.seed / 233280; }
+    }
+
+    // --- [核心修改] 加载器逻辑 ---
+    async function loadAllShaders() {
+        const promises = Object.entries(shaderFiles).map(async ([key, url]) => {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Failed to load ${url}`);
+                const text = await response.text();
+                loadedShaders[key] = text;
+            } catch (error) {
+                console.error(error);
+                alert(`Error loading shader: ${url}`);
+            }
+        });
+        await Promise.all(promises);
+        init(); // 资源加载完成后才启动
+    }
+
+    // --- 程序入口 ---
+    // 不再直接调用 init()，而是先调用加载器
+    loadAllShaders();
+
+    function init() {
+        const container = document.getElementById('canvas-container');
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 10, 20000);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        renderer.setPixelRatio(dpr);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        window.addEventListener('resize', onWindowResize, false);
+        document.addEventListener('wheel', onDocumentMouseWheel, { passive: false });
+        document.addEventListener('mousedown', onMouseDown, false);
+        document.addEventListener('mouseup', onMouseUp, false);
+        document.addEventListener('mousemove', onMouseMove, false);
+        document.addEventListener('mouseleave', onMouseUp, false);
+        document.addEventListener('click', onMouseClick, false);
+        document.addEventListener('keydown', (e) => { if (e.key === '1') checkAndAutoUnlock(); });
+
+        setupSceneMode();
+
+        document.getElementById('loading').style.opacity = 0;
+        setTimeout(() => document.getElementById('loading').style.display = 'none', 500);
+
+        animate();
+    }
+
+    // --- 装饰建筑辅助函数 ---
+    function getUnlockedNodePositions() {
+        const positions = [];
+        for (const nodeId in nodeAnimRegistry) {
+            const node = nodeAnimRegistry[nodeId];
+            if (node.status === 'unlocked' || node.status === 'popping') {
+                positions.push({ x: node.group.position.x, z: node.group.position.z });
+            }
+        }
+        return positions;
+    }
+
+    function isTooCloseToNodes(x, z, nodePositions) {
+        for (const nodePos of nodePositions) {
+            const dx = x - nodePos.x;
+            const dz = z - nodePos.z;
+            if (Math.sqrt(dx * dx + dz * dz) < BUILDING_AVOID_RADIUS) return true;
+        }
+        return false;
+    }
+
+    function removeBuildingsNearNode(nodeX, nodeZ) {
+        buildingRegistry.forEach((building, buildingId) => {
+            const dx = building.position.x - nodeX;
+            const dz = building.position.z - nodeZ;
+            if (Math.sqrt(dx * dx + dz * dz) < BUILDING_AVOID_RADIUS && building.userData.animState !== 'disappearing' && building.userData.animState !== 'hidden') {
+                building.userData.animState = 'disappearing';
+                building.userData.animProgress = 0;
+            }
+        });
+    }
+
+    function checkAndAutoUnlock() {
+        console.log("Checking conditions...");
+        let unlockedCount = 0;
+        timelineData.nodes.forEach(nodeData => {
+            const registryItem = nodeAnimRegistry[nodeData.id];
+            if (!registryItem || registryItem.status === 'unlocked' || registryItem.status === 'popping') return;
+            const conditions = nodeData.unlockCondition || [];
+            let allMet = true;
+            if (conditions.length > 0) {
+                for (let reqId of conditions) {
+                    const reqNode = nodeAnimRegistry[reqId];
+                    if (!reqNode || reqNode.status !== 'unlocked') { allMet = false; break; }
+                }
+            }
+            if (allMet) { unlockNode(nodeData.id); unlockedCount++; }
+        });
+        if (unlockedCount === 0) console.log("No new nodes met conditions yet.");
+    }
+
+    function unlockNode(nodeId) {
+        const registryItem = nodeAnimRegistry[nodeId];
+        if (!registryItem || registryItem.status !== 'locked') return;
+        let hasIncomingEdges = false;
+        edgeAnimRegistry.forEach(edge => {
+            if (edge.childId === nodeId && edge.status === 'hidden') {
+                edge.status = 'growing'; hasIncomingEdges = true;
+            }
+        });
+        if (!hasIncomingEdges) registryItem.status = 'popping';
+        else registryItem.targetStatus = 'unlocked';
+        removeBuildingsNearNode(registryItem.group.position.x, registryItem.group.position.z);
+    }
+
+    function setupSceneMode() {
+        scene.add(camera);
+        clearScene();
+        globalUniforms.cloudBaseColor.value.setHex(config.cloudBaseColor);
+        globalUniforms.cloudHighlightColor.value.setHex(config.cloudHighlightColor);
+        globalUniforms.fogColor.value.setHex(config.fogColor);
+        document.getElementById('ui-title').innerText = config.uiTitle;
+        document.getElementById('ui-desc').innerHTML = config.uiDesc + "<br>MERGE 节点需要等待 A 和 B 同时完成<br>左上↔右下：移动 • 按 '1'：解锁下一步";
+        scene.background = new THREE.Color(config.bgColor);
+
+        initMaterials();
+        setupLights();
+        createCloudFloor();
+        setupPostProcessing();
+        createAtmosphericParticles();
+        buildMainLineFromJSON();
+
+        interactiveObjects = [];
+        objects.forEach(obj => {
+            obj.traverse(child => { if (child.userData && child.userData.isInteractive) interactiveObjects.push(child); });
+        });
+    }
+
+    function clearScene() {
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i]; scene.remove(obj); disposeHierarchy(obj);
+        }
+        if (cloudMesh) { scene.remove(cloudMesh); if (cloudMesh.geometry) cloudMesh.geometry.dispose(); if (cloudMesh.material) cloudMesh.material.dispose(); cloudMesh = null; }
+        objects = []; allParticles = []; generatedBuildingZones.clear(); buildingRegistry.clear(); zoneToBuildings.clear(); buildingIdCounter = 0;
+        const oldLights = scene.children.filter(c => c.isLight || c.type === 'GridHelper');
+        oldLights.forEach(l => { scene.remove(l); if (l.dispose) l.dispose(); });
+    }
+
+    function disposeHierarchy(node) {
+        node.traverse((child) => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) child.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+                else { if (child.material.map) child.material.map.dispose(); child.material.dispose(); }
+            }
+        });
+    }
+
+    function createCloudFloor() {
+        const geometry = new THREE.PlaneGeometry(8000, 8000, 100, 100);
+
+        // [修改] 使用加载的 Shader 字符串，并替换 include
+        const fragShader = loadedShaders.cloudFrag.replace('#include <noise>', loadedShaders.noise);
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: globalUniforms.time,
+                uBaseColor: globalUniforms.cloudBaseColor,
+                uHighlightColor: globalUniforms.cloudHighlightColor,
+                uFogColor: globalUniforms.fogColor,
+                uCameraPos: { value: camera.position }
+            },
+            vertexShader: loadedShaders.cloudVert,
+            fragmentShader: fragShader,
+            transparent: true, depthWrite: false, side: THREE.DoubleSide
+        });
+        cloudMesh = new THREE.Mesh(geometry, material);
+        cloudMesh.rotation.x = -Math.PI / 2;
+        cloudMesh.position.y = config.heightFogBase - 50;
+        scene.add(cloudMesh);
+    }
+
+    function getVolumetricFogShaderLogic() {
+        return (shader) => {
+            shader.uniforms.uTime = globalUniforms.time;
+            shader.uniforms.hFogColor = globalUniforms.fogColor;
+            shader.uniforms.hFogDensity = { value: config.heightFogDensity };
+            shader.uniforms.hFogBase = { value: config.heightFogBase };
+
+            // [修改] 使用加载的逻辑片段
+            // 这里将 Noise 函数也注入进去
+            const fragHead = `
+                uniform float uTime;
+                uniform vec3 hFogColor;
+                uniform float hFogDensity;
+                uniform float hFogBase;
+                varying vec3 vWorldPosition;
+                ${loadedShaders.noise}
+            `;
+
+            shader.vertexShader = `
+                varying vec3 vWorldPosition;
+                ${shader.vertexShader}
+            `.replace(
+                `#include <begin_vertex>`,
+                `#include <begin_vertex>
+                 ${loadedShaders.volFogVert}`
+            );
+
+            shader.fragmentShader = `
+                ${fragHead}
+                ${shader.fragmentShader}
+            `.replace(
+                `#include <fog_fragment>`,
+                `
+                ${loadedShaders.volFogFrag}
+                #include <fog_fragment>
+                `
+            );
+        };
+    }
+
+    function initMaterials() {
+        const shaderLogic = getVolumetricFogShaderLogic();
+        mats = {};
+        particleMat = new THREE.MeshBasicMaterial({ color: config.mainEdgeColor, transparent: true, opacity: 1.0, blending: THREE.AdditiveBlending });
+
+        const mainBoxColor = new THREE.Color(config.mainBlockColor);
+        mats.mainBox = new THREE.MeshBasicMaterial({ color: mainBoxColor });
+        mats.mainBox.onBeforeCompile = shaderLogic;
+
+        const bgBoxColor = new THREE.Color(config.bgBlockColor);
+        mats.bgBox = new THREE.MeshLambertMaterial({ color: bgBoxColor });
+        mats.bgBox.onBeforeCompile = shaderLogic;
+
+        mats.line = new THREE.LineBasicMaterial({ color: config.mainEdgeColor, transparent: true, opacity: 0.95 });
+        mats.line.onBeforeCompile = shaderLogic;
+
+        const glowEdgeColor = new THREE.Color(config.mainEdgeColor); glowEdgeColor.multiplyScalar(2.0);
+        mats.glowEdges = new THREE.LineBasicMaterial({ color: glowEdgeColor, linewidth: 2, transparent: true, opacity: 1.0 });
+        mats.glowEdges.onBeforeCompile = shaderLogic;
+
+        const dimEdgeColor = new THREE.Color(config.dimEdgeColor);
+        mats.dimEdges = new THREE.LineBasicMaterial({ color: dimEdgeColor, transparent: true, opacity: 0.85, linewidth: 2 });
+        mats.dimEdges.onBeforeCompile = shaderLogic;
+        mats.bgEdges = mats.dimEdges; mats.mainEdges = mats.glowEdges;
+        mats.person = new THREE.MeshBasicMaterial({ color: 0x00aaaa });
+        mats.person.onBeforeCompile = shaderLogic;
+    }
+
+    function setupLights() {
+        scene.add(new THREE.AmbientLight(0x222222, 2));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        dirLight.name = "mainLight";
+        const sunAngle = Math.PI / 3; const sunDist = 2000; const sunH = 1500;
+        dirLight.position.set(Math.cos(sunAngle) * sunDist, sunH, Math.sin(sunAngle) * sunDist);
+        dirLight.target.position.set(0, 0, 0);
+        dirLight.castShadow = true; dirLight.shadowBlur = false;
+        dirLight.shadow.mapSize.width = 4096; dirLight.shadow.mapSize.height = 4096;
+        const d = 4000;
+        dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d; dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
+        dirLight.shadow.camera.near = 0.5; dirLight.shadow.camera.far = 3000;
+        scene.add(dirLight); scene.add(dirLight.target);
+    }
+
+    function setupPostProcessing() {
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        const width = window.innerWidth; const height = window.innerHeight;
+        const renderScene = new THREE.RenderPass(scene, camera);
+        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(width * dpr, height * dpr), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0; bloomPass.strength = 1.5; bloomPass.radius = 0.5;
+        bloomComposer = new THREE.EffectComposer(renderer);
+        bloomComposer.renderToScreen = false;
+        bloomComposer.addPass(renderScene);
+        bloomComposer.addPass(bloomPass);
+
+        const finalPass = new THREE.ShaderPass(
+            new THREE.ShaderMaterial({
+                uniforms: {
+                    baseTexture: { value: null },
+                    bloomTexture: { value: bloomComposer.renderTarget2.texture }
+                },
+                // [修改] 使用加载的 Shader
+                vertexShader: loadedShaders.bloomVert,
+                fragmentShader: loadedShaders.bloomFrag
+            }), "baseTexture"
+        );
+        finalPass.needsSwap = true;
+        finalComposer = new THREE.EffectComposer(renderer);
+        finalComposer.addPass(renderScene);
+        finalComposer.addPass(finalPass);
+        bloomComposer.setSize(width, height); bloomComposer.setPixelRatio(dpr);
+        finalComposer.setSize(width, height); finalComposer.setPixelRatio(dpr);
+    }
+
+    function enableBloom(obj) { obj.layers.set(BLOOM_LAYER); }
+
+    function spawnFlowingParticles(startPointLocal, endVectorLocal, parentGroup, count = 4, visible = true) {
+        const len = endVectorLocal.length();
+        const density = Math.max(count, Math.floor(len / 40));
+        const dirNorm = endVectorLocal.clone().normalize();
+        let sideVec = new THREE.Vector3().crossVectors(dirNorm, new THREE.Vector3(0, 1, 0)).normalize();
+        if (sideVec.lengthSq() < 0.01) sideVec = new THREE.Vector3(1, 0, 0);
+        const particleGroup = new THREE.Group();
+        particleGroup.visible = visible; parentGroup.add(particleGroup);
+        for (let i = 0; i < density; i++) {
+            const pMesh = new THREE.Mesh(particleGeo, particleMat);
+            enableBloom(pMesh);
+            pMesh.userData.isParticle = true; pMesh.userData.type = 'flow';
+            pMesh.userData.flowData = {
+                start: startPointLocal.clone(), endVec: endVectorLocal, sideVec: sideVec,
+                sideModifier: i % 2 === 0 ? 1 : -1, progress: Math.random(),
+                speed: 0.002 + Math.random() * 0.005, phase: Math.random() * Math.PI * 2,
+                wobbleSpeed: 2.0 + Math.random() * 3.0, wobbleAmp: 0.5 + Math.random() * 0.5
+            };
+            pMesh.position.copy(pMesh.userData.flowData.start);
+            particleGroup.add(pMesh); allParticles.push(pMesh);
+        }
+        return particleGroup;
+    }
+
+    function createAtmosphericParticles() {
+        const CONFIG = {
+            count: 300000, rangeX: 12000, rangeZ: 2000, height: 900, bottom: -350, baseSize: 3.0, speedMin: 0.02, speedMax: 0.2
+        };
+        const geometry = new THREE.BufferGeometry();
+        const positions = []; const attrData = [];
+        for (let i = 0; i < CONFIG.count; i++) {
+            positions.push((Math.random() - 0.5) * CONFIG.rangeX, 0, (Math.random() - 0.5) * CONFIG.rangeZ);
+            const r = Math.random(); const speedFactor = Math.pow(r, 9.0);
+            const speed = CONFIG.speedMin + speedFactor * (CONFIG.speedMax - CONFIG.speedMin);
+            attrData.push(speed, Math.random() * 1000.0, 0.5 + Math.random() * 1.0);
+        }
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('aData', new THREE.Float32BufferAttribute(attrData, 3));
+
+        // [修改] 使用加载的 Shader 并注入噪声
+        const fragShader = loadedShaders.particlesFrag.replace('#include <noise>', loadedShaders.noise);
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: globalUniforms.time, uColor: { value: new THREE.Color(config.mainEdgeColor) },
+                hFogColor: globalUniforms.fogColor, hFogDensity: { value: config.heightFogDensity }, hFogBase: { value: config.heightFogBase },
+                uHeight: { value: CONFIG.height }, uBottom: { value: CONFIG.bottom }, uBaseSize: { value: CONFIG.baseSize }
+            },
+            transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+            vertexShader: loadedShaders.particlesVert,
+            fragmentShader: fragShader
+        });
+        const particleSystem = new THREE.Points(geometry, material);
+        particleSystem.raycast = () => {};
+        scene.add(particleSystem); objects.push(particleSystem);
+    }
+
+    function buildMainLineFromJSON() {
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const personGeo = new THREE.ConeGeometry(0.15, 0.8, 8);
+        const nodeLookup = new Map();
+        timelineData.nodes.forEach(node => {
+            const group = new THREE.Group();
+            const x = node.pos[0]; const z = node.pos[1]; const y = Math.random() * 5;
+            group.position.set(x, y, z);
+            const isUnlocked = (node.status === 'unlocked');
+            if (!isUnlocked) group.scale.set(0.001, 0.001, 0.001);
+            group.userData = { type: 'mainNode', baseY: y, nodeId: node.id };
+            const scaleMult = 5; const mainSx = 5 * scaleMult; const mainSy = 1 * scaleMult * 0.5; const mainSz = 3 * scaleMult;
+            const platform = new THREE.Mesh(boxGeo, mats.mainBox);
+            platform.scale.set(mainSx, mainSy, mainSz); platform.castShadow = true; platform.receiveShadow = true;
+            platform.userData = { isInteractive: true, originScale: new THREE.Vector3(mainSx, mainSy, mainSz), storyData: node.info, nodeId: node.id };
+            const platformEdges = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), mats.mainEdges);
+            enableBloom(platformEdges); platform.add(platformEdges); group.add(platform);
+            const lineHeight = 60 + Math.random() * 5;
+            const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, lineHeight, 0)]), mats.glowEdges);
+            line.position.set(mainSx / 2 - 0.5, mainSy / 2, mainSz / 2 - 0.5); group.add(line);
+            if (node.info && node.info.title) {
+                const panelMat = new THREE.MeshBasicMaterial({
+                    map: createTextTexture(node.info.title, node.info.desc), side: THREE.DoubleSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+                });
+                panelMat.onBeforeCompile = getVolumetricFogShaderLogic();
+                const panel = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), panelMat);
+                panel.position.set(mainSx / 2 - 0.5 + 4, mainSy / 2 + lineHeight, mainSz / 2 - 0.5); panel.rotation.y = -Math.PI / 4; group.add(panel);
+            }
+            const person = new THREE.Mesh(personGeo, mats.person);
+            person.position.set(0, mainSy / 2 + 0.4, 0); group.add(person);
+            scene.add(group); objects.push(group); nodeLookup.set(node.id, group);
+            nodeAnimRegistry[node.id] = { group: group, status: node.status, targetStatus: node.status, scaleProgress: isUnlocked ? 1.0 : 0.0 };
+        });
+        timelineData.nodes.forEach(node => {
+            if (node.children && node.children.length > 0) {
+                const startGroup = nodeLookup.get(node.id); if (!startGroup) return;
+                node.children.forEach(childId => {
+                    const endGroup = nodeLookup.get(childId);
+                    if (endGroup) {
+                        const startWorld = startGroup.position.clone(); const endWorld = endGroup.position.clone(); const vecLocal = endWorld.sub(startWorld);
+                        const childStatus = nodeAnimRegistry[childId].status; const isChildUnlocked = (childStatus === 'unlocked');
+                        const points = isChildUnlocked ? [new THREE.Vector3(0, 0, 0), vecLocal] : [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)];
+                        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                        const mainLine = new THREE.Line(geometry, mats.line);
+                        enableBloom(mainLine); mainLine.frustumCulled = false; startGroup.add(mainLine);
+                        const pGroup = spawnFlowingParticles(new THREE.Vector3(0, 0, 0), vecLocal, startGroup, 6, isChildUnlocked);
+                        edgeAnimRegistry.push({
+                            line: mainLine, targetVec: vecLocal, currentEnd: isChildUnlocked ? vecLocal.clone() : new THREE.Vector3(0, 0, 0),
+                            particleGroup: pGroup, childId: childId, status: isChildUnlocked ? 'shown' : 'hidden', progress: isChildUnlocked ? 1.0 : 0.0
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    function createRandomBuildings(zone) {
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const totalWidth = config.laneCount * config.laneDist;
+        const centerZ = zone * BUILDING_ZONE_SIZE;
+        const rng = new SeededRandom(config.seed + zone);
+        const nodePositions = getUnlockedNodePositions();
+        const zoneBuildingIds = [];
+        const bottomCount = 30 + Math.floor(rng.next() * 6);
+        for (let k = 0; k < bottomCount; k++) {
+            let bXPos, bZPos; let attempts = 0; const maxAttempts = 10;
+            do {
+                bZPos = centerZ + (rng.next() - 0.5) * BUILDING_ZONE_SIZE * 2;
+                bXPos = (rng.next() - 0.5) * totalWidth * 3; attempts++;
+            } while (isTooCloseToNodes(bXPos, bZPos, nodePositions) && attempts < maxAttempts);
+            if (attempts >= maxAttempts) continue;
+            const bGroup = new THREE.Group();
+            const bYBase = -240 - rng.next() * 200;
+            const disappearOffset = -300;
+            bGroup.position.set(bXPos, bYBase + disappearOffset, bZPos);
+            const buildingId = buildingIdCounter++;
+            bGroup.userData = { buildingId: buildingId, baseY: bYBase, type: 'bottom', animSpeed: 0.075 + rng.next() * 0.26, animPhase: rng.next() * Math.PI * 2, animAmp: 2 + rng.next() * 4, animState: 'appearing', animProgress: 0, zone: zone };
+            const h = 30 + rng.next() * 500; const w = 10 + rng.next() * 20;
+            const bMesh = new THREE.Mesh(boxGeo, mats.bgBox);
+            bMesh.scale.set(w, h, w); bMesh.position.set(0, h / 2, 0); bGroup.add(bMesh);
+            const bLines = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, w)), mats.bgEdges);
+            bLines.position.set(0, h / 2, 0); bGroup.add(bLines);
+            bMesh.castShadow = true; bMesh.receiveShadow = true;
+            scene.add(bGroup); objects.push(bGroup); buildingRegistry.set(buildingId, bGroup); zoneBuildingIds.push(buildingId);
+        }
+        const topCount = 2 + Math.floor(rng.next() * 4);
+        for (let k = 0; k < topCount; k++) {
+            let tXPos, tZPos; let attempts = 0; const maxAttempts = 10;
+            do {
+                tZPos = centerZ + (rng.next() - 0.5) * BUILDING_ZONE_SIZE * 2;
+                tXPos = (rng.next() - 0.5) * totalWidth * 3;
+                if (Math.abs(tXPos) < 30) tXPos += (tXPos > 0 ? 30 : -30); attempts++;
+            } while (isTooCloseToNodes(tXPos, tZPos, nodePositions) && attempts < maxAttempts);
+            if (attempts >= maxAttempts) continue;
+            const tGroup = new THREE.Group();
+            const tYBase = 600 + rng.next() * 300;
+            const disappearOffset = 300;
+            tGroup.position.set(tXPos, tYBase + disappearOffset, tZPos);
+            const buildingId = buildingIdCounter++;
+            tGroup.userData = { buildingId: buildingId, baseY: tYBase, type: 'top', animSpeed: 0.1 + rng.next() * 1.5, animPhase: rng.next() * Math.PI * 2, animAmp: 5 + rng.next() * 15, animState: 'appearing', animProgress: 0, zone: zone };
+            const floors = 2 + Math.floor(rng.next() * 4);
+            let cY = 0; const baseW = 15 + rng.next() * 25, baseD = 15 + rng.next() * 25;
+            for (let f = 0; f < floors; f++) {
+                const h = 50 + rng.next() * 40; const taper = 1.0 - (f * 0.05); const w = baseW * taper, d = baseD * taper;
+                const tMesh = new THREE.Mesh(boxGeo, mats.bgBox);
+                tMesh.scale.set(w, h, d); tMesh.position.set(0, cY - h / 2, 0); tMesh.castShadow = true; tMesh.receiveShadow = true; tGroup.add(tMesh);
+                const tLines = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d)), mats.bgEdges);
+                tLines.position.set(0, cY - h / 2, 0); tGroup.add(tLines); cY -= h;
+            }
+            scene.add(tGroup); objects.push(tGroup); buildingRegistry.set(buildingId, tGroup); zoneBuildingIds.push(buildingId);
+        }
+        zoneToBuildings.set(zone, zoneBuildingIds);
+    }
+
+    function createTextTexture(title, desc) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const width = 512, height = 512;
+        canvas.width = width; canvas.height = height;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 6;
+        ctx.strokeRect(0, 0, width, height);
+        ctx.fillStyle = config.textColor; ctx.shadowColor = "#00ffff"; ctx.shadowBlur = 10;
+        ctx.textAlign = 'left'; ctx.font = 'bold 80px Helvetica, Arial';
+        ctx.fillText(title, 40, 130); ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.moveTo(40, 150); ctx.lineTo(width - 40, 150);
+        ctx.lineWidth = 2; ctx.strokeStyle = '#00ffff'; ctx.stroke();
+        ctx.font = 'normal 40px Helvetica, Arial'; ctx.fillStyle = '#ccc';
+        const words = (desc || "").split(' ');
+        let line = '', y = 220;
+        for (let n = 0; n < words.length; n++) {
+            if (ctx.measureText(line + words[n]).width > width - 80) { ctx.fillText(line, 40, y); line = words[n] + ' '; y += 50; }
+            else line += words[n] + ' ';
+        }
+        ctx.fillText(line, 40, y);
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    function onWindowResize() {
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        if (bloomComposer) { bloomComposer.setSize(window.innerWidth, window.innerHeight); bloomComposer.setPixelRatio(dpr); }
+        if (finalComposer) { finalComposer.setSize(window.innerWidth, window.innerHeight); finalComposer.setPixelRatio(dpr); }
+    }
+
+    function onDocumentMouseWheel(event) { event.preventDefault(); targetCameraHeight = Math.max(50, Math.min(400, targetCameraHeight + event.deltaY * 0.5)); }
+
+    function onMouseDown(event) { isDragging = true; previousMouseY = event.clientY; previousMouseX = event.clientX; document.body.classList.add('grabbing'); }
+    function onMouseUp() { isDragging = false; document.body.classList.remove('grabbing'); }
+
+    function onMouseClick(event) {
+        if (isDragging) return;
+        if (hoveredObject) {
+            const info = hoveredObject.userData.storyData;
+            const nodeId = hoveredObject.userData.nodeId;
+            if (nodeAnimRegistry[nodeId] && nodeAnimRegistry[nodeId].status !== 'unlocked') return;
+            if (info.url && info.url !== "") window.open(info.url, '_blank');
+            else alert(`Selected: ${info.title ? info.title : "Node"}\n\n${info.desc ? info.desc : ""}\n(No URL linked)`);
+        }
+    }
+
+    function checkIntersection() {
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(interactiveObjects);
+        if (intersects.length > 0) {
+            const object = intersects[0].object;
+            const nodeId = object.userData.nodeId || object.parent.userData.nodeId;
+            if (nodeId && nodeAnimRegistry[nodeId] && nodeAnimRegistry[nodeId].status !== 'unlocked') {
+                if (hoveredObject) { restoreObject(hoveredObject); hoveredObject = null; }
+                return;
+            }
+            if (hoveredObject !== object) { if (hoveredObject) restoreObject(hoveredObject); hoveredObject = object; highlightObject(hoveredObject); }
+        } else { if (hoveredObject) { restoreObject(hoveredObject); hoveredObject = null; } }
+    }
+
+    function highlightObject(mesh) { document.body.classList.add('pointer'); const targetScale = mesh.userData.originScale.clone().multiplyScalar(1.2); mesh.scale.copy(targetScale); }
+    function restoreObject(mesh) { document.body.classList.remove('pointer'); mesh.scale.copy(mesh.userData.originScale); }
+
+    function onMouseMove(event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        if (!isDragging) { checkIntersection(); return; }
+        const deltaX = event.clientX - previousMouseX; const deltaY = event.clientY - previousMouseY;
+        const scrollInput = (deltaX + deltaY); targetScrollPos += scrollInput * 0.35;
+        const panInput = (deltaX - deltaY); targetCameraOffsetX -= panInput * 0.35;
+        previousMouseX = event.clientX; previousMouseY = event.clientY;
+    }
+
+    function updateParticles(delta) {
+        const t = globalUniforms.time.value;
+        allParticles.forEach(pMesh => {
+            if (pMesh.parent.visible === false) return;
+            if (pMesh.userData.type === 'flow') {
+                const data = pMesh.userData.flowData;
+                data.progress = (data.progress + data.speed * TIME_SCALE * delta) % 1;
+                const wobble = Math.sin(t * data.wobbleSpeed + data.phase) * data.wobbleAmp;
+                pMesh.position.copy(data.start).add(data.endVec.clone().multiplyScalar(data.progress)).add(data.sideVec.clone().multiplyScalar((1.2 + wobble) * data.sideModifier));
+            }
+        });
+    }
+
+    function updateBuildingAnimations(currentZone, delta) {
+        const t = globalUniforms.time.value;
+        buildingRegistry.forEach((building, buildingId) => {
+            const userData = building.userData;
+            const zoneDist = Math.abs(userData.zone - currentZone);
+            const shouldBeVisible = zoneDist <= VISIBLE_ZONE_RADIUS;
+            const increment = 0.02 * BUILDING_ANIMATION_SPEED * TIME_SCALE * delta;
+            let floatOffset = 0;
+            if (userData.animSpeed) floatOffset = Math.sin(t * userData.animSpeed + userData.animPhase) * userData.animAmp;
+            if (userData.animState === 'appearing') {
+                userData.animProgress += increment;
+                if (userData.animProgress >= 1.0) { userData.animProgress = 1.0; userData.animState = 'visible'; }
+                const k = userData.animProgress; const eased = 1 - Math.pow(1 - k, 3);
+                const disappearOffset = userData.type === 'top' ? 300 : -300;
+                const movementOffset = disappearOffset * (1 - eased);
+                building.position.y = userData.baseY + movementOffset + (floatOffset * eased);
+            } else if (userData.animState === 'visible') {
+                if (!shouldBeVisible) { userData.animState = 'disappearing'; userData.animProgress = 0; }
+                building.position.y = userData.baseY + floatOffset;
+            } else if (userData.animState === 'disappearing') {
+                userData.animProgress += increment;
+                if (userData.animProgress >= 1.0) { userData.animProgress = 1.0; userData.animState = 'hidden'; }
+                const k = userData.animProgress; const eased = k * k * k;
+                const disappearOffset = userData.type === 'top' ? 300 : -300;
+                const movementOffset = disappearOffset * eased;
+                building.position.y = userData.baseY + movementOffset + (floatOffset * (1 - eased));
+            }
+        });
+    }
+
+    function updateUnlockAnimations(delta) {
+        const edgeSpeed = 0.02 * TIME_SCALE * delta;
+        const nodeSpeed = 0.05 * TIME_SCALE * delta;
+        edgeAnimRegistry.forEach(edge => {
+            if (edge.status === 'growing') {
+                edge.progress += edgeSpeed;
+                if (edge.progress >= 1.0) {
+                    edge.progress = 1.0; edge.status = 'shown'; edge.particleGroup.visible = true;
+                    const childNode = nodeAnimRegistry[edge.childId];
+                    if (childNode && childNode.status === 'locked') childNode.status = 'popping';
+                }
+                const positions = edge.line.geometry.attributes.position.array;
+                const currentVec = edge.targetVec.clone().multiplyScalar(edge.progress);
+                positions[3] = currentVec.x; positions[4] = currentVec.y; positions[5] = currentVec.z;
+                edge.line.geometry.attributes.position.needsUpdate = true;
+            }
+        });
+        for (const nodeId in nodeAnimRegistry) {
+            const data = nodeAnimRegistry[nodeId];
+            if (data.status === 'popping') {
+                data.scaleProgress += nodeSpeed;
+                let scale = data.scaleProgress;
+                const backScale = 1 + 2.70158 * Math.pow(scale - 1, 3) + 1.70158 * Math.pow(scale - 1, 2);
+                if (data.scaleProgress >= 1.0) { data.scaleProgress = 1.0; data.status = 'unlocked'; scale = 1.0; }
+                else { scale = scale > 1 ? backScale : scale; }
+                data.group.scale.set(scale, scale, scale);
+            }
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+        globalUniforms.time.value += delta * 1.2;
+        updateParticles(delta);
+        updateUnlockAnimations(delta);
+        if (cloudMesh) { cloudMesh.position.x = camera.position.x; cloudMesh.position.z = camera.position.z; }
+        const dampingBase = 0.95; const safeDelta = Math.min(delta, 0.1);
+        const dampingFactor = 1.0 - Math.pow(dampingBase, safeDelta * 60);
+        scrollPos += (targetScrollPos - scrollPos) * dampingFactor;
+        cameraOffsetX += (targetCameraOffsetX - cameraOffsetX) * dampingFactor;
+        cameraHeight += (targetCameraHeight - cameraHeight) * dampingFactor;
+        const currentFocusZ = -scrollPos;
+        const currentZone = Math.floor(currentFocusZ / BUILDING_ZONE_SIZE);
+        const buildingRenderRange = 500;
+        const minBuildingZ = currentFocusZ - buildingRenderRange;
+        const maxBuildingZ = currentFocusZ + buildingRenderRange;
+        const minZone = Math.floor(minBuildingZ / BUILDING_ZONE_SIZE);
+        const maxZone = Math.floor(maxBuildingZ / BUILDING_ZONE_SIZE);
+        for (let zone = minZone; zone <= maxZone; zone++) {
+            if (!generatedBuildingZones.has(zone)) { createRandomBuildings(zone); generatedBuildingZones.add(zone); }
+        }
+        updateBuildingAnimations(currentZone, delta);
+        const baseCenterX = 0;
+        const finalCamX = baseCenterX + cameraOffsetX - 100 * (cameraHeight / 100);
+        camera.position.set(finalCamX, cameraHeight, currentFocusZ + 120 * (cameraHeight / 100));
+        camera.lookAt(baseCenterX + cameraOffsetX, 0, currentFocusZ);
+        const light = scene.getObjectByName("mainLight");
+        if (light) {
+            light.position.set(baseCenterX + cameraOffsetX + 200, 1500, currentFocusZ + 200);
+            light.target.position.set(baseCenterX + cameraOffsetX, 0, currentFocusZ);
+            light.target.updateMatrixWorld();
+        }
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i]; const isMainNode = (obj.userData.type === 'mainNode');
+            if (!isMainNode && obj.userData.buildingId !== undefined) {
+                const buildingId = obj.userData.buildingId;
+                const isOutOfRange = (obj.position.z < minBuildingZ - 200 || obj.position.z > maxBuildingZ + 200);
+                if (obj.userData.animState === 'hidden' && isOutOfRange) {
+                    obj.traverse((child) => {
+                        if (child.userData && child.userData.isInteractive) {
+                            const idx = interactiveObjects.indexOf(child);
+                            if (idx > -1) interactiveObjects.splice(idx, 1);
+                            if (hoveredObject === child) { hoveredObject = null; document.body.classList.remove('pointer'); }
+                        }
+                    });
+                    scene.remove(obj); disposeHierarchy(obj); objects.splice(i, 1);
+                    buildingRegistry.delete(buildingId);
+                    if (obj.userData.zone !== undefined) generatedBuildingZones.delete(obj.userData.zone);
+                }
+            }
+        }
+        if (bloomComposer) {
+            if (cloudMesh) cloudMesh.visible = false;
+            scene.background = new THREE.Color(0x000000); camera.layers.set(BLOOM_LAYER);
+            bloomComposer.render();
+            if (cloudMesh) cloudMesh.visible = true;
+            scene.background = new THREE.Color(config.bgColor); camera.layers.set(0);
+            finalComposer.render();
+        }
+    }
+
+    // 配置更新逻辑保持不变
+    window.addEventListener('message', function(event) {
+        const data = event.data;
+        if (data.type === 'updateConfig') {
+            const key = data.key; const value = data.value;
+            if (typeof value === 'string' && value.startsWith('#')) config[key] = parseInt(value.replace('#', '0x'), 16);
+            else config[key] = value;
+            updateSceneFromConfig(key, config[key]);
+        }
+        else if (data.type === 'requestConfig') {
+            const exportConfig = {};
+            for(let k in config){
+                if(k.toLowerCase().includes('color')) exportConfig[k] = '#' + config[k].toString(16).padStart(6, '0');
+                else exportConfig[k] = config[k];
+            }
+            window.parent.postMessage({ type: 'configLoaded', config: exportConfig }, '*');
+        }
+    });
+
+    function updateSceneFromConfig(key, val) {
+        const colorObj = new THREE.Color(val);
+        switch (key) {
+            case 'bgColor': scene.background = colorObj; break;
+            case 'fogColor': globalUniforms.fogColor.value.copy(colorObj); break;
+            case 'cloudBaseColor': globalUniforms.cloudBaseColor.value.copy(colorObj); break;
+            case 'cloudHighlightColor': globalUniforms.cloudHighlightColor.value.copy(colorObj); break;
+            case 'mainBlockColor': if (mats.mainBox) mats.mainBox.color.copy(colorObj); break;
+            case 'bgBlockColor': if (mats.bgBox) mats.bgBox.color.copy(colorObj); break;
+            case 'mainEdgeColor':
+                if (mats.mainEdges) mats.mainEdges.color.copy(colorObj);
+                if (mats.line) mats.line.color.copy(colorObj);
+                if (particleMat) particleMat.color.copy(colorObj);
+                break;
+            case 'dimEdgeColor': if (mats.dimEdges) mats.dimEdges.color.copy(colorObj); break;
+            case 'heightFogDensity': updateMaterialUniforms('hFogDensity', val); break;
+            case 'heightFogBase': updateMaterialUniforms('hFogBase', val); break;
+        }
+    }
+    function updateMaterialUniforms(uniformName, value) {
+        scene.traverse(obj => {
+            if (obj.material) {
+                const matList = Array.isArray(obj.material) ? obj.material : [obj.material];
+                matList.forEach(m => {
+                    if(m.userData && m.userData.shader && m.userData.shader.uniforms && m.userData.shader.uniforms[uniformName]) {
+                        m.userData.shader.uniforms[uniformName].value = value;
+                    }
+                });
+            }
+        });
+    }
+</script>
+</body>
+</html>
