@@ -1,77 +1,22 @@
-﻿{
+﻿const config = {
   "spacingZ": 2,
   "renderRange": 20,
   "laneCount": 5,
   "laneDist": 60,
   "maxPixelRatio": 1.5,
-  "seed": 12345,
-  "bgColor": {
-    "hex": 12702681,
-    "int": 1
-  },
-  "dimEdgeColor": {
-    "hex": 10417407,
-    "int": 12.3
-  },
-  "cloudNoiseTiling": 0.002,
-  "bgBlockColor": {
-    "hex": 15530238,
-    "int": 1.1
-  },
-  "cloudBaseColor": {
-    "hex": 12702681,
-    "int": 1
-  },
-  "mainEdgeColor": {
-    "hex": 5361919,
-    "int": 3
-  },
-  "panelColor": {
-    "hex": 1513239,
-    "int": 2.5
-  },
-  "panelBGColor": {
-    "hex": 2236962,
-    "int": 0.5
-  },
-  "mainBlockColor": {
-    "hex": 4364477,
-    "int": 2.9
-  },
-  "particleColor": {
-    "hex": 14011647,
-    "int": 3
-  },
-  "atmosphericParticleColor": {
-    "hex": 12441343,
-    "int": 0.5
-  },
-  "bgRoughness": 0.3,
-  "cloudHighlightColor": {
-    "hex": 12702681,
-    "int": 1
-  },
-  "lineColor": {
-    "hex": 2236962,
-    "int": 1
-  },
-  "textColor": {
-    "hex": 16777215,
-    "int": 1.5
-  },
-  "ambientColor": {
-    "hex": 13100287,
-    "int": 0.4
-  },
-  "ambientIntensity": 2,
-  "sunColor": {
-    "hex": 15069183,
-    "int": 4.6
-  },
-  "sunIntensity": 0.5,
-  "sunAngle": 60,
+  "bgColor": 0x91acb6,
+  "fogColor": 0x91acb6,
+  "cloudBaseColor": 0x91acb6,
+  "cloudHighlightColor": 0x91acb6,
   "heightFogDensity": 0.008,
   "heightFogBase": -200,
+  "mainBlockColor": 0x64b4ff,
+  "bgBlockColor": 0x80d2ff,
+  "lineColor": 0x222222,
+  "mainEdgeColor": 0x51d0ff,
+  "dimEdgeColor": 0x3e5c60,
+  "textColor": "###ffffff",
   "uiTitle": "MANUAL UNLOCK",
-  "uiDesc": "Wait for animations, then press [1]"
-}
+  "uiDesc": "Wait for animations, then press [1]",
+  "seed": 4.12345
+};
