@@ -1,7 +1,10 @@
 ﻿uniform float uTime;
+uniform vec2 uResolution; // [New]
 uniform vec3 uBaseColor;
 uniform vec3 uHighlightColor;
 uniform vec3 uFogColor;
+uniform vec3 uFogColorLight; // [New]
+uniform vec3 uFogColorDark;  // [New]
 varying vec2 vUv;
 varying vec3 vWorldPosition;
 
@@ -17,7 +20,17 @@ void main() {
     float fade = 1.0 - smoothstep(1000.0, 3500.0, dist);
     float toneMix = smoothstep(0.3, 0.8, noise * 0.5 + 0.5);
     vec3 cloudMix = mix(uBaseColor, uHighlightColor, toneMix);
-    vec3 finalColor = mix(uFogColor, cloudMix, noise * 0.5 + 0.5);
+
+    // [New] Gradient Fog Logic
+    vec2 screenUV = gl_FragCoord.xy / uResolution;
+    float gradientFactor = smoothstep(0.2, 1.5, screenUV.x + screenUV.y);
+    vec3 finalFogColor = mix(uFogColorDark, uFogColorLight, gradientFactor);
+
+    vec3 finalColor = mix(finalFogColor, cloudMix, noise * 0.5 + 0.5);
     finalColor += uHighlightColor * smoothstep(0.65, 1.0, noise) * 0.5;
-    gl_FragColor = vec4(finalColor, alpha );
+    
+    // Apply distance fade to fog color
+    finalColor = mix(finalColor, finalFogColor, 1.0 - fade);
+
+    gl_FragColor = vec4(finalColor, alpha * fade);
 }
