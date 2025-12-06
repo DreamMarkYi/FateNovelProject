@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Timeline Configurator</title>
     <style>
+        /* 样式保持不变 */
         body {
             margin: 0;
             padding: 0;
@@ -45,19 +46,9 @@
             padding: 20px;
         }
 
-        /* 滚动条样式 */
-        #controls::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        #controls::-webkit-scrollbar-track {
-            background: #1e1e1e;
-        }
-
-        #controls::-webkit-scrollbar-thumb {
-            background: #444;
-            border-radius: 3px;
-        }
+        #controls::-webkit-scrollbar { width: 6px; }
+        #controls::-webkit-scrollbar-track { background: #1e1e1e; }
+        #controls::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
 
         .control-group {
             margin-bottom: 25px;
@@ -87,9 +78,7 @@
             justify-content: space-between;
         }
 
-        .control-item label span.val-display {
-            color: #fff;
-        }
+        .control-item label span.val-display { color: #fff; }
 
         input[type="color"] {
             width: 100%;
@@ -99,10 +88,7 @@
             cursor: pointer;
         }
 
-        input[type="range"] {
-            width: 100%;
-            cursor: pointer;
-        }
+        input[type="range"] { width: 100%; cursor: pointer; }
 
         input[type="text"] {
             width: 100%;
@@ -113,7 +99,6 @@
             box-sizing: border-box;
         }
 
-        /* 底部按钮区 */
         #sidebar-footer {
             padding: 20px;
             background-color: #1e1e1e;
@@ -132,27 +117,20 @@
             margin-bottom: 10px;
         }
 
-        button:hover {
-            background-color: #005fa3;
-        }
+        button:hover { background-color: #005fa3; }
+        button.secondary { background-color: #333; }
+        button.secondary:hover { background-color: #444; }
+        button.success { background-color: #28a745; }
+        button.success:hover { background-color: #218838; }
 
-        button.secondary {
-            background-color: #333;
-        }
-
-        button.secondary:hover {
-            background-color: #444;
-        }
-
-        /* 右侧预览区 */
         #preview-container {
             flex: 1;
             position: relative;
             background-image:
-                linear-gradient(45deg, #222 25%, transparent 25%),
-                linear-gradient(-45deg, #222 25%, transparent 25%),
-                linear-gradient(45deg, transparent 75%, #222 75%),
-                linear-gradient(-45deg, transparent 75%, #222 75%);
+                    linear-gradient(45deg, #222 25%, transparent 25%),
+                    linear-gradient(-45deg, #222 25%, transparent 25%),
+                    linear-gradient(45deg, transparent 75%, #222 75%),
+                    linear-gradient(-45deg, transparent 75%, #222 75%);
             background-size: 20px 20px;
             background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
         }
@@ -164,7 +142,6 @@
             display: block;
         }
 
-        /* 导出弹窗 */
         #export-modal {
             display: none;
             position: fixed;
@@ -202,192 +179,203 @@
 
 <body>
 
-    <div id="sidebar">
-        <div id="sidebar-header">
-            配置面板
-        </div>
+<div id="sidebar">
+    <div id="sidebar-header">
+        配置面板
+    </div>
 
-        <div id="controls">
-            <div class="loading-text" style="text-align:center; padding:20px; color:#666;">
-                等待场景连接...
-            </div>
-        </div>
-
-        <div id="sidebar-footer">
-            <button onclick="exportConfig()">生成配置代码 (JSON)</button>
-            <button class="secondary" onclick="reloadFrame()">重置 / 刷新</button>
+    <div id="controls">
+        <div class="loading-text" style="text-align:center; padding:20px; color:#666;">
+            等待场景连接...
         </div>
     </div>
 
-    <div id="preview-container">
-        <iframe id="preview-frame" src="3.html"></iframe>
+    <div id="sidebar-footer">
+        <button onclick="exportConfig()">生成配置 (JSON)</button>
+        <button class="secondary" onclick="reloadFrame()">重置 / 刷新</button>
     </div>
+</div>
 
-    <div id="export-modal">
-        <div class="modal-content">
-            <h3 style="margin-top:0">配置已生成</h3>
-            <p style="font-size:0.8rem; color:#aaa;">复制下方代码，替换 3.html 中的 const config = { ... }; 部分</p>
-            <textarea id="export-area"></textarea>
-            <button onclick="closeModal()">关闭</button>
-        </div>
+<div id="preview-container">
+    <iframe id="preview-frame" src="3.html"></iframe>
+</div>
+
+<div id="export-modal">
+    <div class="modal-content">
+        <h3 style="margin-top:0">配置已生成</h3>
+        <p style="font-size:0.8rem; color:#aaa;">点击下方按钮下载 config.json，覆盖原文件即可。</p>
+        <textarea id="export-area"></textarea>
+        <button class="success" onclick="downloadJson()">下载 config.json</button>
+        <button class="secondary" onclick="closeModal()">关闭</button>
     </div>
+</div>
 
-    <script>
-        const iframe = document.getElementById('preview-frame');
-        const controlsDiv = document.getElementById('controls');
-        let currentConfig = {};
+<script>
+    const iframe = document.getElementById('preview-frame');
+    const controlsDiv = document.getElementById('controls');
+    let currentConfig = {};
 
-        // 定义我们要控制的参数结构
-        // type: 'color' | 'number' | 'text'
-        const schema = [
-            {
-                title: "环境与背景 (Atmosphere)",
-                items: [
-                    { key: 'bgColor', label: '背景颜色', type: 'color' },
-                    { key: 'fogColor', label: '雾气颜色', type: 'color' },
-                    { key: 'cloudBaseColor', label: '云层底色', type: 'color' },
-                    { key: 'cloudHighlightColor', label: '云层高光', type: 'color' },
-                ]
-            },
-            {
-                title: "雾效参数 (Volumetric Fog)",
-                items: [
-                    { key: 'heightFogDensity', label: '雾气密度', type: 'range', min: 0.001, max: 0.05, step: 0.001 },
-                    { key: 'heightFogBase', label: '雾气基准高度', type: 'range', min: -500, max: 100, step: 10 },
-                ]
-            },
-            {
-                title: "方块与线条 (Geometry)",
-                items: [
-                    { key: 'mainBlockColor', label: '主节点颜色', type: 'color' },
-                    { key: 'bgBlockColor', label: '装饰建筑颜色', type: 'color' },
-                    { key: 'mainEdgeColor', label: '主线条/高亮', type: 'color' },
-                    { key: 'dimEdgeColor', label: '暗线条/背景', type: 'color' },
-                    { key: 'lineColor', label: '连接线颜色', type: 'color' }
-                ]
-            },
-            
-            {
-                title: "UI 设置",
-                items: [
-                    { key: 'textColor', label: '文字颜色', type: 'color' },
-                    { key: 'uiTitle', label: 'UI 标题', type: 'text' },
-                ]
-            }
-        ];
+    // 定义我们要控制的参数结构
+    // type: 'color' | 'number' | 'text'
+    const schema = [
+        {
+            title: "环境与背景 (Atmosphere)",
+            items: [
+                { key: 'bgColor', label: '背景颜色', type: 'color' },
+                { key: 'fogColor', label: '雾气颜色', type: 'color' },
+                { key: 'cloudBaseColor', label: '云层底色', type: 'color' },
+                { key: 'cloudHighlightColor', label: '云层高光', type: 'color' },
+            ]
+        },
+        {
+            title: "雾效参数 (Volumetric Fog)",
+            items: [
+                { key: 'heightFogDensity', label: '雾气密度', type: 'range', min: 0.001, max: 0.05, step: 0.001 },
+                { key: 'heightFogBase', label: '雾气基准高度', type: 'range', min: -500, max: 100, step: 10 },
+            ]
+        },
+        {
+            title: "方块与线条 (Geometry)",
+            items: [
+                { key: 'mainBlockColor', label: '主节点颜色', type: 'color' },
+                { key: 'bgBlockColor', label: '装饰建筑颜色', type: 'color' },
+                { key: 'mainEdgeColor', label: '主线条/高亮', type: 'color' },
+                { key: 'dimEdgeColor', label: '暗线条/背景', type: 'color' },
+                { key: 'lineColor', label: '连接线颜色', type: 'color' }
+            ]
+        },
+        {
+            title: "屏幕渐变滤镜 (Screen Gradient)",
+            items: [
+                // 范围 0.0 - 1.0, 步长 0.05
+                { key: 'gradDarkness', label: '暗部压暗 (Darkness)', type: 'range', min: 0.0, max: 1.0, step: 0.05 },
+                // 范围 0.5 - 2.5, 步长 0.05
+                { key: 'gradBrightness', label: '亮部提亮 (Brightness)', type: 'range', min: 0.5, max: 2.5, step: 0.05 }
+            ]
+        },
+        {
+            title: "UI 设置",
+            items: [
+                { key: 'textColor', label: '文字颜色', type: 'color' },
+                { key: 'uiTitle', label: 'UI 标题', type: 'text' },
+            ]
+        }
+    ];
 
-        // 1. 初始化：监听 Iframe 加载完成
-        iframe.onload = () => {
-            // 请求 iframe 发送当前的 config 数据
-            // 稍微延迟一下确保 iframe 内部脚本初始化完成
-            setTimeout(() => {
-                iframe.contentWindow.postMessage({ type: 'requestConfig' }, '*');
-            }, 500);
-        };
+    // 1. 初始化：监听 Iframe 加载完成
+    iframe.onload = () => {
+        setTimeout(() => {
+            iframe.contentWindow.postMessage({ type: 'requestConfig' }, '*');
+        }, 500);
+    };
 
-        // 2. 监听来自 Iframe 的消息
-        window.addEventListener('message', (event) => {
-            if (event.data.type === 'configLoaded') {
-                currentConfig = event.data.config;
-                buildUI();
-            }
+    // 2. 监听来自 Iframe 的消息
+    window.addEventListener('message', (event) => {
+        if (event.data.type === 'configLoaded') {
+            currentConfig = event.data.config;
+            buildUI();
+        }
+    });
+
+    // 3. 构建 UI
+    function buildUI() {
+        controlsDiv.innerHTML = ''; // 清空
+
+        schema.forEach(group => {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'control-group';
+
+            const title = document.createElement('div');
+            title.className = 'group-title';
+            title.innerText = group.title;
+            groupDiv.appendChild(title);
+
+            group.items.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'control-item';
+
+                // Label
+                const label = document.createElement('label');
+                label.innerHTML = `${item.label} <span class="val-display" id="disp_${item.key}"></span>`;
+                itemDiv.appendChild(label);
+
+                let input;
+                const val = currentConfig[item.key];
+
+                if (item.type === 'color') {
+                    input = document.createElement('input');
+                    input.type = 'color';
+                    input.value = val || '#ffffff';
+                    input.oninput = (e) => updateParam(item.key, e.target.value);
+                } else if (item.type === 'range') {
+                    input = document.createElement('input');
+                    input.type = 'range';
+                    input.min = item.min;
+                    input.max = item.max;
+                    input.step = item.step;
+                    input.value = val;
+                    // 更新数字显示
+                    const disp = label.querySelector('.val-display');
+                    if (disp) disp.innerText = val;
+                    input.oninput = (e) => {
+                        updateParam(item.key, parseFloat(e.target.value));
+                        label.querySelector('.val-display').innerText = e.target.value;
+                    };
+                } else if (item.type === 'text') {
+                    input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = val;
+                    input.oninput = (e) => updateParam(item.key, e.target.value);
+                }
+
+                itemDiv.appendChild(input);
+                groupDiv.appendChild(itemDiv);
+            });
+
+            controlsDiv.appendChild(groupDiv);
         });
+    }
 
-        // 3. 构建 UI
-        function buildUI() {
-            controlsDiv.innerHTML = ''; // 清空
+    // 4. 发送更新到 Iframe
+    function updateParam(key, value) {
+        currentConfig[key] = value;
+        iframe.contentWindow.postMessage({
+            type: 'updateConfig',
+            key: key,
+            value: value
+        }, '*');
+    }
 
-            schema.forEach(group => {
-                const groupDiv = document.createElement('div');
-                groupDiv.className = 'control-group';
+    // 5. 导出功能
+    function exportConfig() {
+        // 直接生成标准的 JSON 字符串
+        const jsonStr = JSON.stringify(currentConfig, null, 4);
+        document.getElementById('export-area').value = jsonStr;
+        document.getElementById('export-modal').style.display = 'flex';
+    }
 
-                const title = document.createElement('div');
-                title.className = 'group-title';
-                title.innerText = group.title;
-                groupDiv.appendChild(title);
+    function downloadJson() {
+        const jsonStr = document.getElementById('export-area').value;
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'config.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
 
-                group.items.forEach(item => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'control-item';
+    function closeModal() {
+        document.getElementById('export-modal').style.display = 'none';
+    }
 
-                    // Label
-                    const label = document.createElement('label');
-                    label.innerHTML = `${item.label} <span class="val-display" id="disp_${item.key}"></span>`;
-                    itemDiv.appendChild(label);
+    function reloadFrame() {
+        iframe.contentWindow.location.reload();
+    }
 
-                    let input;
-                    const val = currentConfig[item.key];
-
-                    if (item.type === 'color') {
-                        input = document.createElement('input');
-                        input.type = 'color';
-                        input.value = val || '#ffffff';
-                        input.oninput = (e) => updateParam(item.key, e.target.value);
-                    } else if (item.type === 'range') {
-                        input = document.createElement('input');
-                        input.type = 'range';
-                        input.min = item.min;
-                        input.max = item.max;
-                        input.step = item.step;
-                        input.value = val;
-                        // 更新数字显示
-                        const disp = label.querySelector('.val-display');
-                        if (disp) disp.innerText = val;
-                        input.oninput = (e) => {
-                            updateParam(item.key, parseFloat(e.target.value));
-                            label.querySelector('.val-display').innerText = e.target.value;
-                        };
-                    } else if (item.type === 'text') {
-                        input = document.createElement('input');
-                        input.type = 'text';
-                        input.value = val;
-                        input.oninput = (e) => updateParam(item.key, e.target.value);
-                    }
-
-                    itemDiv.appendChild(input);
-                    groupDiv.appendChild(itemDiv);
-                });
-
-                controlsDiv.appendChild(groupDiv);
-            });
-        }
-
-        // 4. 发送更新到 Iframe
-        function updateParam(key, value) {
-            currentConfig[key] = value;
-            iframe.contentWindow.postMessage({
-                type: 'updateConfig',
-                key: key,
-                value: value
-            }, '*');
-        }
-
-        // 5. 导出功能
-        function exportConfig() {
-            // 转换回代码格式 (十六进制数字不带引号)
-            let jsonStr = JSON.stringify(currentConfig, null, 4);
-
-            // 简单的正则替换，将颜色的字符串 "#123456" 转换为 0x123456
-            // 这样复制进代码里才符合 Three.js 的习惯
-            const cleanJson = jsonStr.replace(/"(#[0-9a-fA-F]{6})"/g, function (match) {
-                return match.replace('"#', '0x').replace('"', '');
-            });
-
-            const codeBlock = `const config = ${cleanJson};`;
-
-            document.getElementById('export-area').value = codeBlock;
-            document.getElementById('export-modal').style.display = 'flex';
-        }
-
-        function closeModal() {
-            document.getElementById('export-modal').style.display = 'none';
-        }
-
-        function reloadFrame() {
-            iframe.contentWindow.location.reload();
-        }
-
-    </script>
+</script>
 </body>
 
 </html>

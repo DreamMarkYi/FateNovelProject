@@ -6,7 +6,7 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>3D Timeline - Lightning Beam Style</title>
     <style>
-        /* 样式保持不变 */
+        /* --- 基础样式 --- */
         body {
             margin: 0;
             overflow: hidden;
@@ -72,104 +72,178 @@
             color: #00ffff;
             text-shadow: 0 0 15px #00ffff;
         }
+
+        /* --- 新增：侧边栏 UI 样式 --- */
+        #side-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 300px;
+            height: 100vh;
+            background: linear-gradient(90deg, rgba(2, 2, 5, 0.9) 0%, rgba(2, 2, 5, 0.6) 100%);
+            backdrop-filter: blur(5px);
+            border-right: 1px solid rgba(0, 255, 255, 0.3);
+            transform: translateX(-100%); /* 默认隐藏 */
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            pointer-events: auto; /* 确保可以点击 */
+        }
+
+        #side-panel.open {
+            transform: translateX(0);
+        }
+
+        /* 侧边栏开关按钮 */
+        #panel-toggle {
+            position: absolute;
+            top: 50%;
+            right: -30px;
+            width: 30px;
+            height: 60px;
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            border-left: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #00ffff;
+            font-size: 1.2rem;
+            border-radius: 0 5px 5px 0;
+            transition: all 0.3s ease;
+        }
+
+        #panel-toggle:hover {
+            background: rgba(0, 255, 255, 0.4);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+
+        /* 列表容器 */
+        #node-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 80px 20px 20px 20px; /* 顶部留出空间给原来的UI标题 */
+            scrollbar-width: thin;
+            scrollbar-color: #00ffff #020205;
+        }
+
+        /* 滚动条样式 */
+        #node-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        #node-list::-webkit-scrollbar-track {
+            background: #020205;
+        }
+        #node-list::-webkit-scrollbar-thumb {
+            background-color: #00ffff;
+            border-radius: 3px;
+        }
+
+        /* 列表项样式 */
+        .node-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-left: 3px solid #333;
+            background: rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            opacity: 0;
+            animation: slideIn 0.5s forwards;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .node-item:hover {
+            background: rgba(0, 255, 255, 0.1);
+            border-left-color: #00ffff;
+            padding-left: 15px;
+        }
+
+        .node-item h3 {
+            margin: 0 0 5px 0;
+            font-size: 0.9rem;
+            color: #fff;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .node-item p {
+            margin: 0;
+            font-size: 0.7rem;
+            color: #aaa;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .node-item .date {
+            font-size: 0.6rem;
+            color: #00ffff;
+            margin-bottom: 3px;
+            display: block;
+        }
     </style>
 </head>
 
 <body>
 
 <div id="ui">
-    <h1 id="ui-title">MANUAL TRIGGER</h1>
-    <p id="ui-desc">Press [1] to Check & Unlock</p>
+    <h1 id="ui-title">LOADING...</h1>
+    <p id="ui-desc">Initializing System</p>
 </div>
 
-<div class="loading" id="loading">LOADING SHADERS...</div>
+<div id="side-panel">
+    <div id="panel-toggle" onclick="toggleSidePanel()">➤</div>
+    <div id="node-list">
+    </div>
+</div>
+
+<div class="loading" id="loading">CONNECTING TO DATABASE...</div>
 <div id="canvas-container"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/CopyShader.js"></script>
-<script
-        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script
-        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/EffectComposer.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/ShaderPass.js"></script>
-<script
-        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/UnrealBloomPass.js"></script>
 
 <script>
-    // --- JSON 数据定义 (保持不变) ---
-    const timelineData = {
-        "roots": ["node_1"],
-        "nodes": [
-            {
-                "id": "node_1",
-                "status": "unlocked",
-                "unlockCondition": [],
-                "pos": [0, -100],
-                "children": ["node_2", "node_3"],
-                "info": {"title": "START", "desc": "Project Initialization", "url": ""}
-            },
-            {
-                "id": "node_2",
-                "status": "locked",
-                "unlockCondition": ["node_1"],
-                "pos": [-60, -250],
-                "children": ["node_4" , "node_7"],
-                "info": {"title": "BRANCH A", "desc": "Development Phase", "url": ""}
-            },
-            {
-                "id": "node_3",
-                "status": "locked",
-                "unlockCondition": ["node_1"],
-                "pos": [60, -300],
-                "children": ["node_4"],
-                "info": {"title": "BRANCH B", "desc": "Design Phase", "url": ""}
-            },
-            {
-                "id": "node_7",
-                "status": "locked",
-                "unlockCondition": ["node_4"],
-                "pos": [-180, -300],
-                "info": {"title": "BRANCH B", "desc": "Design Phase", "url": ""}
-            },
-            {
-                "id": "node_4",
-                "status": "locked",
-                "unlockCondition": ["node_2", "node_3"],
-                "pos": [0, -450],
-                "children": ["node_5"],
-                "info": {"title": "MERGE", "desc": "Integration (Wait for A & B)", "url": ""}
-            },
-            {
-                "id": "node_5",
-                "status": "locked",
-                "unlockCondition": ["node_4"],
-                "pos": [0, -600],
-                "children": [],
-                "info": {"title": "RELEASE", "desc": "Version 1.0 Launch", "url": ""}
-            }
-        ]
-    };
-
     // --- 全局变量 ---
+    let timelineData = null;
+    let config = null;
+
     const nodeAnimRegistry = {};
     const edgeAnimRegistry = [];
     const clock = new THREE.Clock();
     const TIME_SCALE = 60.0;
 
-    // [新增] 闪电特效配置
-    const LIGHTNING_SEGMENTS = 20; // 闪电段数，越多越细腻
-    const LIGHTNING_STRANDS = 3;   // 每个连接由几根闪电组成
-    const LIGHTNING_COLOR = 0x88ffff; // 青色光辉
+    // 闪电特效配置
+    const LIGHTNING_SEGMENTS = 20;
+    const LIGHTNING_STRANDS = 3;
+    const LIGHTNING_COLOR = 0x88ffff;
 
     let buildingIdCounter = 0;
     let buildingRegistry = new Map();
     let zoneToBuildings = new Map();
-    const buildingHistory = new Map(); // Key: buildingId, Value: { pos, rot, scale }
+    const buildingHistory = new Map();
     const BUILDING_AVOID_RADIUS = 120;
     const BUILDING_ANIMATION_SPEED = 0.4;
     const VISIBLE_ZONE_RADIUS = 3;
     const BUILDING_ZONE_SIZE = 200;
+
+    // --- 新增：UI 管理变量 ---
+    const listedNodeIds = new Set();
+    const sidePanel = document.getElementById('side-panel');
+    const panelToggle = document.getElementById('panel-toggle');
 
     // --- SHADER 管理系统 ---
     const loadedShaders = {};
@@ -185,45 +259,17 @@
         bloomFrag: 'shaders/bloom_frag.glsl'
     };
 
-    // --- 配置参数 ---
-    const config = {
-        "spacingZ": 2,
-        "renderRange": 20,
-        "laneCount": 5,
-        "laneDist": 60,
-        "maxPixelRatio": 1.5,
-        "bgColor": 0xb5d0d9,
-        "fogColor": 0xb5d0d9,
-        "cloudBaseColor": 0xb5d0d9,
-        "cloudHighlightColor": 0xb5d0d9,
-        "heightFogDensity": 0.008,
-        "heightFogBase": -200,
-        "mainBlockColor": 0x64b4ff,
-        "bgBlockColor": 0x95d9fe,
-        "lineColor": 0x222222,
-        "mainEdgeColor": 0x51d0ff,
-        "dimEdgeColor": 0x7cb7c0,
-        "textColor": "#####ffffff",
-        "uiTitle": "MANUAL UNLOCK",
-        "uiDesc": "Wait for animations, then press [1]",
-        "seed": 325.52345
-    };
-
-    const globalUniforms = {
-        time: {value: 0},
-        cloudBaseColor: {value: new THREE.Color(config.cloudBaseColor)},
-        cloudHighlightColor: {value: new THREE.Color(config.cloudHighlightColor)},
-        fogColor: {value: new THREE.Color(config.fogColor)}
-    };
+    let globalUniforms = null;
 
     let scene, camera, renderer;
     let bloomComposer, finalComposer;
+    let gradientPass;
     let cloudMesh;
     let scrollPos = 0, targetScrollPos = 0;
     let cameraOffsetX = 0, targetCameraOffsetX = 0;
     let cameraHeight = 100, targetCameraHeight = 100;
     let generatedBuildingZones = new Set();
-    const affectedZones = new Set();   // [新增] 记录发生过倒塌的区域 ID
+    const affectedZones = new Set();
     let isDragging = false, previousMouseY = 0, previousMouseX = 0;
     let objects = [], mats = {};
     const BLOOM_LAYER = 1;
@@ -238,10 +284,86 @@
         constructor(seed) {
             this.seed = seed;
         }
-
         next() {
             this.seed = (this.seed * 9301 + 49297) % 233280;
             return this.seed / 233280;
+        }
+    }
+
+    // --- 新增：侧边栏 UI 逻辑 ---
+    window.toggleSidePanel = function() {
+        sidePanel.classList.toggle('open');
+        const isOpen = sidePanel.classList.contains('open');
+        panelToggle.innerText = isOpen ? '◀' : '➤';
+    };
+
+    function addNodeToSidebar(nodeId) {
+        if (listedNodeIds.has(nodeId)) return;
+
+        // 从 timelineData 中查找对应的数据
+        if (!timelineData || !timelineData.nodes) return;
+        const nodeData = timelineData.nodes.find(n => n.id === nodeId);
+        if (!nodeData) return;
+
+        listedNodeIds.add(nodeId);
+
+        const listContainer = document.getElementById('node-list');
+        const item = document.createElement('div');
+        item.className = 'node-item';
+
+        // 点击列表项，相机跳转到对应位置
+        item.onclick = () => {
+            // 目标 Z 坐标 (注意：现有逻辑 scrollPos 是反向的，currentFocusZ = -scrollPos)
+            // 所以 targetScrollPos 应该设为 -nodeData.pos[1]
+            targetScrollPos = -nodeData.pos[1];
+        };
+
+        const title = nodeData.info.title || "Unknown Node";
+        const desc = nodeData.info.desc || "No description available.";
+        // 如果数据里有日期字段，可以显示，这里假设没有则不显示
+        const dateStr = nodeData.info.date ? `<span class="date">${nodeData.info.date}</span>` : '';
+
+        item.innerHTML = `
+            ${dateStr}
+            <h3>${title}</h3>
+            <p>${desc}</p>
+        `;
+
+        listContainer.appendChild(item);
+    }
+
+    async function initApp() {
+        try {
+            const [configRes, dataRes] = await Promise.all([
+                fetch('config.json'),
+                fetch('data.json')
+            ]);
+
+            const configJson = await configRes.json();
+            timelineData = await dataRes.json();
+
+            config = {};
+            for(let key in configJson) {
+                let val = configJson[key];
+                if(typeof val === 'string' && val.startsWith('#') && val.length === 7) {
+                    config[key] = parseInt(val.replace('#', '0x'), 16);
+                } else {
+                    config[key] = val;
+                }
+            }
+
+            globalUniforms = {
+                time: {value: 0},
+                cloudBaseColor: {value: new THREE.Color(config.cloudBaseColor)},
+                cloudHighlightColor: {value: new THREE.Color(config.cloudHighlightColor)},
+                fogColor: {value: new THREE.Color(config.fogColor)}
+            };
+
+            await loadAllShaders();
+
+        } catch (e) {
+            console.error("Initialization Failed:", e);
+            document.getElementById('loading').innerText = "ERROR LOADING DATA";
         }
     }
 
@@ -254,14 +376,13 @@
                 loadedShaders[key] = text;
             } catch (error) {
                 console.error(error);
-                alert(`Error loading shader: ${url}`);
             }
         });
         await Promise.all(promises);
         init();
     }
 
-    loadAllShaders();
+    initApp();
 
     function init() {
         const container = document.getElementById('canvas-container');
@@ -328,20 +449,14 @@
 
                     building.userData.animState = 'collapsing';
                     building.userData.animProgress = 0;
-
-                    // --- [新增] 标记该区域已受到影响 ---
                     if (building.userData.zone !== undefined) {
                         affectedZones.add(building.userData.zone);
                     }
-                    // ----------------------------------
-
                     let pushDir = new THREE.Vector3(dx, 0, dz).normalize();
                     if (pushDir.lengthSq() < 0.01) {
                         pushDir.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
                     }
-
                     const collapseAxis = new THREE.Vector3().crossVectors(pushDir, new THREE.Vector3(0, 1, 0)).normalize();
-
                     if (!building.userData.collapseData) building.userData.collapseData = {};
                     building.userData.collapseData.axis = collapseAxis;
                 }
@@ -350,7 +465,6 @@
     }
 
     function checkAndAutoUnlock() {
-        console.log("Checking conditions...");
         let unlockedCount = 0;
         timelineData.nodes.forEach(nodeData => {
             const registryItem = nodeAnimRegistry[nodeData.id];
@@ -371,7 +485,6 @@
                 unlockedCount++;
             }
         });
-        if (unlockedCount === 0) console.log("No new nodes met conditions yet.");
     }
 
     function unlockNode(nodeId) {
@@ -533,15 +646,12 @@
         mats.line = new THREE.LineBasicMaterial({color: config.mainEdgeColor, transparent: true, opacity: 0.95});
         mats.line.onBeforeCompile = shaderLogic;
 
-        // [新增] 闪电特效材质
         mats.lightning = new THREE.LineBasicMaterial({
             color: LIGHTNING_COLOR,
             transparent: true,
             opacity: 0.8,
             blending: THREE.AdditiveBlending
         });
-        // 注意：这里也可以选择加入 shaderLogic 以支持体积雾，但为了保持极亮效果，通常闪电本身不应受雾太强影响
-        // mats.lightning.onBeforeCompile = shaderLogic;
 
         const glowEdgeColor = new THREE.Color(config.mainEdgeColor);
         glowEdgeColor.multiplyScalar(2.0);
@@ -571,12 +681,9 @@
         scene.add(new THREE.AmbientLight(0x222222, 5));
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
         dirLight.name = "mainLight";
-        const sunAngle = Math.PI / 3;
-        const sunDist = 2000;
-        const sunH = 1500;
-        dirLight.position.set(Math.cos(sunAngle) * sunDist, sunH, Math.sin(sunAngle) * sunDist);
+        dirLight.position.set(1000, 1500, 2000);
         dirLight.target.position.set(0, 0, 0);
-        dirLight.castShadow = true;
+        dirLight.castShadow = false;
         dirLight.shadowBlur = false;
         dirLight.shadow.mapSize.width = 4096;
         dirLight.shadow.mapSize.height = 4096;
@@ -594,8 +701,8 @@
     const GradientShader = {
         uniforms: {
             tDiffuse: {value: null},
-            uDarkness: {value: 0.2}, // 左下角的亮度倍率 (0.4 = 40% 亮度)
-            uBrightness: {value: 1.3} // 右上角的亮度倍率 (1.3 = 130% 亮度)
+            uDarkness: {value: 0.2},
+            uBrightness: {value: 1.3}
         },
         vertexShader: `
                 varying vec2 vUv;
@@ -611,15 +718,8 @@
                 varying vec2 vUv;
                 void main() {
                     vec4 color = texture2D(tDiffuse, vUv);
-
-                    // 计算梯度：(x + y) / 2.0
-                    // 左下角为 0.0，右上角为 1.0
                     float gradient = (vUv.x + vUv.y) * 0.5;
-
-                    // 使用 mix 线性插值计算当前的亮度倍率
                     float strength = mix(uDarkness, uBrightness, gradient);
-
-                    // 应用亮度变化
                     gl_FragColor = vec4(color.rgb * strength, color.a);
                 }
             `
@@ -631,7 +731,6 @@
         const height = window.innerHeight;
         const renderScene = new THREE.RenderPass(scene, camera);
 
-        // Bloom 通道配置
         const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(width * dpr, height * dpr), 1.5, 0.4, 0.85);
         bloomPass.threshold = 0;
         bloomPass.strength = 1.5;
@@ -642,7 +741,6 @@
         bloomComposer.addPass(renderScene);
         bloomComposer.addPass(bloomPass);
 
-        // 最终合成 Pass (Bloom + Base)
         const finalPass = new THREE.ShaderPass(
             new THREE.ShaderMaterial({
                 uniforms: {
@@ -655,15 +753,16 @@
         );
         finalPass.needsSwap = true;
 
-        // [修改] Final Composer 配置
         finalComposer = new THREE.EffectComposer(renderer);
-        finalComposer.addPass(renderScene); // 1. 渲染基础场景
-        const gradientPass = new THREE.ShaderPass(GradientShader);
-        finalComposer.addPass(gradientPass); // 3. 应用左暗右亮滤镜
-        finalComposer.addPass(finalPass);   // 2. 合并辉光效果
+        finalComposer.addPass(renderScene);
+        gradientPass = new THREE.ShaderPass(GradientShader);
 
-        // [新增] 添加渐变滤镜 Pass
+        // 从 config 中读取值，如果没有则使用默认值
+        gradientPass.uniforms.uDarkness.value = (config.gradDarkness !== undefined) ? config.gradDarkness : 0.2;
+        gradientPass.uniforms.uBrightness.value = (config.gradBrightness !== undefined) ? config.gradBrightness : 1.3;
 
+        finalComposer.addPass(gradientPass);
+        finalComposer.addPass(finalPass);
 
         bloomComposer.setSize(width, height);
         bloomComposer.setPixelRatio(dpr);
@@ -671,9 +770,7 @@
         finalComposer.setPixelRatio(dpr);
     }
 
-    function enableBloom(obj) {
-        obj.layers.set(BLOOM_LAYER);
-    }
+    function enableBloom(obj) { obj.layers.set(BLOOM_LAYER); }
 
     function spawnFlowingParticles(startPointLocal, endVectorLocal, parentGroup, count = 4, visible = true) {
         const len = endVectorLocal.length();
@@ -742,14 +839,11 @@
             fragmentShader: fragShader
         });
         const particleSystem = new THREE.Points(geometry, material);
-        particleSystem.raycast = () => {
-        };
+        particleSystem.raycast = () => {};
         scene.add(particleSystem);
         objects.push(particleSystem);
     }
 
-
-    // [核心修改] 构建主线，支持闪电特效
     function buildMainLineFromJSON() {
         const boxGeo = new THREE.BoxGeometry(1, 1, 1);
         const personGeo = new THREE.ConeGeometry(0.15, 0.8, 8);
@@ -758,7 +852,7 @@
             const group = new THREE.Group();
             const x = node.pos[0];
             const z = node.pos[1];
-            const y = Math.random() * 5;
+            const y = Math.random() * 100;
             group.position.set(x, y, z);
             const isUnlocked = (node.status === 'unlocked');
             if (!isUnlocked) group.scale.set(0.001, 0.001, 0.001);
@@ -769,8 +863,8 @@
             const mainSz = 3 * scaleMult;
             const platform = new THREE.Mesh(boxGeo, mats.mainBox);
             platform.scale.set(mainSx, mainSy, mainSz);
-            platform.castShadow = true;
-            platform.receiveShadow = true;
+            platform.castShadow = false;
+            platform.receiveShadow = false;
             platform.userData = {
                 isInteractive: true,
                 originScale: new THREE.Vector3(mainSx, mainSy, mainSz),
@@ -789,13 +883,14 @@
             if (node.info && node.info.title) {
                 const panelMat = new THREE.MeshBasicMaterial({
                     map: createTextTexture(node.info.title, node.info.desc),
-                    transparent: true,
+                    transparent: false,
                     depthWrite: true,
-                    blending: THREE.AdditiveBlending
+                    blending: THREE.NormalBlending
                 });
                 const panel = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), panelMat);
                 panel.position.set(mainSx / 2 - 0.5 + 4, mainSy / 2 + lineHeight, mainSz / 2 - 0.5);
                 panel.rotation.y = -Math.PI / 4;
+                enableBloom(panel);
                 group.add(panel);
             }
             const person = new THREE.Mesh(personGeo, mats.person);
@@ -825,31 +920,25 @@
                         const childStatus = nodeAnimRegistry[childId].status;
                         const isChildUnlocked = (childStatus === 'unlocked');
 
-                        // [修改] 创建多条 Lightning 线，而不是单条直线
                         const lightningLines = [];
                         for (let i = 0; i < LIGHTNING_STRANDS; i++) {
                             const pts = new Float32Array((LIGHTNING_SEGMENTS + 1) * 3);
                             const lGeo = new THREE.BufferGeometry();
                             lGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
-
                             const lMat = mats.lightning.clone();
-                            // 让核心线（i=0）更亮，外部线更透明
                             lMat.opacity = (i === 0) ? 0.9 : 0.4;
-
                             const lLine = new THREE.Line(lGeo, lMat);
                             lLine.frustumCulled = false;
                             lLine.userData = {isLightning: true, strandIndex: i};
                             enableBloom(lLine);
-
                             startGroup.add(lLine);
                             lightningLines.push(lLine);
                         }
 
-                        // 粒子效果保持不变
                         const pGroup = spawnFlowingParticles(new THREE.Vector3(0, 0, 0), vecLocal, startGroup, 50, isChildUnlocked);
 
                         edgeAnimRegistry.push({
-                            lightningLines: lightningLines, // 存储闪电线数组
+                            lightningLines: lightningLines,
                             targetVec: vecLocal,
                             particleGroup: pGroup,
                             childId: childId,
@@ -861,45 +950,35 @@
             }
         });
     }
+
     function createCrossingLines() {
         const CONFIG = {
-            count: 3000,           // 线条数量
-            rangeX: 8000,          // 分布范围 X
-            rangeZ: 8000,          // 分布范围 Z
-            yTop: 2000,            // 线条顶部高度
-            yBottom: -2000,        // 线条底部高度
-            tiltRange: 400,        // 倾斜幅度 (制造交错感)
-            color: 0x88ccff,       // 线条颜色 (淡青色)
-            baseOpacity: 0.05,     // 基础透明度
-            animSpeed: 0.5         // 闪烁速度
+            count: 600,
+            rangeX: 8000,
+            rangeZ: 8000,
+            yTop: 2000,
+            yBottom: -2000,
+            tiltRange: 400,
+            color: 0x88ccff,
+            baseOpacity: 0.15,
+            animSpeed: 0.5
         };
 
         const geometry = new THREE.BufferGeometry();
         const positions = [];
-        const animAttributes = []; //存储每条线的动画参数 (速度, 相位)
+        const animAttributes = [];
 
         for (let i = 0; i < CONFIG.count; i++) {
-            // 随机中心点
             const cx = (Math.random() - 0.5) * CONFIG.rangeX;
             const cz = (Math.random() - 0.5) * CONFIG.rangeZ;
-
-            // 顶部点 (稍微偏移)
             const topX = cx + (Math.random() - 0.5) * CONFIG.tiltRange;
             const topZ = cz + (Math.random() - 0.5) * CONFIG.tiltRange;
-
-            // 底部点 (反向偏移，形成交叉)
             const botX = cx + (Math.random() - 0.5) * CONFIG.tiltRange;
             const botZ = cz + (Math.random() - 0.5) * CONFIG.tiltRange;
-
-            // 存入两个顶点构成一条线
             positions.push(topX, CONFIG.yTop, topZ);
             positions.push(botX, CONFIG.yBottom, botZ);
-
-            // 动画参数: [闪烁速度, 随机相位]
-            // 同一条线的两个顶点必须共享相同的动画参数
             const speed = 0.5 + Math.random() * 1.5;
             const phase = Math.random() * Math.PI * 2;
-
             animAttributes.push(speed, phase);
             animAttributes.push(speed, phase);
         }
@@ -907,36 +986,29 @@
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
         geometry.setAttribute('aAnim', new THREE.Float32BufferAttribute(animAttributes, 2));
 
-        // 自定义 Shader 实现透明度呼吸动画
         const material = new THREE.ShaderMaterial({
             uniforms: {
                 uTime: globalUniforms.time,
                 uColor: { value: new THREE.Color(CONFIG.color) },
                 uBaseOpacity: { value: CONFIG.baseOpacity },
-                hFogColor: globalUniforms.fogColor,  // 复用现有的雾参数
+                hFogColor: globalUniforms.fogColor,
                 hFogDensity: { value: config.heightFogDensity },
                 hFogBase: { value: config.heightFogBase }
             },
             transparent: true,
-            depthWrite: true,
-            blending: THREE.AdditiveBlending, //以此模式混合，会让重叠部分更亮
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
             vertexShader: `
                 attribute vec2 aAnim;
                 varying float vAlpha;
                 varying float vDist;
                 uniform float uTime;
-
                 void main() {
                     vec3 transformed = position;
                     vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
                     gl_Position = projectionMatrix * mvPosition;
-
-                    // 计算呼吸动画: sin(time * speed + phase)
-                    // 将结果归一化到 [0.3, 1.0] 之间，保证线不会完全消失
-                    float blink = 0.5 + 0.5 * sin(uTime * aAnim.x + aAnim.y);
-                    vAlpha = 0.3 + 0.7 * blink;
-
-                    // 简单的距离雾计算 (让远处的线变淡)
+                    float blink = 0.0 + 0.2 * sin(uTime * aAnim.x + aAnim.y);
+                    vAlpha = 0.05 + 0.9 * blink;
                     vDist = -mvPosition.z;
                 }
             `,
@@ -946,59 +1018,42 @@
                 uniform vec3 hFogColor;
                 varying float vAlpha;
                 varying float vDist;
-
                 void main() {
-                    // 简单的线性雾衰减
-                    float fogFactor = smoothstep(200.0, 4000.0, vDist);
-
-                    // 最终 Alpha = 基础透明度 * 动画波动 * (1 - 雾遮挡)
+                    float fogFactor = smoothstep(200.0, 6000.0, vDist);
                     float finalAlpha = uBaseOpacity * vAlpha * (1.0 - fogFactor);
-
-                    if (finalAlpha < 0.01) discard;
-
                     gl_FragColor = vec4(uColor, finalAlpha);
                 }
             `
         });
 
         const linesMesh = new THREE.LineSegments(geometry, material);
-        // 不参与辉光，保持背景的细腻感 (如果想发光，改为 true)
         enableBloom(linesMesh);
-
         scene.add(linesMesh);
-        objects.push(linesMesh); // 加入 objects 数组以便 clearScene 时自动清理
+        objects.push(linesMesh);
     }
+
     function createRandomBuildings(zone) {
         const boxGeo = new THREE.BoxGeometry(1, 1, 1);
         const totalWidth = config.laneCount * config.laneDist;
         const centerZ = zone * BUILDING_ZONE_SIZE;
         const rng = new SeededRandom(config.seed + zone);
-        const nodePositions = getUnlockedNodePositions(); // 获取当前所有已解锁节点的位置
+        const nodePositions = getUnlockedNodePositions();
         const zoneBuildingIds = [];
 
-        // --- Bottom Buildings (底部建筑) ---
         const bottomCount = 66 + Math.floor(rng.next() * 8);
         for (let k = 0; k < bottomCount; k++) {
-            // 1. 生成确定性 ID
             const uniqueId = `z${zone}_b${k}`;
-
-            // 2. 计算位置 (【关键修改】移除 do...while 循环)
-            // 我们不再让建筑“躲避”节点生成，而是让它固定生成在随机位置。
-            // 这样无论节点是否解锁，z1_b5 永远在同一个坐标，保证了 ID 和位置的永久绑定。
             const bZPos = centerZ + (rng.next() - 0.5) * BUILDING_ZONE_SIZE * 2;
             const bXPos = (rng.next() - 0.5) * totalWidth * 10;
-            // 消耗掉原本用于 attempts 的逻辑，这里不再需要 attempts
 
-            // 3. 消耗属性随机数 (保持 RNG 序列对齐)
             const animSpeed = 0.075 + rng.next() * 0.26;
             const animPhase = rng.next() * Math.PI * 2;
             const animAmp = 2 + rng.next() * 4;
             const targetAngle = (Math.PI / 18) + (rng.next() * Math.PI / 6);
             const sinkAmount = 100 + rng.next() * 300;
-            const h = 30 + rng.next() * 500;
+            const h = 30 + rng.next() * 400;
             const w = 10 + rng.next() * 20;
 
-            // 倾斜随机数
             let tiltX = 0, tiltZ = 0;
             let hasTilt = false;
             if (rng.next() < 0.1) {
@@ -1009,25 +1064,14 @@
                 hasTilt = true;
             }
 
-            // 4. 【核心修改】精确过滤逻辑
-            // 计算该位置是否在任意已解锁节点的“爆炸半径”内
             const isInsideClearRadius = isTooCloseToNodes(bXPos, bZPos, nodePositions);
             const hasHistory = buildingHistory.has(uniqueId);
 
-            // 逻辑分支：
             if (isInsideClearRadius) {
-                // 情况 A: 在爆炸范围内，且有历史记录 -> 说明它是废墟 -> 允许生成（后面会恢复状态）
-                if (hasHistory) {
-                    // Pass (Proceed to generate)
-                }
-                // 情况 B: 在爆炸范围内，但没有历史记录 -> 说明它是被清理掉的完好建筑 -> 跳过
-                else {
-                    continue;
-                }
+                if (hasHistory) { }
+                else { continue; }
             }
-            // 情况 C: 不在爆炸范围内 -> 正常生成背景建筑
 
-            // --- 以下是生成逻辑 (保持不变) ---
             const bGroup = new THREE.Group();
             const bYBase = -240 - rng.next() * 200;
             const disappearOffset = -300;
@@ -1058,7 +1102,6 @@
 
             const bLines = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, w)), mats.bgEdges);
             bLines.position.set(0, h / 2, 0);
-            //bLines.scale.set(w, h, w);
             bGroup.add(bLines);
 
             if (hasTilt) {
@@ -1068,10 +1111,9 @@
                 bLines.rotation.z = tiltZ;
             }
 
-            bMesh.castShadow = true;
+            bMesh.castShadow = false;
             bMesh.receiveShadow = true;
 
-            // 5. 恢复废墟状态
             if (hasHistory) {
                 const record = buildingHistory.get(uniqueId);
                 bGroup.position.copy(record.pos);
@@ -1086,7 +1128,6 @@
             buildingRegistry.set(uniqueId, bGroup);
             zoneBuildingIds.push(uniqueId);
         }
-
         zoneToBuildings.set(zone, zoneBuildingIds);
     }
 
@@ -1096,16 +1137,16 @@
         const width = 512, height = 512;
         canvas.width = width;
         canvas.height = height;
-        ctx.fillStyle = 'rgba(100.0,100.0,100.0, 0.2)';
+        ctx.fillStyle = 'rgba(1.0,1.0,1.0, 0)';
         ctx.fillRect(0, 0, width, height);
-        ctx.strokeStyle = '#00ffff';
+        ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 6;
         ctx.strokeRect(0, 0, width, height);
         ctx.textAlign = 'left';
         ctx.font = 'bold 100px Helvetica, Arial';
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = '#666666';
         ctx.shadowColor = "#00ffff";
-        ctx.shadowBlur = 3;
+        ctx.shadowBlur = 0;
         ctx.fillText(title, 40, 130);
         ctx.shadowBlur = 0;
         ctx.beginPath();
@@ -1115,7 +1156,7 @@
         ctx.strokeStyle = '#00ffff';
         ctx.stroke();
         ctx.font = 'normal 40px Helvetica, Arial';
-        ctx.fillStyle = '#cccccc';
+        ctx.fillStyle = '#666666';
         const words = (desc || "").split(' ');
         let line = '', y = 220;
         for (let n = 0; n < words.length; n++) {
@@ -1150,19 +1191,16 @@
         event.preventDefault();
         targetCameraHeight = Math.max(50, Math.min(400, targetCameraHeight + event.deltaY * 0.5));
     }
-
     function onMouseDown(event) {
         isDragging = true;
         previousMouseY = event.clientY;
         previousMouseX = event.clientX;
         document.body.classList.add('grabbing');
     }
-
     function onMouseUp() {
         isDragging = false;
         document.body.classList.remove('grabbing');
     }
-
     function onMouseClick(event) {
         if (isDragging) return;
         if (hoveredObject) {
@@ -1173,7 +1211,6 @@
             else alert(`Selected: ${info.title ? info.title : "Node"}\n\n${info.desc ? info.desc : ""}\n(No URL linked)`);
         }
     }
-
     function checkIntersection() {
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(interactiveObjects);
@@ -1199,18 +1236,15 @@
             }
         }
     }
-
     function highlightObject(mesh) {
         document.body.classList.add('pointer');
         const targetScale = mesh.userData.originScale.clone().multiplyScalar(1.2);
         mesh.scale.copy(targetScale);
     }
-
     function restoreObject(mesh) {
         document.body.classList.remove('pointer');
         mesh.scale.copy(mesh.userData.originScale);
     }
-
     function onMouseMove(event) {
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -1243,13 +1277,11 @@
 
     function updateBuildingAnimations(currentZone, delta) {
         const t = globalUniforms.time.value;
-
         buildingRegistry.forEach((building, buildingId) => {
             const userData = building.userData;
             const zoneDist = Math.abs(userData.zone - currentZone);
             const shouldBeVisible = zoneDist <= VISIBLE_ZONE_RADIUS;
 
-            // 计算正常的上下悬浮 (只对未倒塌的建筑生效)
             let floatOffset = 0;
             const isAlive = (userData.animState !== 'collapsing' && userData.animState !== 'collapsed');
             if (userData.animSpeed && isAlive) {
@@ -1257,7 +1289,6 @@
             }
 
             if (userData.animState === 'appearing') {
-                // 如果建筑重生，重置所有变换
                 if (userData.animProgress === 0) {
                     building.rotation.set(0, 0, 0);
                     building.scale.set(1, 1, 1);
@@ -1275,33 +1306,37 @@
 
             } else if (userData.animState === 'visible') {
                 if (!shouldBeVisible) {
-                    userData.animState = 'disappearing'; // 离远了彻底消失
+                    userData.animState = 'disappearing';
                     userData.animProgress = 0;
                 } else {
                     building.position.y = userData.baseY + floatOffset;
                 }
 
             } else if (userData.animState === 'collapsing') {
+                const startSpeed = 0.002;
+                const acceleration = 0.035;
 
-                const collapseSpeed = 0.008 * TIME_SCALE * delta;
+                let calculatedSpeed = startSpeed + (acceleration * userData.animProgress);
+                const maxSpeed = 0.015;
+                if (calculatedSpeed > maxSpeed) calculatedSpeed = maxSpeed;
+
+                const collapseSpeed = calculatedSpeed * TIME_SCALE * delta;
+
                 userData.animProgress += collapseSpeed;
 
                 if (userData.animProgress >= 1.0) {
                     userData.animProgress = 1.0;
                     userData.animState = 'collapsed';
-
-                    // --- [核心修改] 倒塌完成，记录状态 ---
-                    // 记录此时 Group 的世界坐标、旋转和缩放
                     buildingHistory.set(userData.buildingId, {
                         pos: building.position.clone(),
-                        rot: building.quaternion.clone(), // 存四元数
+                        rot: building.quaternion.clone(),
                         scale: building.scale.clone()
                     });
                 }
 
                 const p = userData.animProgress;
-                const easeDrop = p * p;
                 const easeRot = p * p;
+                const easeDrop = Math.pow(p, 2.2);
 
                 if (userData.collapseData) {
                     building.rotation.set(0, 0, 0);
@@ -1316,28 +1351,20 @@
                 building.scale.set(1 + jitter, 1 - p * 0.05, 1 + jitter);
 
             } else if (userData.animState === 'collapsed') {
-                // 【新逻辑】已倒塌状态
-                // 保持静止，不跟随 floatOffset 浮动
-                // 如果离得太远了，还是要删除，节省性能
                 if (!shouldBeVisible) {
                     userData.animState = 'disappearing';
                     userData.animProgress = 0;
                 }
-                // 这里不需要写代码，因为位置和旋转已经保留在上一帧的状态了
-
             } else if (userData.animState === 'disappearing') {
-                // 彻底消失（用于离相机太远时的清理）
                 const increment = 0.02 * BUILDING_ANIMATION_SPEED * TIME_SCALE * delta;
                 userData.animProgress += increment;
                 if (userData.animProgress >= 1.0) {
                     userData.animProgress = 1.0;
                     userData.animState = 'hidden';
                 }
-
-                // 这里我们简单处理：如果是 collapsed 之后的 disappearing，就直接缩小
                 const k = userData.animProgress;
                 if (userData.type === 'bottom') {
-                    building.scale.setScalar(1 - k); // 简单缩小至无
+                    building.scale.setScalar(1 - k);
                 } else {
                     const eased = k * k * k;
                     const disappearOffset = 300;
@@ -1347,51 +1374,31 @@
         });
     }
 
-    // [新增] 专门负责更新闪电几何体形状的函数
     function updateLightningEffects(delta) {
         edgeAnimRegistry.forEach(edge => {
-            // 如果线条完全隐藏，则不渲染
             if (edge.status === 'hidden') {
                 edge.lightningLines.forEach(l => l.visible = false);
                 return;
             }
-
-            // 计算当前电流的终点位置（如果是 growing 状态，终点会移动）
             const currentEnd = edge.targetVec.clone().multiplyScalar(edge.progress);
-
-            // 更新每一根闪电束
             edge.lightningLines.forEach((line, strandIndex) => {
                 line.visible = true;
                 const positions = line.geometry.attributes.position.array;
-
-                // 为了让闪电看起来在两点之间，我们需要插值
-                // 简单的线性插值 + 随机抖动
                 for (let i = 0; i <= LIGHTNING_SEGMENTS; i++) {
                     const pct = i / LIGHTNING_SEGMENTS;
-
-                    // 基础线性坐标
                     const baseX = currentEnd.x * pct;
                     const baseY = currentEnd.y * pct;
                     const baseZ = currentEnd.z * pct;
-
-                    // 计算抖动包络线 (两端不动，中间抖动幅度最大)
-                    // Math.sin(pct * PI) 在 0 和 1 时为 0，在 0.5 时为 1
                     const envelope = Math.sin(pct * Math.PI);
-
-                    // 核心线(strandIndex=0)抖动小，外围线抖动大
                     const ampBase = (strandIndex === 0) ? 5.0 : 2.5;
                     const amp = ampBase * envelope;
-
-                    // 每一帧都重新随机，产生电流闪烁感
                     const jitterX = (Math.random() - 0.5) * amp;
                     const jitterY = (Math.random() - 0.5) * amp;
                     const jitterZ = (Math.random() - 0.5) * amp;
-
                     positions[i * 3] = baseX + jitterX;
                     positions[i * 3 + 1] = baseY + jitterY;
                     positions[i * 3 + 2] = baseZ + jitterZ;
                 }
-
                 line.geometry.attributes.position.needsUpdate = true;
             });
         });
@@ -1400,8 +1407,6 @@
     function updateUnlockAnimations(delta) {
         const edgeSpeed = 0.02 * TIME_SCALE * delta;
         const nodeSpeed = 0.05 * TIME_SCALE * delta;
-
-        // [修改] 此处只负责更新逻辑状态和进度，视觉更新交给 updateLightningEffects
         edgeAnimRegistry.forEach(edge => {
             if (edge.status === 'growing') {
                 edge.progress += edgeSpeed;
@@ -1414,9 +1419,14 @@
                 }
             }
         });
-
         for (const nodeId in nodeAnimRegistry) {
             const data = nodeAnimRegistry[nodeId];
+
+            // --- 修改：检查是否已经 unlocked 但还未在列表中 ---
+            if (data.status === 'unlocked') {
+                addNodeToSidebar(nodeId);
+            }
+
             if (data.status === 'popping') {
                 data.scaleProgress += nodeSpeed;
                 let scale = data.scaleProgress;
@@ -1425,6 +1435,10 @@
                     data.scaleProgress = 1.0;
                     data.status = 'unlocked';
                     scale = 1.0;
+
+                    // --- 修改：当动画完成解锁时，添加到列表 ---
+                    addNodeToSidebar(nodeId);
+
                 } else {
                     scale = scale > 1 ? backScale : scale;
                 }
@@ -1436,10 +1450,10 @@
     function animate() {
         requestAnimationFrame(animate);
         const delta = clock.getDelta();
-        globalUniforms.time.value += delta * 1.2;
+        if(globalUniforms) globalUniforms.time.value += delta * 1.2;
         updateParticles(delta);
         updateUnlockAnimations(delta);
-        updateLightningEffects(delta); // 确保你有上一步加的闪电特效
+        updateLightningEffects(delta);
 
         if (cloudMesh) {
             cloudMesh.position.x = camera.position.x;
@@ -1481,7 +1495,7 @@
             light.target.updateMatrixWorld();
         }
 
-        // --- 清理逻辑修改 ---
+        // 清理逻辑
         for (let i = objects.length - 1; i >= 0; i--) {
             const obj = objects[i];
             const isMainNode = (obj.userData.type === 'mainNode');
@@ -1490,9 +1504,7 @@
                 const buildingId = obj.userData.buildingId;
                 const isOutOfRange = (obj.position.z < minBuildingZ - 200 || obj.position.z > maxBuildingZ + 200);
 
-                // 【修改点】只要是 "hidden" 或者 "离得太远的 collapsed/disappearing" 都要删除
                 const isDead = (obj.userData.animState === 'hidden');
-                // 如果是 collapsed 状态，且严重超出范围，也强制清理
                 const isLostRuins = (obj.userData.animState === 'collapsed' && isOutOfRange);
 
                 if ((isDead || isLostRuins) && isOutOfRange) {
@@ -1527,27 +1539,39 @@
         }
     }
 
-    // 配置更新逻辑保持不变
     window.addEventListener('message', function (event) {
         const data = event.data;
         if (data.type === 'updateConfig') {
             const key = data.key;
             const value = data.value;
-            if (typeof value === 'string' && value.startsWith('#')) config[key] = parseInt(value.replace('#', '0x'), 16);
-            else config[key] = value;
-            updateSceneFromConfig(key, config[key]);
+            if (typeof value === 'string' && value.startsWith('#')) {
+                config[key] = parseInt(value.replace('#', '0x'), 16);
+            } else {
+                config[key] = value;
+            }
+            updateSceneFromConfig(key, value);
         } else if (data.type === 'requestConfig') {
             const exportConfig = {};
             for (let k in config) {
-                if (k.toLowerCase().includes('color')) exportConfig[k] = '#' + config[k].toString(16).padStart(6, '0');
-                else exportConfig[k] = config[k];
+                const val = config[k];
+                if (k.toLowerCase().includes('color') && typeof val === 'number') {
+                    exportConfig[k] = '#' + val.toString(16).padStart(6, '0');
+                } else {
+                    exportConfig[k] = val;
+                }
             }
             window.parent.postMessage({type: 'configLoaded', config: exportConfig}, '*');
         }
     });
 
-    function updateSceneFromConfig(key, val) {
-        const colorObj = new THREE.Color(val);
+    function updateSceneFromConfig(key, rawValue) {
+        let colorObj;
+        if (typeof rawValue === 'string' && rawValue.startsWith('#')) {
+            colorObj = new THREE.Color(rawValue);
+        } else if (typeof rawValue === 'number') {
+            colorObj = new THREE.Color(rawValue);
+        }
+
         switch (key) {
             case 'bgColor':
                 scene.background = colorObj;
@@ -1576,10 +1600,16 @@
                 if (mats.dimEdges) mats.dimEdges.color.copy(colorObj);
                 break;
             case 'heightFogDensity':
-                updateMaterialUniforms('hFogDensity', val);
+                updateMaterialUniforms('hFogDensity', rawValue);
                 break;
             case 'heightFogBase':
-                updateMaterialUniforms('hFogBase', val);
+                updateMaterialUniforms('hFogBase', rawValue);
+                break;
+            case 'gradDarkness':
+                if (gradientPass) gradientPass.uniforms.uDarkness.value = rawValue;
+                break;
+            case 'gradBrightness':
+                if (gradientPass) gradientPass.uniforms.uBrightness.value = rawValue;
                 break;
         }
     }

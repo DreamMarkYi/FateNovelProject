@@ -1,22 +1,24 @@
-﻿const config = {
+﻿{
   "spacingZ": 2,
   "renderRange": 20,
   "laneCount": 5,
   "laneDist": 60,
   "maxPixelRatio": 1.5,
-  "bgColor": 0x91acb6,
-  "fogColor": 0x91acb6,
-  "cloudBaseColor": 0x91acb6,
-  "cloudHighlightColor": 0x91acb6,
+  "bgColor": "#b5d0d9",
+  "fogColor": "#b5d0d9",
+  "cloudBaseColor": "#b5d0d9",
+  "cloudHighlightColor": "#b5d0d9",
   "heightFogDensity": 0.008,
   "heightFogBase": -200,
-  "mainBlockColor": 0x64b4ff,
-  "bgBlockColor": 0x80d2ff,
-  "lineColor": 0x222222,
-  "mainEdgeColor": 0x51d0ff,
-  "dimEdgeColor": 0x3e5c60,
-  "textColor": "###ffffff",
+  "mainBlockColor": "#64b4ff",
+  "bgBlockColor": "#95d9fe",
+  "lineColor": "#222222",
+  "mainEdgeColor": "#51d0ff",
+  "dimEdgeColor": "#7cb7c0",
+  "textColor": "#ffffff",
   "uiTitle": "MANUAL UNLOCK",
   "uiDesc": "Wait for animations, then press [1]",
-  "seed": 4.12345
-};
+  "seed": 325.52345,
+  "gradDarkness": 0.2,
+  "gradBrightness": 1.3
+}
