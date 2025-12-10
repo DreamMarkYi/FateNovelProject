@@ -1,0 +1,485 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>白昼与永夜 - Refactored</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
+        :root {
+            --font-main: 'Noto Serif SC', serif;
+            --font-en: 'Playfair Display', serif;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            font-family: var(--font-main); user-select: none; background-color: #000;
+            cursor: pointer;
+        }
+
+        /* ============================
+           === [新增] 静态置顶图片层 ===
+           ============================ */
+        #static-overlay {
+            position: fixed; /* 固定定位，不受父级动画影响 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10000; /* 极高的层级，确保在最上层 (intro层是999) */
+            pointer-events: none; /* 关键：允许鼠标点击穿透此层，否则无法玩游戏 */
+
+            /* 在这里设置您的图片 */
+            background-image: url('./web-project/public/start_page_BG_alpha.png');
+
+            /* 图片样式设置 */
+            background-size: cover; /* 铺满全屏 */
+            background-position: center; /* 居中显示 */
+            background-repeat: no-repeat;
+            opacity: 0.2; /* 调整透明度，以免完全遮挡文字 (0.0 - 1.0) */
+            mix-blend-mode: normal; /* 可选：设置混合模式让图片更好地融入背景 (screen, multiply, overlay等) */
+        }
+
+        #game-stage {
+            position: relative; width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            transition: background 2s ease;
+        }
+
+        /* ============================
+           === 动画类定义 ===
+           ============================ */
+        .anim-blink-top-long { animation: blinkTopLong 4s cubic-bezier(0.645, 0.045, 0.355, 1) forwards; }
+        .anim-blink-bottom-long { animation: blinkBottomLong 4s cubic-bezier(0.645, 0.045, 0.355, 1) forwards; }
+        .anim-text-wake-long { animation: textWakeUpLong 4s ease-in-out forwards; }
+
+        @keyframes blinkTopLong {
+            0% { transform: scaleY(1); filter: blur(20px); }
+            20% { transform: scaleY(0.6); filter: blur(20px); }
+            40% { transform: scaleY(1); filter: blur(20px);}
+            55% { transform: scaleY(1); filter: blur(20px);}
+            100% { transform: scaleY(0); filter: blur(20px); }
+        }
+        @keyframes blinkBottomLong {
+            0% { transform: scaleY(1); filter: blur(20px);}
+            20% { transform: scaleY(0.6); filter: blur(20px); }
+            40% { transform: scaleY(1); filter: blur(20px);}
+            55% { transform: scaleY(1); filter: blur(20px);}
+            100% { transform: scaleY(0); filter: blur(20px); }
+        }
+        @keyframes textWakeUpLong {
+            0% { opacity: 0; filter: blur(20px);  }
+            20% { opacity: 0.6; filter: blur(8px);  }
+            40% { opacity: 0; filter: blur(20px);  }
+            55% { opacity: 0; filter: blur(20px);  }
+            100% { opacity: 1; filter: blur(0px);  }
+        }
+
+        .anim-blink-top-fast { animation: blinkTopFast 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+        .anim-blink-bottom-fast { animation: blinkBottomFast 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+        .anim-text-wake-fast { animation: textWakeUpFast 2.5s ease-out forwards; }
+
+        @keyframes blinkTopFast {
+            0% { transform: scaleY(1); filter: blur(10px); }
+            30% { transform: scaleY(1); filter: blur(10px); }
+            100% { transform: scaleY(0); filter: blur(0px); }
+        }
+        @keyframes blinkBottomFast {
+            0% { transform: scaleY(1); filter: blur(10px); }
+            30% { transform: scaleY(1); filter: blur(10px); }
+            100% { transform: scaleY(0); filter: blur(0px); }
+        }
+        @keyframes textWakeUpFast {
+            0% { opacity: 0; filter: blur(10px); }
+            30% { opacity: 0; filter: blur(10px); }
+            100% { opacity: 1; filter: blur(0px); }
+        }
+
+        .anim-close-top { animation: closeTop 0.8s cubic-bezier(0.45, 0, 0.55, 1) forwards; }
+        .anim-close-bottom { animation: closeBottom 0.8s cubic-bezier(0.45, 0, 0.55, 1) forwards; }
+        .anim-text-out { animation: textFadeOut 0.5s ease forwards; }
+
+        @keyframes closeTop { 0% { transform: scaleY(0); } 100% { transform: scaleY(1); } }
+        @keyframes closeBottom { 0% { transform: scaleY(0); } 100% { transform: scaleY(1); } }
+        @keyframes textFadeOut { to { opacity: 0; filter: blur(5px); } }
+
+        .anim-fade-in { animation: fadeInText 1.5s ease forwards; }
+        @keyframes fadeInText { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ============================
+           === 图层定义 ===
+           ============================ */
+        .layer {
+            position: absolute; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            pointer-events: none; opacity: 0; transition: opacity 1s ease;
+        }
+        .active { opacity: 1 !important; pointer-events: auto !important; }
+        .fade-out { opacity: 0 !important; pointer-events: none !important; }
+
+        #intro-layer { z-index: 999; background: transparent; transition: opacity 1.5s; pointer-events: auto; }
+        .intro-shutter { position: absolute; left: 0; width: 100%; height: 55%; background: #000; will-change: transform; z-index: 2; }
+        .shutter-top { top: 0; transform-origin: top; border-bottom-left-radius: 50% 20%; border-bottom-right-radius: 50% 20%; }
+        .shutter-bottom { bottom: 0; transform-origin: bottom; border-top-left-radius: 50% 20%; border-top-right-radius: 50% 20%; }
+        .intro-text {font-size: 2rem; color: #ddd; border-color: #aaa; letter-spacing: 0.2rem; z-index: 1; }
+        .click-hint { position: absolute; bottom: 10%; color: #fff; opacity: 0; font-size: 0.8rem; letter-spacing: 0.2rem; transition: opacity 1s; animation: pulse 2s infinite; z-index: 1; }
+        @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+
+        /* Dialogue Layer */
+        #dialogue-layer { z-index: 20; bottom: 15%; top: auto; height: auto; min-height: 150px; width: 70%; max-width: 600px; text-align: center; }
+        .theme-ink #dialogue-layer { border-top: 1px solid #444; border-bottom: 1px solid #444; padding: 2rem; }
+        #text-content { font-size: 1.1rem; line-height: 2; letter-spacing: 0.05rem; }
+
+        /* [新增] Center Mode: 用于居中显示文字的特殊模式 */
+        #dialogue-layer.center-mode {
+            bottom: 0 !important;
+            top: 0 !important;
+            height: 100% !important;
+            border: none !important; /* 强制去除边框，防止 theme-ink 的边框干扰 */
+            background: transparent !important;
+        }
+        .center-mode #text-content {
+            font-size: 1.3rem !important;
+            letter-spacing: 0.2rem !important;
+        }
+
+        /* Themes */
+        .theme-gate { background: #050505; color: #666; --accent: #444; }
+        .theme-void { background: #000; color: #444; --accent: #222; }
+        .theme-ink { background: linear-gradient(to bottom, #1a1a1a, #000); color: #e0e0e0; --accent: #fff; }
+        .theme-light { background: #cdcdcd; color: #000; }
+        .theme-dark { background: #0a0a0a; color: #555; }
+
+        /* Gate Layer */
+        #gate-layer { z-index: 60; transform: translateY(30px); transition: 1.5s; }
+        #gate-layer.active { transform: translateY(0); }
+        .gate-btn { padding: 12px 0; width: 140px; background: transparent; border: none; border-bottom: 1px solid #333; color: #555; font-family: var(--font-main); cursor: pointer; margin: 0 2rem; transition: 0.5s; }
+        .gate-btn:hover { color: #ddd; border-color: #aaa; letter-spacing: 0.2rem; }
+        .gate-question { margin-bottom: 3rem; letter-spacing: 0.1rem; line-height: 2; text-align: center; }
+
+        /* Input Layer */
+        #input-layer { z-index: 50; }
+        .input-prompt { color: inherit; margin-bottom: 2rem; letter-spacing: 0.1rem; text-align: center; line-height: 2; }
+        .name-input { background: transparent; border: none; border-bottom: 1px solid #333; color: #ddd; font-size: 1.5rem; text-align: center; width: 200px; margin-bottom: 3rem; padding-bottom: 5px; outline: none; font-family: var(--font-main); transition: 0.3s; }
+        .name-input:focus { border-color: #888; }
+        .confirm-btn { padding: 12px 0; width: 140px; background: transparent; border: none; border-bottom: 1px solid #333; color: #555; font-family: var(--font-main); cursor: pointer; transition: 0.5s; opacity: 1; }
+        .confirm-btn:hover { color: #ddd; border-color: #aaa; letter-spacing: 0.2rem; }
+
+        #title-layer { z-index: 10; }
+        .main-title { font-size: 3rem; letter-spacing: 1rem; margin-bottom: 1rem; }
+        .sub-title { font-family: var(--font-en); font-size: 0.7rem; letter-spacing: 0.3rem; text-transform: uppercase; opacity: 0.5; }
+
+        #choice-layer { z-index: 30; flex-direction: row; gap: 3rem; }
+        .choice-card { width: 240px; height: 340px; border: 1px solid #333; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.5s; position: relative; }
+        .choice-card:hover { transform: translateY(-5px); border-color: #888; background: rgba(255,255,255,0.05); }
+        .card-text { writing-mode: vertical-rl; font-size: 1.2rem; letter-spacing: 0.5rem; pointer-events: none; }
+    </style>
+</head>
+<body class="theme-gate">
+
+<div id="static-overlay"></div>
+
+<div id="intro-layer" class="layer active" onclick="handleInput()">
+    <div class="intro-shutter shutter-top" id="shutter-top"></div>
+    <div class="intro-shutter shutter-bottom" id="shutter-bottom"></div>
+    <div class="intro-text" id="intro-text"></div> <div class="click-hint" id="intro-hint">CLICK TO START</div>
+</div>
+
+<div id="game-stage" onclick="handleInput()">
+
+    <div id="title-layer" class="layer">
+        <div class="main-title" id="chapter-title"></div>
+        <div class="sub-title" id="chapter-sub"></div>
+    </div>
+
+    <div id="gate-layer" class="layer">
+        <div class="gate-question" id="gate-text"></div>
+        <div class="gate-options">
+            <button class="gate-btn" onclick="chooseIdentity('named', event)">刻下名讳</button>
+            <button class="gate-btn" onclick="chooseIdentity('anon', event)">化为虚无</button>
+        </div>
+    </div>
+
+    <div id="input-layer" class="layer">
+        <div class="input-prompt">黑暗注视着你<br>写下你的名字，作为信标</div>
+        <input type="text" id="username" class="name-input" autocomplete="off">
+        <button class="confirm-btn" onclick="submitName(event)">确 定</button>
+    </div>
+
+    <div id="dialogue-layer" class="layer">
+        <div id="text-content"></div>
+    </div>
+
+    <div id="choice-layer" class="layer"></div>
+</div>
+
+<script>
+    // === 核心数据结构 ===
+    const gameState = { name: '', score: 0, mode: 'gate', introFinished: false };
+
+    // === 剧本管理 ===
+    const storyScript = [
+        // --- Intro ---
+        { id: 0, type: 'intro', text: '如果你在读这段文字，说明你终于醒了。', anim: 'blink-long', nextId: 1 },
+        { id: 1, type: 'intro', text: '昨晚的梦很长，对吗？长到让你分不清现在是黑夜还是白昼。', anim: 'blink-fast', nextId: 2 },
+        { id: 2, type: 'intro', text: '别害怕。在这个房间里，时间是静止的。', anim: 'blink-fast', nextId: 3 },
+        { id: 3, type: 'intro', text: '你会慢慢想起一切。但在那之前……', anim: 'blink-fast', nextId: 4 },
+        { id: 4, type: 'intro', text: '告诉我，我该怎么称呼现在的你？', anim: 'blink-fast', nextId: 10 },
+
+        // --- 阶段 2: 身份选择 ---
+        { id: 10, type: 'gate', theme: 'gate', text: '在黑白交织的边界<br>你以何种形态存在？' },
+        { id: 11, type: 'input', theme: 'gate' },
+
+        // --- 阶段 3: 身份确认分支 ---
+        { id: 20, type: 'center', theme: 'void', text: '无名者……<br>看来你已决定归于尘土。', anim: 'fade', nextId: 30 },
+        { id: 21, type: 'center', theme: 'gate', text: '“ ${name} ”<br>是的，这正是将你锚定于此的咒语。', anim: 'fade', nextId: 30 },
+
+        // --- 阶段 4: 第一个抉择 ---
+        {
+            id: 30, type: 'quiz', text: '既然找回了意识，你必须做出第一个选择。<br>在这个没有光的世界里，你渴望什么？',
+            choices: [
+                { text: '微光的窄门', sub: 'Narrow Glimmer', score: 1, nextId: 31 },
+                { text: '漆黑的洞口', sub: 'Abyssal Void', score: -1, nextId: 31 }
+            ]
+        },
+        {
+            id: 31, type: 'quiz', text: '在绝对的寂静中<br>你似乎听到了...',
+            choices: [
+                { text: '时钟的滴答声', sub: 'Ticking Clock', score: 1, nextId: 99 },
+                { text: '遥远的心跳声', sub: 'Distant Heartbeat', score: -1, nextId: 99 }
+            ]
+        },
+
+        // --- 阶段 5: 结局 ---
+        { id: 99, type: 'calc', logic: () => gameState.score > 0 ? 100 : 200 },
+        { id: 100, type: 'center', theme: 'gate', text: '光线透过灰尘洒下。${name}，你选择了清醒的荒凉。', anim: 'fade' },
+        { id: 200, type: 'center', theme: 'gate', text: '黑暗温柔地包裹了一切。${name}，欢迎回到沉睡之地。', anim: 'fade' }
+    ];
+
+    // === 引擎逻辑 ===
+    let currentIndex = -1, isWaiting = true;
+    const layers = {
+        intro: document.getElementById('intro-layer'),
+        gate: document.getElementById('gate-layer'),
+        input: document.getElementById('input-layer'),
+        title: document.getElementById('title-layer'),
+        dialogue: document.getElementById('dialogue-layer'),
+        choice: document.getElementById('choice-layer')
+    };
+    const els = {
+        introText: document.getElementById('intro-text'),
+        introHint: document.getElementById('intro-hint'),
+        gateText: document.getElementById('gate-text'),
+        textContent: document.getElementById('text-content'),
+        titleMain: document.getElementById('chapter-title'),
+        titleSub: document.getElementById('chapter-sub'),
+        nameInput: document.getElementById('username')
+    };
+
+    window.onload = () => {
+        jumpToId(0);
+    };
+
+    function renderScene(scene) {
+        if (scene.type === 'calc') { jumpToId(scene.logic()); return; }
+        if (scene.theme) document.body.className = `theme-${scene.theme}`;
+        if (scene.type !== 'text' && scene.type !== 'center') hideDialogue();
+
+        if (scene.type !== 'intro') {
+            layers.intro.style.display = 'none';
+        }
+
+        switch (scene.type) {
+            case 'intro': renderIntro(scene); break;
+            case 'text':
+                layers.dialogue.classList.remove('center-mode');
+                renderText(scene);
+                break;
+            case 'center':
+                layers.dialogue.classList.add('center-mode');
+                renderText(scene);
+                break;
+            case 'gate': renderGate(scene); break;
+            case 'input': showLayer('input'); els.nameInput.focus(); isWaiting = true; break;
+            case 'title': renderTitle(scene); break;
+            case 'quiz': renderQuiz(scene); break;
+        }
+    }
+
+    function renderIntro(scene) {
+        layers.intro.style.display = 'flex';
+        layers.intro.classList.remove('fade-out');
+        layers.intro.classList.add('active');
+
+        els.introText.innerText = scene.text;
+
+        const top = document.getElementById('shutter-top');
+        const bot = document.getElementById('shutter-bottom');
+        const hint = document.getElementById('intro-hint');
+
+        const allAnims = [
+            'anim-blink-top-long', 'anim-blink-top-fast', 'anim-close-top',
+            'anim-blink-bottom-long', 'anim-blink-bottom-fast', 'anim-close-bottom',
+            'anim-text-wake-long', 'anim-text-wake-fast', 'anim-text-out'
+        ];
+        top.classList.remove(...allAnims);
+        bot.classList.remove(...allAnims);
+        els.introText.classList.remove(...allAnims);
+        hint.style.opacity = 0;
+        void top.offsetWidth;
+
+        if (scene.anim === 'blink-long') {
+            top.classList.add('anim-blink-top-long');
+            bot.classList.add('anim-blink-bottom-long');
+            els.introText.classList.add('anim-text-wake-long');
+            isWaiting = true;
+            setTimeout(() => { hint.style.opacity = 1; isWaiting = false; }, 4000);
+
+        } else if (scene.anim === 'blink-fast') {
+            top.classList.add('anim-blink-top-fast');
+            bot.classList.add('anim-blink-bottom-fast');
+            els.introText.classList.add('anim-text-wake-fast');
+            isWaiting = true;
+            setTimeout(() => { hint.style.opacity = 1; isWaiting = false; }, 2500);
+        }
+    }
+
+    function renderText(scene) {
+        showLayer('dialogue');
+        const finalStr = scene.text.replace('${name}', gameState.name);
+        els.textContent.innerHTML = finalStr;
+        els.textContent.className = '';
+        void els.textContent.offsetWidth;
+        if (scene.anim === 'fade') els.textContent.classList.add('anim-fade-in');
+        isWaiting = false;
+    }
+
+    function renderGate(scene) {
+        showLayer('gate');
+        els.gateText.innerHTML = scene.text;
+        isWaiting = true;
+    }
+
+    function renderTitle(scene) {
+        showLayer('title');
+        els.titleMain.innerText = scene.title;
+        els.titleSub.innerText = scene.sub;
+        isWaiting = false;
+    }
+
+    function renderQuiz(scene) {
+        showLayer('dialogue');
+        layers.dialogue.classList.remove('center-mode');
+        els.textContent.innerHTML = scene.text;
+        showLayer('choice');
+        const cLayer = layers.choice;
+        cLayer.innerHTML = '';
+        scene.choices.forEach((c, i) => {
+            const card = document.createElement('div');
+            card.className = 'choice-card';
+            card.style.opacity = 0;
+            card.style.animation = `fadeIn 1s ease ${i*0.3}s forwards`;
+            card.innerHTML = `<div class="card-text">${c.text}</div>`;
+            card.onclick = (e) => {
+                e.stopPropagation();
+                gameState.score += c.score;
+                hideLayer('choice');
+                setTimeout(() => jumpToId(c.nextId), 500);
+            };
+            cLayer.appendChild(card);
+        });
+        isWaiting = true;
+    }
+
+    function handleInput() {
+        if (isWaiting) return;
+
+        const scene = storyScript[currentIndex];
+
+        if (scene.type === 'intro') {
+            const top = document.getElementById('shutter-top');
+            const bot = document.getElementById('shutter-bottom');
+            const txt = document.getElementById('intro-text');
+            const hint = document.getElementById('intro-hint');
+            hint.style.opacity = 0;
+            top.classList.add('anim-close-top');
+            bot.classList.add('anim-close-bottom');
+            txt.classList.add('anim-text-out');
+            isWaiting = true;
+            setTimeout(() => {
+                advanceScript();
+            }, 800);
+            return;
+        }
+
+        if (scene.type === 'title') {
+            hideLayer('title');
+            setTimeout(() => advanceScript(), 800);
+            isWaiting = true;
+            return;
+        }
+
+        if (scene.type === 'text' || scene.type === 'center') {
+            advanceScript();
+        }
+    }
+
+    function chooseIdentity(type, e) {
+        e.stopPropagation();
+        hideLayer('gate');
+        if (type === 'named') {
+            setTimeout(() => jumpToId(11), 600);
+        } else {
+            gameState.name = '无名氏';
+            setTimeout(() => jumpToId(20), 600);
+        }
+    }
+
+    function submitName(e) {
+        e.stopPropagation();
+        const val = els.nameInput.value.trim();
+        if(val) {
+            gameState.name = val;
+            hideLayer('input');
+            setTimeout(() => jumpToId(21), 600);
+        }
+    }
+
+    function jumpToId(id) {
+        const idx = storyScript.findIndex(s => s.id === id);
+        if(idx !== -1) { currentIndex = idx; renderScene(storyScript[idx]); }
+    }
+
+    function advanceScript() {
+        const currentScene = storyScript[currentIndex];
+        if (currentScene.nextId !== undefined) {
+            jumpToId(currentScene.nextId);
+        } else if (currentIndex + 1 < storyScript.length) {
+            currentIndex++;
+            renderScene(storyScript[currentIndex]);
+        }
+    }
+
+    function showLayer(name) {
+        layers[name].classList.remove('fade-out');
+        layers[name].classList.add('active');
+    }
+
+    function hideLayer(name) {
+        layers[name].classList.remove('active');
+        layers[name].classList.add('fade-out');
+    }
+
+    function hideDialogue() {
+        layers.dialogue.classList.remove('active');
+        layers.dialogue.classList.remove('center-mode');
+    }
+
+    const style = document.createElement('style');
+    style.innerHTML = `@keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }`;
+    document.head.appendChild(style);
+
+</script>
+</body>
+</html>

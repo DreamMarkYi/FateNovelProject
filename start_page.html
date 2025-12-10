@@ -1,0 +1,204 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Midnight Sun - Reimagined</title>
+    <style>
+        /* 全局重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Times New Roman', serif; /* 保持那种优雅的衬线感 */
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            background-color: #0f1319; /*以此作为底色*/
+        }
+
+        /* --- 左侧主容器 --- */
+        .left-container {
+            flex: 1; /* 占据剩余空间 */
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* 背景：从深蓝到黑的径向渐变，模拟夜空氛围 */
+            background: radial-gradient(circle at 50% 120%, #1e2a38 0%, #0b1016 100%);
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        /* 背景几何线条装饰 - 还原原图的神秘几何感 */
+        .geometry-bg {
+            position: absolute;
+            width: 600px;
+            height: 400px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transform: rotate(45deg);
+            z-index: 0;
+            pointer-events: none;
+        }
+        .geometry-bg::before {
+            content: '';
+            position: absolute;
+            top: -50px; left: -50px; right: -50px; bottom: -50px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        /* 卡片容器 */
+        .cards-wrapper {
+            display: flex;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        /* 单个卡片设计 - 核心修改点：玻璃拟态 */
+        .card {
+            width: 200px;
+            height: 300px;
+            /* 背景：半透明黑色 + 模糊，制造磨砂感 */
+            background: rgba(20, 25, 35, 0.4);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            /* 边框：极细的微光边框 */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.2); /* 顶部稍微亮一点模拟月光 */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.4s ease;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 鼠标悬停效果 */
+        .card:hover {
+            transform: translateY(-10px);
+            background: rgba(30, 40, 55, 0.6);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 15px 40px rgba(139, 169, 255, 0.1); /* 微微的蓝光 */
+        }
+
+        /* 卡片内文字样式 */
+        .card h3 {
+            font-size: 10px;
+            letter-spacing: 4px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            letter-spacing: 6px;
+            font-weight: 300;
+            margin-bottom: 10px;
+            writing-mode: vertical-rl; /* 竖排文字，还原中式美感 */
+            text-orientation: upright;
+            color: #e0e0e0;
+        }
+
+        /* 装饰性小圆点 */
+        .dot-deco {
+            width: 4px;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            margin-top: 20px;
+        }
+
+        /* --- 右侧图片区域 --- */
+        .right-panel {
+            width: 35%; /* 保持原图大概的比例 */
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            /* 这里使用深蓝色底色作为图片加载前的占位 */
+            background-color: #0b1221;
+        }
+
+        /* 模拟原图的图片层 */
+        .right-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.9; /* 稍微降低一点透明度让它和背景融合更好 */
+            mask-image: linear-gradient(to right, transparent, black 10%); /* 左边缘羽化，消除割裂感 */
+            -webkit-mask-image: linear-gradient(to right, transparent, black 10%);
+        }
+
+        /* 右侧文字层 (MIDNIGHT SUN) */
+        .right-text-overlay {
+            position: absolute;
+            top: 50%;
+            left: 20%;
+            transform: translateY(-50%);
+            color: rgba(255,255,255,0.9);
+            z-index: 20;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .main-title {
+            font-size: 48px;
+            font-weight: normal;
+            letter-spacing: 10px;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+
+        .sub-title {
+            font-size: 12px;
+            letter-spacing: 8px;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="left-container">
+    <div class="geometry-bg"></div>
+
+    <div class="cards-wrapper">
+        <div class="card">
+            <h3>LEFT 1</h3>
+            <h2>左侧之一</h2>
+            <div class="dot-deco"></div>
+        </div>
+
+        <div class="card">
+            <h3>LEFT 2</h3>
+            <h2>左侧之二</h2>
+            <div class="dot-deco"></div>
+        </div>
+
+        <div class="card">
+            <h3>LEFT 3</h3>
+            <h2>左侧之三</h2>
+            <div class="dot-deco"></div>
+        </div>
+    </div>
+</div>
+
+<div class="right-panel">
+    <img src="https://images.unsplash.com/photo-1532975936350-93a0a38f4d8a?q=80&w=2670&auto=format&fit=crop" alt="Midnight Moon" class="right-image">
+
+    <div class="right-text-overlay">
+        <span class="sub-title">MIDNIGHT SUN</span>
+        <span class="main-title">白夜</span>
+    </div>
+</div>
+
+</body>
+</html>

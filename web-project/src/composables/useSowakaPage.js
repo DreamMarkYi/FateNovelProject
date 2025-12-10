@@ -1,5 +1,4 @@
 import { ref, computed, onMounted } from 'vue'
-import { roomApi, conceptApi, sowakaStoryApi } from '../api/mongoApi'
 
 export function useSowakaPage() {
   // API基础URL（仅用于旧的MySQL数据，如果需要）

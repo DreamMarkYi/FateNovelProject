@@ -1,0 +1,1327 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Timeline - Locked Node Obstruction</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            cursor: grab;
+            background-color: #020205;
+            color: #fff;
+        }
+
+        body.grabbing {
+            cursor: grabbing;
+        }
+
+        body.pointer {
+            cursor: pointer !important;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            z-index: 10;
+            transition: all 0.5s ease;
+        }
+
+        h1 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin: 0;
+            text-transform: uppercase;
+            font-size: 1.2rem;
+            display: inline-block;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #00ffff;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        #ui {
+            color: #fff;
+            mix-blend-mode: difference;
+        }
+
+        p {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            letter-spacing: 5px;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            color: #00ffff;
+            text-shadow: 0 0 15px #00ffff;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="ui">
+    <h1 id="ui-title">MANUAL TRIGGER</h1>
+    <p id="ui-desc">Press [1] to Unlock Next Node</p>
+</div>
+
+<div id="loading" class="loading">LOADING DATA...</div>
+<div id="canvas-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/CopyShader.js"></script>
+<script
+        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script
+        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/ShaderPass.js"></script>
+<script
+        src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+<script>
+    // --- JSON 数据定义 ---
+    const timelineData = {
+        "roots": ["node_1"],
+        "nodes": [
+            {
+                "id": "node_1",
+                "status": "unlocked",
+                "unlockCondition": [],
+                "pos": [0, -100],
+                "children": ["node_2", "node_3"],
+                "info": {
+                    "title": "START",
+                    "desc": "Project Initialization",
+                    "url": ""
+                }
+            },
+            {
+                "id": "node_2",
+                "status": "locked",
+                "unlockCondition": ["node_1"],
+                "pos": [-60, -250],
+                "children": ["node_4"],
+                "info": {
+                    "title": "BRANCH A",
+                    "desc": "Development Phase",
+                    "url": ""
+                }
+            },
+            {
+                "id": "node_3",
+                "status": "locked",
+                "unlockCondition": ["node_1"],
+                "pos": [60, -300],
+                "children": ["node_4"],
+                "info": {
+                    "title": "BRANCH B",
+                    "desc": "Design Phase",
+                    "url": ""
+                }
+            },
+            {
+                "id": "node_4",
+                "status": "locked",
+                "unlockCondition": ["node_2", "node_3"],
+                "pos": [0, -450],
+                "children": ["node_5"],
+                "info": {
+                    "title": "MERGE",
+                    "desc": "Integration (Wait for A & B)",
+                    "url": ""
+                }
+            },
+            {
+                "id": "node_5",
+                "status": "locked",
+                "unlockCondition": ["node_4"],
+                "pos": [0, -600],
+                "children": [],
+                "info": {
+                    "title": "RELEASE",
+                    "desc": "Version 1.0 Launch",
+                    "url": "https://threejs.org"
+                }
+            }
+        ]
+    };
+
+    // --- 全局变量 ---
+    const nodeAnimRegistry = {};
+    const edgeAnimRegistry = [];
+
+    // --- 建筑管理系统变量 ---
+    let activeBuildings = []; // { id, mesh, state, targetY, speed... }
+    let nextBuildingId = 0;
+    const MAX_VISIBLE_ID_RANGE = 200; // 增加可视范围，避免过早消失
+    let generatedZones = new Set();
+
+    // 关键参数：
+    const NODE_PROTECTION_RADIUS = 60; // 只有在这个半径内，解锁时才会触发消失
+    const BUILDING_SPAWN_Y_OFFSET = -400;
+
+    // --- GLSL 噪声函数 ---
+    const noiseCommon = `
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+        float snoise(vec3 v) {
+            const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
+            const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+
+            vec3 i  = floor(v + dot(v, C.yyy) );
+            vec3 x0 = v - i + dot(i, C.xxx) ;
+
+            vec3 g = step(x0.yzx, x0.xyz);
+            vec3 l = 1.0 - g;
+            vec3 i1 = min( g.xyz, l.zxy );
+            vec3 i2 = max( g.xyz, l.zxy );
+
+            vec3 x1 = x0 - i1 + C.xxx;
+            vec3 x2 = x0 - i2 + C.yyy;
+            vec3 x3 = x0 - D.yyy;
+
+            i = mod289(i);
+            vec4 p = permute( permute( permute(
+                        i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+                    + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+                    + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+            float n_ = 0.142857142857;
+            vec3  ns = n_ * D.wyz - D.xzx;
+
+            vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+
+            vec4 x_ = floor(j * ns.z);
+            vec4 y_ = floor(j - 7.0 * x_ );
+
+            vec4 x = x_ *ns.x + ns.yyyy;
+            vec4 y = y_ *ns.x + ns.yyyy;
+            vec4 h = 1.0 - abs(x) - abs(y);
+
+            vec4 b0 = vec4( x.xy, y.xy );
+            vec4 b1 = vec4( x.zw, y.zw );
+
+            vec4 s0 = floor(b0)*2.0 + 1.0;
+            vec4 s1 = floor(b1)*2.0 + 1.0;
+            vec4 sh = -step(h, vec4(0.0));
+
+            vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+            vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+            vec3 p0 = vec3(a0.xy,h.x);
+            vec3 p1 = vec3(a0.zw,h.y);
+            vec3 p2 = vec3(a1.xy,h.z);
+            vec3 p3 = vec3(a1.zw,h.w);
+
+            vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+            p0 *= norm.x;
+            p1 *= norm.y;
+            p2 *= norm.z;
+            p3 *= norm.w;
+
+            vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+            m = m * m;
+            return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
+                                        dot(p2,x2), dot(p3,x3) ) );
+        }
+
+        float fbm(vec3 x) {
+            float v = 0.0;
+            float a = 0.5;
+            vec3 shift = vec3(100.0);
+            for (int i = 0; i < 4; ++i) {
+                v += a * snoise(x);
+                x = x * 2.0 + shift;
+                a *= 0.5;
+            }
+            return v;
+        }
+    `;
+
+    // --- 配置参数 ---
+    const config = {
+        spacingZ: 2,
+        renderRange: 20,
+        laneCount: 5,
+        laneDist: 60,
+        maxPixelRatio: 1.5,
+
+        bgColor: 0x6a868f,
+        fogColor: 0x6a868f,
+        cloudBaseColor: 0x6a868f,
+        cloudHighlightColor: 0x6a868f,
+
+        heightFogDensity: 0.008,
+        heightFogBase: -200.0,
+
+        mainBlockColor: 0xc4f0ff,
+        bgBlockColor: 0x80d2ff,
+        lineColor: 0x222222,
+
+        mainEdgeColor: 0x00E0FF,
+        dimEdgeColor: 0x005070,
+
+        textColor: '#ffffff',
+        uiTitle: "MANUAL UNLOCK",
+        uiDesc: "Unlocking nodes clears nearby buildings.",
+        seed: 12345
+    };
+
+    const globalUniforms = {
+        time: { value: 0 },
+        cloudBaseColor: { value: new THREE.Color(config.cloudBaseColor) },
+        cloudHighlightColor: { value: new THREE.Color(config.cloudHighlightColor) },
+        fogColor: { value: new THREE.Color(config.fogColor) }
+    };
+
+    let scene, camera, renderer;
+    let bloomComposer, finalComposer;
+    let cloudMesh;
+
+    let scrollPos = 0;
+    let targetScrollPos = 0;
+
+    let cameraOffsetX = 0;
+    let targetCameraOffsetX = 0;
+
+    let cameraHeight = 100;
+    let targetCameraHeight = 100;
+
+    const BUILDING_ZONE_SIZE = 200;
+
+    let isDragging = false;
+    let previousMouseY = 0;
+    let previousMouseX = 0;
+
+    let objects = [];
+    let mats = {};
+    const BLOOM_LAYER = 1;
+
+    let allParticles = [];
+    const particleGeo = new THREE.SphereGeometry(0.2, 6, 6);
+    let particleMat;
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let interactiveObjects = [];
+    let hoveredObject = null;
+
+    function init() {
+        const container = document.getElementById('canvas-container');
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 10, 20000);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        renderer.setPixelRatio(dpr);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        window.addEventListener('resize', onWindowResize, false);
+        document.addEventListener('wheel', onDocumentMouseWheel, { passive: false });
+
+        document.addEventListener('mousedown', onMouseDown, false);
+        document.addEventListener('mouseup', onMouseUp, false);
+        document.addEventListener('mousemove', onMouseMove, false);
+        document.addEventListener('mouseleave', onMouseUp, false);
+
+        document.addEventListener('click', onMouseClick, false);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '1') {
+                checkAndAutoUnlock();
+            }
+        });
+
+        setupSceneMode();
+        document.getElementById('loading').style.opacity = 0;
+        animate();
+    }
+
+    function checkAndAutoUnlock() {
+        console.log("Checking conditions...");
+        let unlockedCount = 0;
+
+        timelineData.nodes.forEach(nodeData => {
+            const registryItem = nodeAnimRegistry[nodeData.id];
+            if (!registryItem || registryItem.status === 'unlocked' || registryItem.status === 'popping') return;
+
+            const conditions = nodeData.unlockCondition || [];
+            let allMet = true;
+            if (conditions.length > 0) {
+                for (let reqId of conditions) {
+                    const reqNode = nodeAnimRegistry[reqId];
+                    if (!reqNode || reqNode.status !== 'unlocked') {
+                        allMet = false;
+                        break;
+                    }
+                }
+            }
+
+            if (allMet) {
+                unlockNode(nodeData.id);
+                unlockedCount++;
+            }
+        });
+
+        if (unlockedCount === 0) {
+            console.log("No new nodes met conditions yet.");
+        }
+    }
+
+    function unlockNode(nodeId) {
+        const registryItem = nodeAnimRegistry[nodeId];
+        if (!registryItem || registryItem.status !== 'locked') return;
+
+        console.log(`Unlocking [${nodeId}]. Removing obstacles...`);
+
+        // 触发：当节点解锁时，清除该节点位置附近的装饰建筑
+        clearBuildingsNearNode(registryItem.group.position);
+
+        let hasIncomingEdges = false;
+        edgeAnimRegistry.forEach(edge => {
+            if (edge.childId === nodeId && edge.status === 'hidden') {
+                edge.status = 'growing';
+                hasIncomingEdges = true;
+            }
+        });
+
+        if (!hasIncomingEdges) {
+            registryItem.status = 'popping';
+        } else {
+            registryItem.targetStatus = 'unlocked';
+        }
+    }
+
+    // --- 清除特定位置附近的建筑 ---
+    function clearBuildingsNearNode(position) {
+        // 半径要足够大，能覆盖到 generateBuildingsForZone 中生成的强制建筑
+        const clearRadius = NODE_PROTECTION_RADIUS;
+
+        activeBuildings.forEach(building => {
+            if (building.state === 'removing') return;
+
+            const dx = building.mesh.position.x - position.x;
+            const dz = building.mesh.position.z - position.z;
+            const distSq = dx*dx + dz*dz;
+
+            if (distSq < clearRadius * clearRadius) {
+                // 触发消失动画（下沉）
+                building.state = 'removing';
+            }
+        });
+    }
+
+    function setupSceneMode() {
+        scene.add(camera);
+        clearScene();
+
+        globalUniforms.cloudBaseColor.value.setHex(config.cloudBaseColor);
+        globalUniforms.cloudHighlightColor.value.setHex(config.cloudHighlightColor);
+        globalUniforms.fogColor.value.setHex(config.fogColor);
+
+        document.getElementById('ui-title').innerText = config.uiTitle;
+        document.getElementById('ui-desc').innerHTML = config.uiDesc + "<br>MERGE 节点需要等待 A 和 B 同时完成<br>左上↔右下：移动 • 按 '1'：解锁下一步";
+        scene.background = new THREE.Color(config.bgColor);
+
+        initMaterials();
+        setupLights();
+        createCloudFloor();
+        setupPostProcessing();
+
+        buildMainLineFromJSON();
+
+        interactiveObjects = [];
+        objects.forEach(obj => {
+            obj.traverse(child => {
+                if (child.userData && child.userData.isInteractive) {
+                    interactiveObjects.push(child);
+                }
+            });
+        });
+    }
+
+    function clearScene() {
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            scene.remove(obj);
+            disposeHierarchy(obj);
+        }
+        if (cloudMesh) {
+            scene.remove(cloudMesh);
+            if (cloudMesh.geometry) cloudMesh.geometry.dispose();
+            if (cloudMesh.material) cloudMesh.material.dispose();
+            cloudMesh = null;
+        }
+        objects = [];
+        allParticles = [];
+
+        activeBuildings = [];
+        generatedZones.clear();
+        nextBuildingId = 0;
+
+        const oldLights = scene.children.filter(c => c.isLight || c.type === 'GridHelper');
+        oldLights.forEach(l => { scene.remove(l); if (l.dispose) l.dispose(); });
+    }
+
+    function disposeHierarchy(node) {
+        node.traverse((child) => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) child.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+                else { if (child.material.map) child.material.map.dispose(); child.material.dispose(); }
+            }
+        });
+    }
+
+    function createCloudFloor() {
+        const geometry = new THREE.PlaneGeometry(8000, 8000, 100, 100);
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: globalUniforms.time,
+                uBaseColor: globalUniforms.cloudBaseColor,
+                uHighlightColor: globalUniforms.cloudHighlightColor,
+                uFogColor: globalUniforms.fogColor,
+                uCameraPos: { value: camera.position }
+            },
+            vertexShader: `
+                    varying vec2 vUv;
+                    varying vec3 vWorldPosition;
+                    void main() {
+                        vUv = uv;
+                        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                        vWorldPosition = worldPos.xyz;
+                        gl_Position = projectionMatrix * viewMatrix * worldPos;
+                    }
+                `,
+            fragmentShader: `
+                    uniform float uTime;
+                    uniform vec3 uBaseColor;
+                    uniform vec3 uHighlightColor;
+                    uniform vec3 uFogColor;
+                    varying vec2 vUv;
+                    varying vec3 vWorldPosition;
+                    ${noiseCommon}
+                    void main() {
+                        vec3 pos = vWorldPosition * 0.002;
+                        pos.x += uTime * 0.05;
+                        pos.z += uTime * 0.02;
+                        float noise = fbm(pos + vec3(0.0, uTime * 0.1, 0.0));
+                        float alpha = smoothstep(-0.2, 0.8, noise);
+                        float dist = length(vWorldPosition.xz - cameraPosition.xz);
+                        float fade = 1.0 - smoothstep(1000.0, 3500.0, dist);
+                        float toneMix = smoothstep(0.3, 0.8, noise * 0.5 + 0.5);
+                        vec3 cloudMix = mix(uBaseColor, uHighlightColor, toneMix);
+                        vec3 finalColor = mix(uFogColor, cloudMix, noise * 0.5 + 0.5);
+                        finalColor += uHighlightColor * smoothstep(0.65, 1.0, noise) * 0.5;
+                        gl_FragColor = vec4(finalColor, alpha * fade * 0.9);
+                    }
+                `,
+            transparent: true,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+        cloudMesh = new THREE.Mesh(geometry, material);
+        cloudMesh.rotation.x = -Math.PI / 2;
+        cloudMesh.position.y = config.heightFogBase - 50;
+        scene.add(cloudMesh);
+    }
+
+    function getVolumetricFogShaderLogic() {
+        return (shader) => {
+            shader.uniforms.uTime = globalUniforms.time;
+            shader.uniforms.hFogColor = globalUniforms.fogColor;
+            shader.uniforms.hFogDensity = { value: config.heightFogDensity };
+            shader.uniforms.hFogBase = { value: config.heightFogBase };
+
+            shader.vertexShader = `
+                    varying vec3 vWorldPosition;
+                    ${shader.vertexShader}
+                `.replace(
+                `#include <begin_vertex>`,
+                `#include <begin_vertex>
+                     vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;`
+            );
+
+            shader.fragmentShader = `
+                    uniform float uTime;
+                    uniform vec3 hFogColor;
+                    uniform float hFogDensity;
+                    uniform float hFogBase;
+                    varying vec3 vWorldPosition;
+                    ${noiseCommon}
+                    ${shader.fragmentShader}
+                `.replace(
+                `#include <fog_fragment>`,
+                `
+                    vec3 noisePos = vWorldPosition * 0.005;
+                    noisePos.y *= 0.5;
+                    noisePos.x += uTime * 0.05;
+                    float noise = fbm(noisePos);
+                    float distY = vWorldPosition.y - hFogBase;
+                    float heightFactor = 0.0;
+                    if (distY > 0.0) {
+                        heightFactor = exp(-distY * hFogDensity * (1.0 + noise));
+                    } else {
+                        heightFactor = 1.0;
+                    }
+                    float dist = length(vWorldPosition - cameraPosition);
+                    float distFactor = 1.0 - exp(-dist * 0.0002);
+                    float totalFog = clamp(heightFactor + distFactor, 0.0, 1.0);
+                    gl_FragColor.rgb = mix(gl_FragColor.rgb, hFogColor, totalFog);
+                    #include <fog_fragment>
+                    `
+            );
+        };
+    }
+
+    function initMaterials() {
+        const shaderLogic = getVolumetricFogShaderLogic();
+        mats = {};
+
+        particleMat = new THREE.MeshBasicMaterial({
+            color: config.mainEdgeColor,
+            transparent: true,
+            opacity: 1.0,
+            blending: THREE.AdditiveBlending
+        });
+
+        const mainBoxColor = new THREE.Color(config.mainBlockColor);
+        mats.mainBox = new THREE.MeshLambertMaterial({ color: mainBoxColor });
+        mats.mainBox.onBeforeCompile = shaderLogic;
+
+        const bgBoxColor = new THREE.Color(config.bgBlockColor);
+        mats.bgBox = new THREE.MeshLambertMaterial({ color: bgBoxColor });
+        mats.bgBox.onBeforeCompile = shaderLogic;
+
+        const lineColor = new THREE.Color(config.mainEdgeColor);
+        mats.line = new THREE.LineBasicMaterial({
+            color: lineColor,
+            transparent: true,
+            opacity: 0.95
+        });
+        mats.line.onBeforeCompile = shaderLogic;
+
+        const glowEdgeColor = new THREE.Color(config.mainEdgeColor);
+        mats.glowEdges = new THREE.LineBasicMaterial({
+            color: glowEdgeColor,
+            linewidth: 2,
+            transparent: true,
+            opacity: 1.0
+        });
+        mats.glowEdges.onBeforeCompile = shaderLogic;
+
+        const dimEdgeColor = new THREE.Color(config.dimEdgeColor);
+        mats.dimEdges = new THREE.LineBasicMaterial({
+            color: dimEdgeColor,
+            transparent: true,
+            opacity: 0.85,
+            linewidth: 2
+        });
+        mats.dimEdges.onBeforeCompile = shaderLogic;
+        mats.bgEdges = mats.dimEdges;
+        mats.mainEdges = mats.glowEdges;
+        mats.person = new THREE.MeshBasicMaterial({ color: 0x00aaaa });
+        mats.person.onBeforeCompile = shaderLogic;
+    }
+
+    function setupLights() {
+        scene.add(new THREE.AmbientLight(0x222222, 0.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        dirLight.name = "mainLight";
+        dirLight.position.set(100, 200, 100);
+        dirLight.color.setHSL(0.6, 0.2, 0.5);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        dirLight.shadow.camera.left = -2000;
+        dirLight.shadow.camera.right = 2000;
+        dirLight.shadow.camera.top = 2000;
+        dirLight.shadow.camera.bottom = -2000;
+        scene.add(dirLight);
+    }
+
+    function setupPostProcessing() {
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const renderScene = new THREE.RenderPass(scene, camera);
+        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(width * dpr, height * dpr), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0;
+        bloomPass.strength = 1.5;
+        bloomPass.radius = 0.5;
+
+        bloomComposer = new THREE.EffectComposer(renderer);
+        bloomComposer.renderToScreen = false;
+        bloomComposer.addPass(renderScene);
+        bloomComposer.addPass(bloomPass);
+
+        const finalPass = new THREE.ShaderPass(
+            new THREE.ShaderMaterial({
+                uniforms: {
+                    baseTexture: { value: null },
+                    bloomTexture: { value: bloomComposer.renderTarget2.texture }
+                },
+                vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }`,
+                fragmentShader: `uniform sampler2D baseTexture; uniform sampler2D bloomTexture; varying vec2 vUv; void main()
+                    {
+                    vec4 base = texture2D( baseTexture, vUv );
+                    vec4 bloom = texture2D( bloomTexture, vUv );
+                    gl_FragColor = base + bloom;
+                    }`,
+            }), "baseTexture"
+        );
+        finalPass.needsSwap = true;
+        finalComposer = new THREE.EffectComposer(renderer);
+        finalComposer.addPass(renderScene);
+        finalComposer.addPass(finalPass);
+        bloomComposer.setSize(width, height);
+        bloomComposer.setPixelRatio(dpr);
+        finalComposer.setSize(width, height);
+        finalComposer.setPixelRatio(dpr);
+    }
+
+    function enableBloom(obj) { obj.layers.set(BLOOM_LAYER); }
+
+    function spawnFlowingParticles(startPointLocal, endVectorLocal, parentGroup, count = 4, visible = true) {
+        const len = endVectorLocal.length();
+        const density = Math.max(count, Math.floor(len / 40));
+
+        const dirNorm = endVectorLocal.clone().normalize();
+        let sideVec = new THREE.Vector3().crossVectors(dirNorm, new THREE.Vector3(0, 1, 0)).normalize();
+        if (sideVec.lengthSq() < 0.01) sideVec = new THREE.Vector3(1, 0, 0);
+
+        const particleGroup = new THREE.Group();
+        particleGroup.visible = visible;
+        parentGroup.add(particleGroup);
+
+        for (let i = 0; i < density; i++) {
+            const pMesh = new THREE.Mesh(particleGeo, particleMat);
+            enableBloom(pMesh);
+            pMesh.userData.isParticle = true;
+            pMesh.userData.type = 'flow';
+            pMesh.userData.flowData = {
+                start: startPointLocal.clone(), endVec: endVectorLocal, sideVec: sideVec,
+                sideModifier: i % 2 === 0 ? 1 : -1, progress: Math.random(),
+                speed: 0.002 + Math.random() * 0.005, phase: Math.random() * Math.PI * 2,
+                wobbleSpeed: 2.0 + Math.random() * 3.0, wobbleAmp: 0.5 + Math.random() * 0.5
+            };
+            pMesh.position.copy(pMesh.userData.flowData.start);
+            particleGroup.add(pMesh);
+            allParticles.push(pMesh);
+        }
+        return particleGroup;
+    }
+
+    function buildMainLineFromJSON() {
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const personGeo = new THREE.ConeGeometry(0.15, 0.8, 8);
+        const nodeLookup = new Map();
+
+        // 1. 生成节点
+        timelineData.nodes.forEach(node => {
+            const group = new THREE.Group();
+            const x = node.pos[0];
+            const z = node.pos[1];
+            const y = Math.random() * 5;
+
+            group.position.set(x, y, z);
+
+            const isUnlocked = (node.status === 'unlocked');
+            if (!isUnlocked) {
+                group.scale.set(0.001, 0.001, 0.001);
+            }
+
+            group.userData = {
+                type: 'mainNode',
+                baseY: y,
+                nodeId: node.id
+            };
+
+            const scaleMult = 5;
+            const mainSx = 5 * scaleMult;
+            const mainSy = 1 * scaleMult * 0.5;
+            const mainSz = 3 * scaleMult;
+
+            const platform = new THREE.Mesh(boxGeo, mats.mainBox);
+            platform.scale.set(mainSx, mainSy, mainSz);
+            platform.castShadow = true; platform.receiveShadow = true;
+
+            platform.userData = {
+                isInteractive: true,
+                originScale: new THREE.Vector3(mainSx, mainSy, mainSz),
+                storyData: node.info,
+                nodeId: node.id
+            };
+
+            const platformEdges = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), mats.mainEdges);
+            enableBloom(platformEdges);
+            platform.add(platformEdges);
+            group.add(platform);
+
+            const lineHeight = 10 + Math.random() * 5;
+            const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, lineHeight, 0)]), mats.glowEdges);
+            line.position.set(mainSx / 2 - 0.5, mainSy / 2, mainSz / 2 - 0.5);
+            enableBloom(line);
+            group.add(line);
+
+            if (node.info && node.info.title) {
+                const panelMat = new THREE.MeshBasicMaterial({
+                    map: createTextTexture(node.info.title, node.info.desc),
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    depthWrite: false,
+                    blending: THREE.AdditiveBlending
+                });
+                panelMat.onBeforeCompile = getVolumetricFogShaderLogic();
+                const panel = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), panelMat);
+                panel.position.set(mainSx / 2 - 0.5 + 4, mainSy / 2 + lineHeight, mainSz / 2 - 0.5);
+                panel.rotation.y = -Math.PI / 4;
+                enableBloom(panel);
+                group.add(panel);
+            }
+
+            const person = new THREE.Mesh(personGeo, mats.person);
+            person.position.set(0, mainSy / 2 + 0.4, 0);
+            group.add(person);
+
+            scene.add(group);
+            objects.push(group);
+            nodeLookup.set(node.id, group);
+
+            nodeAnimRegistry[node.id] = {
+                group: group,
+                status: node.status,
+                targetStatus: node.status,
+                scaleProgress: isUnlocked ? 1.0 : 0.0
+            };
+        });
+
+        // 2. 生成连线
+        timelineData.nodes.forEach(node => {
+            if (node.children && node.children.length > 0) {
+                const startGroup = nodeLookup.get(node.id);
+                if (!startGroup) return;
+
+                node.children.forEach(childId => {
+                    const endGroup = nodeLookup.get(childId);
+                    if (endGroup) {
+                        const startWorld = startGroup.position.clone();
+                        const endWorld = endGroup.position.clone();
+                        const vecLocal = endWorld.sub(startWorld);
+
+                        const childStatus = nodeAnimRegistry[childId].status;
+                        const isChildUnlocked = (childStatus === 'unlocked');
+
+                        const points = isChildUnlocked
+                            ? [new THREE.Vector3(0, 0, 0), vecLocal]
+                            : [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)];
+
+                        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                        const mainLine = new THREE.Line(geometry, mats.line);
+                        enableBloom(mainLine);
+                        mainLine.frustumCulled = false;
+                        startGroup.add(mainLine);
+
+                        const pGroup = spawnFlowingParticles(new THREE.Vector3(0, 0, 0), vecLocal, startGroup, 6, isChildUnlocked);
+
+                        edgeAnimRegistry.push({
+                            line: mainLine,
+                            targetVec: vecLocal,
+                            currentEnd: isChildUnlocked ? vecLocal.clone() : new THREE.Vector3(0, 0, 0),
+                            particleGroup: pGroup,
+                            childId: childId,
+                            status: isChildUnlocked ? 'shown' : 'hidden',
+                            progress: isChildUnlocked ? 1.0 : 0.0
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    // --- 核心逻辑：检测位置是否被已解锁节点“占据” ---
+    function isPositionLockedByNode(x, z, radius) {
+        for (let nodeId in nodeAnimRegistry) {
+            const nodeData = nodeAnimRegistry[nodeId];
+
+            // 【关键修改】只有“unlocked”或“popping”的节点才会被保护（排斥建筑）
+            // “locked”的节点允许建筑生成在它上面或周围
+            if (nodeData.status === 'unlocked' || nodeData.status === 'popping') {
+                const nodePos = nodeData.group.position;
+                const dx = x - nodePos.x;
+                const dz = z - nodePos.z;
+                if (dx * dx + dz * dz < radius * radius) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // --- 生成单个建筑 ---
+    function tryCreateBuildingAt(x, z, type, randomVal) {
+        // 如果位置被已解锁节点占据，则跳过
+        if (isPositionLockedByNode(x, z, NODE_PROTECTION_RADIUS)) {
+            return;
+        }
+
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const group = new THREE.Group();
+
+        let targetY = 0;
+        let hiddenY = 0;
+
+        if (type === 'bottom') {
+            const h = 30 + randomVal * 600;
+            const w = 10 + randomVal * 20;
+            targetY = -240 - randomVal * 200;
+            hiddenY = targetY + BUILDING_SPAWN_Y_OFFSET;
+
+            group.position.set(x, hiddenY, z);
+
+            const bMesh = new THREE.Mesh(boxGeo, mats.bgBox);
+            bMesh.scale.set(w, h, w);
+            bMesh.position.set(0, h / 2, 0);
+            group.add(bMesh);
+
+            const bLines = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, w)), mats.bgEdges);
+            bLines.position.set(0, h / 2, 0);
+            group.add(bLines);
+        } else {
+            targetY = 600 + randomVal * 300;
+            hiddenY = targetY + BUILDING_SPAWN_Y_OFFSET;
+
+            group.position.set(x, hiddenY, z);
+
+            const floors = 2 + Math.floor(randomVal * 4);
+            let cY = 0;
+            const baseW = 15 + randomVal * 25, baseD = 15 + randomVal * 25;
+            for (let f = 0; f < floors; f++) {
+                const h = 50 + randomVal * 40;
+                const taper = 1.0 - (f * 0.05);
+                const w = baseW * taper, d = baseD * taper;
+
+                const tMesh = new THREE.Mesh(boxGeo, mats.bgBox);
+                tMesh.scale.set(w, h, d); tMesh.position.set(0, cY - h / 2, 0);
+                tMesh.castShadow = true; tMesh.receiveShadow = true;
+                group.add(tMesh);
+
+                const tLines = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d)), mats.bgEdges);
+                tLines.position.set(0, cY - h / 2, 0);
+                group.add(tLines);
+                cY -= h;
+            }
+        }
+
+        const id = nextBuildingId++;
+        group.userData = {
+            type: 'decoration',
+            isDecoration: true
+        };
+
+        scene.add(group);
+
+        activeBuildings.push({
+            id: id,
+            mesh: group,
+            targetY: targetY,
+            startY: hiddenY,
+            state: 'spawning',
+            animSpeed: 0.05 + Math.random() * 0.05,
+            floatPhase: Math.random() * Math.PI * 2
+        });
+    }
+
+    // --- 核心重构：区域生成器 ---
+    function generateBuildingsForZone(zoneIndex) {
+        const centerZ = zoneIndex * BUILDING_ZONE_SIZE;
+        const totalWidth = config.laneCount * config.laneDist;
+
+        let seed = zoneIndex * 12345 + config.seed;
+        const random = () => {
+            const x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        };
+
+        // 1. 常规随机生成
+        const bottomCount = 3 + Math.floor(random() * 6);
+        for (let i = 0; i < bottomCount; i++) {
+            const bZ = centerZ + (random() - 0.5) * BUILDING_ZONE_SIZE * 2;
+            const bX = (random() - 0.5) * totalWidth * 3;
+            tryCreateBuildingAt(bX, bZ, 'bottom', random());
+        }
+
+        const topCount = 2 + Math.floor(random() * 4);
+        for (let i = 0; i < topCount; i++) {
+            const tZ = centerZ + (random() - 0.5) * BUILDING_ZONE_SIZE * 2;
+            let tX = (random() - 0.5) * totalWidth * 3;
+            if (Math.abs(tX) < 30) tX += (tX > 0 ? 30 : -30);
+            tryCreateBuildingAt(tX, tZ, 'top', random());
+        }
+
+        // 2. 【核心新增】强制在未解锁节点周围生成建筑
+        const zoneMinZ = centerZ - BUILDING_ZONE_SIZE / 2;
+        const zoneMaxZ = centerZ + BUILDING_ZONE_SIZE / 2;
+
+        timelineData.nodes.forEach(node => {
+            // 如果节点在这个区域内
+            if (node.pos[1] >= zoneMinZ && node.pos[1] < zoneMaxZ) {
+                const registryItem = nodeAnimRegistry[node.id];
+                // 并且是 Locked 状态
+                if (registryItem && registryItem.status === 'locked') {
+                    // 强制生成一簇建筑包围它
+                    const forceCount = 4 + Math.floor(random() * 3);
+                    for (let k = 0; k < forceCount; k++) {
+                        const angle = random() * Math.PI * 2;
+                        // 半径 15-45 (小于清除半径 60)
+                        const dist = 15 + random() * 30;
+                        const bx = node.pos[0] + Math.cos(angle) * dist;
+                        const bz = node.pos[1] + Math.sin(angle) * dist;
+
+                        // 这里不需额外检查，tryCreateBuildingAt 会因节点是locked状态而放行
+                        tryCreateBuildingAt(bx, bz, random() > 0.5 ? 'bottom' : 'top', random());
+                    }
+                }
+            }
+        });
+    }
+
+    // --- 更新所有建筑状态 ---
+    function updateBuildings() {
+        const minAllowedId = nextBuildingId - MAX_VISIBLE_ID_RANGE;
+        const t = globalUniforms.time.value;
+
+        for (let i = activeBuildings.length - 1; i >= 0; i--) {
+            const b = activeBuildings[i];
+
+            if (b.id < minAllowedId && b.state !== 'removing') {
+                b.state = 'removing';
+            }
+
+            if (b.state === 'spawning') {
+                b.mesh.position.y += (b.targetY - b.mesh.position.y) * b.animSpeed;
+                if (Math.abs(b.mesh.position.y - b.targetY) < 1.0) {
+                    b.state = 'idle';
+                }
+            } else if (b.state === 'idle') {
+                const floatY = Math.sin(t * 0.5 + b.floatPhase) * 5;
+                b.mesh.position.y = b.targetY + floatY;
+            } else if (b.state === 'removing') {
+                b.mesh.position.y += (b.startY - b.mesh.position.y) * (b.animSpeed * 1.5);
+                if (Math.abs(b.mesh.position.y - b.startY) < 5.0) {
+                    scene.remove(b.mesh);
+                    disposeHierarchy(b.mesh);
+                    activeBuildings.splice(i, 1);
+                }
+            }
+        }
+    }
+
+    function createTextTexture(title, desc) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const width = 512, height = 512;
+        canvas.width = width;
+        canvas.height = height;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(0, 0, width, height);
+        ctx.fillStyle = config.textColor;
+        ctx.shadowColor = "#00ffff";
+        ctx.shadowBlur = 10;
+
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 80px Helvetica, Arial';
+        ctx.fillText(title, 40, 130);
+        ctx.shadowBlur = 0;
+
+        ctx.beginPath();
+        ctx.moveTo(40, 150);
+        ctx.lineTo(width - 40, 150);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#00ffff';
+        ctx.stroke();
+
+        ctx.font = 'normal 40px Helvetica, Arial';
+        ctx.fillStyle = '#ccc';
+
+        const words = (desc || "").split(' ');
+        let line = '', y = 220;
+        for (let n = 0; n < words.length; n++) {
+            if (ctx.measureText(line + words[n]).width > width - 80) {
+                ctx.fillText(line, 40, y);
+                line = words[n] + ' ';
+                y += 50;
+            }
+            else line += words[n] + ' ';
+        }
+        ctx.fillText(line, 40, y);
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    function onWindowResize() {
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        if (bloomComposer) { bloomComposer.setSize(window.innerWidth, window.innerHeight); bloomComposer.setPixelRatio(dpr); }
+        if (finalComposer) { finalComposer.setSize(window.innerWidth, window.innerHeight); finalComposer.setPixelRatio(dpr); }
+    }
+
+    function onDocumentMouseWheel(event) { event.preventDefault(); targetCameraHeight = Math.max(50, Math.min(400, targetCameraHeight + event.deltaY * 0.5)); }
+
+    function onMouseDown(event) {
+        isDragging = true;
+        previousMouseY = event.clientY;
+        previousMouseX = event.clientX;
+        document.body.classList.add('grabbing');
+    }
+
+    function onMouseUp() {
+        isDragging = false;
+        document.body.classList.remove('grabbing');
+    }
+
+    function onMouseClick(event) {
+        if (isDragging) return;
+
+        if (hoveredObject) {
+            const info = hoveredObject.userData.storyData;
+            const nodeId = hoveredObject.userData.nodeId;
+            if (nodeAnimRegistry[nodeId] && nodeAnimRegistry[nodeId].status !== 'unlocked') return;
+
+            if (info.url && info.url !== "") {
+                window.open(info.url, '_blank');
+            } else {
+                const displayTitle = info.title ? info.title : "Node";
+                const displayDesc = info.desc ? info.desc : "";
+                alert(`Selected: ${displayTitle}\n\n${displayDesc}\n(No URL linked)`);
+            }
+        }
+    }
+
+    function checkIntersection() {
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(interactiveObjects);
+
+        if (intersects.length > 0) {
+            const object = intersects[0].object;
+            const nodeId = object.userData.nodeId || object.parent.userData.nodeId;
+            if (nodeId && nodeAnimRegistry[nodeId] && nodeAnimRegistry[nodeId].status !== 'unlocked') {
+                if (hoveredObject) { restoreObject(hoveredObject); hoveredObject = null; }
+                return;
+            }
+
+            if (hoveredObject !== object) {
+                if (hoveredObject) restoreObject(hoveredObject);
+                hoveredObject = object;
+                highlightObject(hoveredObject);
+            }
+        } else {
+            if (hoveredObject) {
+                restoreObject(hoveredObject);
+                hoveredObject = null;
+            }
+        }
+    }
+
+    function highlightObject(mesh) {
+        document.body.classList.add('pointer');
+        const targetScale = mesh.userData.originScale.clone().multiplyScalar(1.2);
+        mesh.scale.copy(targetScale);
+    }
+
+    function restoreObject(mesh) {
+        document.body.classList.remove('pointer');
+        mesh.scale.copy(mesh.userData.originScale);
+    }
+
+    function onMouseMove(event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        if (!isDragging) {
+            checkIntersection();
+            return;
+        }
+
+        const deltaX = event.clientX - previousMouseX;
+        const deltaY = event.clientY - previousMouseY;
+
+        const scrollInput = (deltaX + deltaY);
+        targetScrollPos += scrollInput * 0.35;
+
+        const panInput = (deltaX - deltaY);
+        targetCameraOffsetX -= panInput * 0.35;
+
+        previousMouseX = event.clientX;
+        previousMouseY = event.clientY;
+    }
+
+    function updateParticles() {
+        const t = globalUniforms.time.value;
+        allParticles.forEach(pMesh => {
+            if (pMesh.parent.visible === false) return;
+
+            if (pMesh.userData.type === 'flow') {
+                const data = pMesh.userData.flowData;
+                data.progress = (data.progress + data.speed) % 1;
+                const wobble = Math.sin(t * data.wobbleSpeed + data.phase) * data.wobbleAmp;
+                pMesh.position.copy(data.start).add(data.endVec.clone().multiplyScalar(data.progress)).add(data.sideVec.clone().multiplyScalar((1.2 + wobble) * data.sideModifier));
+            }
+        });
+    }
+
+    function updateUnlockAnimations() {
+        edgeAnimRegistry.forEach(edge => {
+            if (edge.status === 'growing') {
+                edge.progress += 0.02;
+                if (edge.progress >= 1.0) {
+                    edge.progress = 1.0;
+                    edge.status = 'shown';
+                    edge.particleGroup.visible = true;
+
+                    const childNode = nodeAnimRegistry[edge.childId];
+                    if (childNode && childNode.status === 'locked') {
+                        childNode.status = 'popping';
+                    }
+                }
+
+                const positions = edge.line.geometry.attributes.position.array;
+                const currentVec = edge.targetVec.clone().multiplyScalar(edge.progress);
+                positions[3] = currentVec.x;
+                positions[4] = currentVec.y;
+                positions[5] = currentVec.z;
+                edge.line.geometry.attributes.position.needsUpdate = true;
+            }
+        });
+
+        for (const nodeId in nodeAnimRegistry) {
+            const data = nodeAnimRegistry[nodeId];
+            if (data.status === 'popping') {
+                data.scaleProgress += 0.05;
+                let scale = data.scaleProgress;
+                const backScale = 1 + 2.70158 * Math.pow(scale - 1, 3) + 1.70158 * Math.pow(scale - 1, 2);
+
+                if (data.scaleProgress >= 1.0) {
+                    data.scaleProgress = 1.0;
+                    data.status = 'unlocked';
+                    scale = 1.0;
+                } else {
+                    scale = scale > 1 ? backScale : scale;
+                }
+
+                data.group.scale.set(scale, scale, scale);
+            }
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        globalUniforms.time.value += 0.02;
+        updateParticles();
+        updateUnlockAnimations();
+        updateBuildings();
+
+        if (cloudMesh) {
+            cloudMesh.position.x = camera.position.x;
+            cloudMesh.position.z = camera.position.z;
+        }
+
+        scrollPos += (targetScrollPos - scrollPos) * 0.05;
+        cameraOffsetX += (targetCameraOffsetX - cameraOffsetX) * 0.05;
+        cameraHeight += (targetCameraHeight - cameraHeight) * 0.05;
+
+        // 区域生成管理
+        const currentFocusZ = -scrollPos;
+        const buildingRenderRange = 600;
+        const minBuildingZ = currentFocusZ - buildingRenderRange;
+        const maxBuildingZ = currentFocusZ + buildingRenderRange;
+        const minZone = Math.floor(minBuildingZ / BUILDING_ZONE_SIZE);
+        const maxZone = Math.floor(maxBuildingZ / BUILDING_ZONE_SIZE);
+
+        for (let zone = minZone; zone <= maxZone; zone++) {
+            if (!generatedZones.has(zone)) {
+                generateBuildingsForZone(zone);
+                generatedZones.add(zone);
+            }
+        }
+
+        const baseCenterX = 0;
+        const finalCamX = baseCenterX + cameraOffsetX - 100 * (cameraHeight / 100);
+
+        camera.position.set(finalCamX, cameraHeight, currentFocusZ + 120 * (cameraHeight / 100));
+        camera.lookAt(baseCenterX + cameraOffsetX, 0, currentFocusZ);
+
+        const light = scene.getObjectByName("mainLight");
+        if (light) {
+            light.position.set(baseCenterX + cameraOffsetX + 200, 1500, currentFocusZ + 200);
+            light.target.position.set(baseCenterX + cameraOffsetX, 0, currentFocusZ);
+            light.target.updateMatrixWorld();
+        }
+
+        // 清理交互对象
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            if (obj.userData.type === 'mainNode') {
+                // Main nodes persist
+            } else if (obj.userData.isDecoration) {
+                const shouldRemoveInteraction = (obj.position.z < minBuildingZ - 200 || obj.position.z > maxBuildingZ + 200);
+                if (shouldRemoveInteraction) {
+                    obj.traverse((child) => {
+                        if (child.userData && child.userData.isInteractive) {
+                            const idx = interactiveObjects.indexOf(child);
+                            if (idx > -1) interactiveObjects.splice(idx, 1);
+                        }
+                    });
+                }
+            }
+        }
+
+        if (bloomComposer) {
+            if (cloudMesh) cloudMesh.visible = false;
+            scene.background = new THREE.Color(0x000000);
+            camera.layers.set(BLOOM_LAYER);
+            bloomComposer.render();
+
+            if (cloudMesh) cloudMesh.visible = true;
+            scene.background = new THREE.Color(config.bgColor);
+            camera.layers.set(0);
+            finalComposer.render();
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>

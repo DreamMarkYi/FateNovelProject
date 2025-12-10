@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>卡片溶解特效演示 - Perlin Noise Dissolve Effect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Noto+Serif+JP:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Serif JP', serif;
+      background: #f5f3f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: #5a5047;
+    }
+
+    .demo-header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    .demo-title {
+      font-size: 48px;
+      font-family: 'Cinzel', serif;
+      letter-spacing: 8px;
+      margin-bottom: 20px;
+      color: #8b7d6b;
+      text-shadow: 0 2px 4px rgba(139, 125, 107, 0.2);
+    }
+
+    .demo-subtitle {
+      font-size: 18px;
+      color: rgba(139, 125, 107, 0.7);
+      letter-spacing: 4px;
+    }
+
+    .demo-container {
+      display: flex;
+      gap: 60px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .card-wrapper {
+      position: relative;
+    }
+
+    /* 卡片样式 */
+    .minimal-card {
+      width: 280px;
+      height: 420px;
+      background: linear-gradient(145deg, #ffffff 0%, #f8f6f2 50%, #f0ebe5 100%);
+      border: 1px solid rgba(200, 190, 180, 0.4);
+      box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.3),
+        0 8px 20px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .minimal-card:hover {
+      transform: translateY(-10px) scale(1.02);
+      box-shadow: 
+        0 30px 80px rgba(0, 0, 0, 0.4),
+        0 15px 35px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-content {
+      position: relative;
+      z-index: 2;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 50px 40px;
+    }
+
+    .card-number {
+      position: absolute;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      font-family: 'Cinzel', serif;
+      color: rgba(139, 125, 107, 0.4);
+      letter-spacing: 4px;
+    }
+
+    .card-title {
+      font-size: 20px;
+      letter-spacing: 14px;
+      color: #8b7d6b;
+      margin: 0 0 50px 0;
+      font-family: 'Cinzel', serif;
+      font-weight: 400;
+      text-align: center;
+    }
+
+    .card-text {
+      font-size: 22px;
+      letter-spacing: 20px;
+      color: #5a5047;
+      margin: 0;
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 300;
+      text-align: center;
+      line-height: 2;
+    }
+
+    .card-subtitle {
+      margin-top: 40px;
+      font-size: 12px;
+      font-family: 'Cinzel', serif;
+      color: rgba(139, 125, 107, 0.5);
+      letter-spacing: 3px;
+      text-align: center;
+    }
+
+    .card-season-tag {
+      position: absolute;
+      top: 25px;
+      right: 25px;
+      font-size: 18px;
+      font-family: 'Noto Serif JP', serif;
+      color: rgba(139, 125, 107, 0.5);
+      font-weight: 300;
+      z-index: 4;
+    }
+
+    /* 溶解效果 Canvas */
+    .dissolve-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    /* 控制按钮 */
+    .controls {
+      margin-top: 60px;
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 15px 40px;
+      font-size: 16px;
+      font-family: 'Cinzel', serif;
+      letter-spacing: 3px;
+      background: rgba(139, 125, 107, 0.1);
+      border: 2px solid rgba(139, 125, 107, 0.3);
+      color: #5a5047;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn:hover {
+      background: rgba(139, 125, 107, 0.2);
+      border-color: rgba(139, 125, 107, 0.6);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(139, 125, 107, 0.2);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary {
+      background: rgba(255, 120, 60, 0.15);
+      border-color: rgba(255, 120, 60, 0.5);
+      color: #ff783c;
+    }
+
+    .btn-primary:hover {
+      background: rgba(255, 120, 60, 0.25);
+      border-color: rgba(255, 120, 60, 0.8);
+    }
+
+    .info-panel {
+      margin-top: 40px;
+      padding: 30px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      max-width: 800px;
+      text-align: center;
+    }
+
+    .info-panel h3 {
+      font-family: 'Cinzel', serif;
+      letter-spacing: 4px;
+      margin-bottom: 20px;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .info-panel p {
+      line-height: 1.8;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-header">
+    <h1 class="demo-title">DISSOLVE EFFECT</h1>
+    <p class="demo-subtitle">— Perlin Noise Based Card Dissolve Animation —</p>
+  </div>
+
+  <div class="demo-container">
+    <!-- 卡片1 -->
+    <div class="card-wrapper">
+      <div class="minimal-card" id="card1">
+        <canvas class="dissolve-canvas" id="canvas1"></canvas>
+        <div class="card-content">
+          <div class="card-number">01</div>
+          <h2 class="card-title">F I R E</h2>
+          <p class="card-text">炎　之　溶　解</p>
+          <div class="card-subtitle">Flame Dissolution</div>
+        </div>
+        <div class="card-season-tag">春</div>
+      </div>
+    </div>
+
+    <!-- 卡片2 -->
+    <div class="card-wrapper">
+      <div class="minimal-card" id="card2">
+        <canvas class="dissolve-canvas" id="canvas2"></canvas>
+        <div class="card-content">
+          <div class="card-number">02</div>
+          <h2 class="card-title">A S H</h2>
+          <p class="card-text">灰　烬　消　散</p>
+          <div class="card-subtitle">Ash Dispersion</div>
+        </div>
+        <div class="card-season-tag">夏</div>
+      </div>
+    </div>
+
+    <!-- 卡片3 -->
+    <div class="card-wrapper">
+      <div class="minimal-card" id="card3">
+        <canvas class="dissolve-canvas" id="canvas3"></canvas>
+        <div class="card-content">
+          <div class="card-number">03</div>
+          <h2 class="card-title">V O I D</h2>
+          <p class="card-text">虚　无　归　寂</p>
+          <div class="card-subtitle">Return to Void</div>
+        </div>
+        <div class="card-season-tag">冬</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-primary" onclick="dissolveAll()">全部溶解</button>
+    <button class="btn" onclick="resetAll()">重置全部</button>
+    <button class="btn" onclick="dissolveCard(1)">溶解卡片1</button>
+    <button class="btn" onclick="dissolveCard(2)">溶解卡片2</button>
+    <button class="btn" onclick="dissolveCard(3)">溶解卡片3</button>
+  </div>
+
+  <div class="info-panel">
+    <h3>技术说明</h3>
+    <p>💡 点击卡片或使用下方按钮触发溶解效果</p>
+    <p>🔥 使用柏林噪波（Perlin Noise）生成有机的溶解图案</p>
+    <p>✨ 三层渐变效果：橙黄色燃烧边缘 → 橙红色火焰 → 深灰色灰烬</p>
+    <p>🎨 Canvas 像素级渲染，实现电影级视觉效果</p>
+  </div>
+
+  <script>
+    // 柏林噪波实现
+    class PerlinNoise {
+      constructor() {
+        this.permutation = [];
+        this.p = [];
+        
+        for (let i = 0; i < 256; i++) {
+          this.permutation[i] = i;
+        }
+        
+        for (let i = 255; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [this.permutation[i], this.permutation[j]] = [this.permutation[j], this.permutation[i]];
+        }
+        
+        for (let i = 0; i < 512; i++) {
+          this.p[i] = this.permutation[i % 256];
+        }
+      }
+      
+      fade(t) {
+        return t * t * t * (t * (t * 6 - 15) + 10);
+      }
+      
+      lerp(t, a, b) {
+        return a + t * (b - a);
+      }
+      
+      grad(hash, x, y) {
+        const h = hash & 15;
+        const u = h < 8 ? x : y;
+        const v = h < 4 ? y : h === 12 || h === 14 ? x : 0;
+        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+      }
+      
+      noise(x, y) {
+        const X = Math.floor(x) & 255;
+        const Y = Math.floor(y) & 255;
+        
+        x -= Math.floor(x);
+        y -= Math.floor(y);
+        
+        const u = this.fade(x);
+        const v = this.fade(y);
+        
+        const a = this.p[X] + Y;
+        const aa = this.p[a];
+        const ab = this.p[a + 1];
+        const b = this.p[X + 1] + Y;
+        const ba = this.p[b];
+        const bb = this.p[b + 1];
+        
+        return this.lerp(v,
+          this.lerp(u, this.grad(this.p[aa], x, y), this.grad(this.p[ba], x - 1, y)),
+          this.lerp(u, this.grad(this.p[ab], x, y - 1), this.grad(this.p[bb], x - 1, y - 1))
+        );
+      }
+      
+      octaveNoise(x, y, octaves = 4, persistence = 0.5) {
+        let total = 0;
+        let frequency = 1;
+        let amplitude = 1;
+        let maxValue = 0;
+        
+        for (let i = 0; i < octaves; i++) {
+          total += this.noise(x * frequency, y * frequency) * amplitude;
+          maxValue += amplitude;
+          amplitude *= persistence;
+          frequency *= 2;
+        }
+        
+        return total / maxValue;
+      }
+    }
+
+    // 卡片溶解管理器
+    class CardDissolve {
+      constructor(cardId, canvasId) {
+        this.card = document.getElementById(cardId);
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.perlinNoise = new PerlinNoise();
+        this.dissolveProgress = 0;
+        this.isAnimating = false;
+        this.animationFrame = null;
+        
+        this.initCanvas();
+        this.setupClickHandler();
+      }
+      
+      initCanvas() {
+        this.canvas.width = this.card.offsetWidth;
+        this.canvas.height = this.card.offsetHeight;
+      }
+      
+      setupClickHandler() {
+        this.card.addEventListener('click', () => {
+          this.startDissolve();
+        });
+      }
+      
+      renderDissolve() {
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        
+        this.ctx.clearRect(0, 0, width, height);
+        
+        const imageData = this.ctx.createImageData(width, height);
+        const data = imageData.data;
+        
+        const scale = 0.008;
+        const timeOffset = this.dissolveProgress * 0.5;
+        
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const index = (y * width + x) * 4;
+            
+            const noiseValue = this.perlinNoise.octaveNoise(
+              x * scale + timeOffset,
+              y * scale + timeOffset * 0.5,
+              5,
+              0.5
+            );
+            
+            const normalizedNoise = (noiseValue + 1) / 2;
+            const threshold = this.dissolveProgress;
+            
+            const brightEdgeWidth = 0.04;
+            const burnEdgeWidth = 0.06;
+            const ashEdgeWidth = 0.08;
+            
+            let alpha = 0;
+            let r = 0, g = 0, b = 0;
+            
+            if (normalizedNoise > threshold) {
+              alpha = 0;
+            } else if (normalizedNoise > threshold - brightEdgeWidth) {
+              const progress = (threshold - normalizedNoise) / brightEdgeWidth;
+              const intensity = Math.pow(Math.sin(progress * Math.PI), 0.5);
+              
+              r = 255;
+              g = Math.floor(200 + intensity * 55);
+              b = Math.floor(100 + intensity * 50);
+              alpha = Math.floor((0.9 + intensity * 0.1) * 255);
+            } else if (normalizedNoise > threshold - brightEdgeWidth - burnEdgeWidth) {
+              const progress = (threshold - brightEdgeWidth - normalizedNoise) / burnEdgeWidth;
+              const intensity = 1 - progress;
+              
+              r = 255;
+              g = Math.floor(80 + intensity * 120);
+              b = Math.floor(20 + intensity * 80);
+              alpha = Math.floor((0.7 + intensity * 0.2) * 255);
+            } else if (normalizedNoise > threshold - brightEdgeWidth - burnEdgeWidth - ashEdgeWidth) {
+              const progress = (threshold - brightEdgeWidth - burnEdgeWidth - normalizedNoise) / ashEdgeWidth;
+              const intensity = 1 - progress;
+              
+              const baseGray = Math.floor(15 + progress * 45);
+              r = baseGray + Math.floor(intensity * 40);
+              g = baseGray + Math.floor(intensity * 15);
+              b = baseGray;
+              alpha = Math.floor((0.5 + intensity * 0.3) * 255);
+            } else {
+              // 未溶解部分 - 背景色
+              r = 245;
+              g = 243;
+              b = 240;
+              alpha = 255;
+            }
+            
+            data[index] = r;
+            data[index + 1] = g;
+            data[index + 2] = b;
+            data[index + 3] = alpha;
+          }
+        }
+        
+        this.ctx.putImageData(imageData, 0, 0);
+      }
+      
+      animate() {
+        if (!this.isAnimating) return;
+        
+        this.dissolveProgress += 0.005;
+        
+        // 更新卡片边框和阴影
+        const fadeProgress = Math.min(this.dissolveProgress / 1.0, 1);
+        
+        // 边框透明度
+        const borderOpacity = Math.max(0, (1 - fadeProgress * 2) * 0.4);
+        this.card.style.borderColor = `rgba(200, 190, 180, ${borderOpacity})`;
+        
+        // 阴影强度
+        const shadowOpacity1 = Math.max(0, (1 - fadeProgress * 2) * 0.08);
+        const shadowOpacity2 = Math.max(0, (1 - fadeProgress * 2) * 0.05);
+        const shadowOpacity3 = Math.max(0, (1 - fadeProgress * 2) * 0.9);
+        const shadowOpacity4 = Math.max(0, (1 - fadeProgress * 2) * 0.02);
+        
+        this.card.style.boxShadow = `
+          0 20px 60px rgba(0, 0, 0, ${shadowOpacity1}),
+          0 8px 20px rgba(0, 0, 0, ${shadowOpacity2}),
+          inset 0 1px 0 rgba(255, 255, 255, ${shadowOpacity3}),
+          inset 0 -1px 0 rgba(0, 0, 0, ${shadowOpacity4})
+        `;
+        
+        if (this.dissolveProgress >= 1.15) {
+          this.isAnimating = false;
+          this.canvas.style.opacity = '0';
+          return;
+        }
+        
+        this.renderDissolve();
+        this.animationFrame = requestAnimationFrame(() => this.animate());
+      }
+      
+      startDissolve() {
+        if (this.isAnimating) return;
+        
+        this.canvas.style.opacity = '1';
+        this.isAnimating = true;
+        this.dissolveProgress = 0;
+        this.animate();
+      }
+      
+      reset() {
+        this.isAnimating = false;
+        if (this.animationFrame) {
+          cancelAnimationFrame(this.animationFrame);
+          this.animationFrame = null;
+        }
+        this.dissolveProgress = 0;
+        this.canvas.style.opacity = '0';
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // 重置边框和阴影到原始样式
+        this.card.style.borderColor = 'rgba(200, 190, 180, 0.4)';
+        this.card.style.boxShadow = `
+          0 20px 60px rgba(0, 0, 0, 0.3),
+          0 8px 20px rgba(0, 0, 0, 0.2),
+          inset 0 1px 0 rgba(255, 255, 255, 0.9)
+        `;
+      }
+    }
+
+    // 初始化所有卡片
+    const cards = [
+      new CardDissolve('card1', 'canvas1'),
+      new CardDissolve('card2', 'canvas2'),
+      new CardDissolve('card3', 'canvas3')
+    ];
+
+    // 控制函数
+    function dissolveAll() {
+      cards.forEach((card, index) => {
+        setTimeout(() => card.startDissolve(), index * 200);
+      });
+    }
+
+    function resetAll() {
+      cards.forEach(card => card.reset());
+    }
+
+    function dissolveCard(index) {
+      cards[index - 1].startDissolve();
+    }
+
+    // 响应窗口大小变化
+    window.addEventListener('resize', () => {
+      cards.forEach(card => card.initCanvas());
+    });
+  </script>
+</body>
+</html>
+

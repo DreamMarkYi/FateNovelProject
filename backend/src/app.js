@@ -18,6 +18,10 @@ const storySectionMongoRoutes = require('./routes/mongo/storySectionMongoRoutes'
 const roomMongoRoutes = require('./routes/mongo/roomMongoRoutes');
 const conceptMongoRoutes = require('./routes/mongo/conceptMongoRoutes');
 const sowakaStoryRoutes = require('./routes/mongo/sowakaStoryRoutes');
+const novelScriptRoutes = require('./routes/mongo/novelScriptRoutes');
+const gameSaveRoutes = require('./routes/mongo/gameSaveRoutes');
+const startChoiceRoutes = require('./routes/mongo/startChoiceRoutes');
+const startPageScriptRoutes = require('./routes/mongo/startPageScriptRoutes');
 
 const app = express();
 
@@ -61,6 +65,10 @@ app.use('/api/mongo/story-sections', storySectionMongoRoutes);
 app.use('/api/mongo/rooms', roomMongoRoutes);
 app.use('/api/mongo/concepts', conceptMongoRoutes);
 app.use('/api/mongo/sowaka-stories', sowakaStoryRoutes);
+app.use('/api/mongo/novel-scripts', novelScriptRoutes);
+app.use('/api/mongo/game-saves', gameSaveRoutes);
+app.use('/api/mongo/start-choices', startChoiceRoutes);
+app.use('/api/mongo/start-page-script', startPageScriptRoutes);
 
 // 健康检查
 app.get('/health', (req, res) => {
@@ -101,7 +109,14 @@ app.get('/', (req, res) => {
         concepts: '/api/mongo/concepts',
         activeConcepts: '/api/mongo/concepts/active',
         sowakaStories: '/api/mongo/sowaka-stories',
-        currentSowakaStory: '/api/mongo/sowaka-stories/current'
+        currentSowakaStory: '/api/mongo/sowaka-stories/current',
+        novelScripts: '/api/mongo/novel-scripts',
+        novelScriptById: '/api/mongo/novel-scripts/:scriptId',
+        gameSaves: '/api/mongo/game-saves/player/:playerId',
+        saveGame: '/api/mongo/game-saves/player/:playerId/slot/:saveSlot',
+        startChoices: '/api/mongo/start-choices',
+        createPlayer: '/api/mongo/start-choices/create-player',
+        startStatistics: '/api/mongo/start-choices/statistics'
       }
     }
   });
@@ -170,6 +185,8 @@ async function startServer() {
       console.log(`  GET  /api/mongo/rooms/available  - 获取可用房间`);
       console.log(`  GET  /api/mongo/concepts/active  - 获取激活的概念`);
       console.log(`  GET  /api/mongo/sowaka-stories/current - 获取当前Sowaka故事`);
+      console.log(`  GET  /api/mongo/novel-scripts/:scriptId - 获取剧本脚本`);
+      console.log(`  GET  /api/mongo/game-saves/player/:playerId - 获取玩家存档`);
       console.log('\n详细API文档: http://localhost:${config.port}/');
       console.log('='.repeat(60));
     });

@@ -1,0 +1,247 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>永夜 Eternal Night</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Cinzel:wght@400;600&display=swap');
+
+        :root {
+            --bg-dark: #0f131a;
+            --bg-accent: #1e2532;
+            --text-primary: #e0e6ed;
+            --text-secondary: #8b9bb4;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-blur: 20px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            font-family: 'Cinzel', 'Noto Serif SC', serif;
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 背景层：融合图1的深邃和图2的月色 */
+        .background-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at 85% 30%, #2c3e50 0%, #0f131a 60%);
+        }
+
+        /* 模拟月光氛围图 (你可以替换为真实的月亮图片) */
+        .moon-glow {
+            position: absolute;
+            right: 10%;
+            top: 15%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(200,210,255,0.15) 0%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            filter: blur(40px);
+            pointer-events: none;
+        }
+
+        /* 主容器 */
+        .container {
+            width: 90%;
+            max-width: 1400px;
+            height: 80vh;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+
+        /* 左侧：卡片区域 (图2的结构，图1的风格) */
+        .left-content {
+            flex: 1;
+            display: flex;
+            gap: 2rem;
+            padding-right: 4rem;
+            perspective: 1000px;
+        }
+
+        .card {
+            flex: 1;
+            height: 400px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--glass-border);
+            border-radius: 2px;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-number {
+            font-size: 0.8rem;
+            letter-spacing: 0.2em;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            opacity: 0.7;
+        }
+
+        .card-text {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            font-size: 1.2rem;
+            letter-spacing: 0.8em;
+            color: var(--text-primary);
+            font-weight: 300;
+        }
+
+        /* 右侧：视觉与标题区域 */
+        .right-visual {
+            flex: 0 0 300px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            border-left: 1px solid linear-gradient(to bottom, transparent, var(--glass-border), transparent);
+        }
+
+        /* 装饰性的细线，增加精致感 */
+        .divider {
+            position: absolute;
+            left: 0;
+            top: 20%;
+            bottom: 20%;
+            width: 1px;
+            background: linear-gradient(to bottom, transparent, var(--glass-border), transparent);
+        }
+
+        .main-title-group {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .main-title {
+            font-size: 3.5rem;
+            letter-spacing: 0.8em;
+            font-weight: 300;
+            text-shadow: 0 0 20px rgba(180, 200, 255, 0.3);
+            animation: fadeIn 2s ease-out;
+        }
+
+        .sub-title {
+            font-family: 'Cinzel', serif;
+            font-size: 0.9rem;
+            letter-spacing: 0.5em;
+            color: var(--text-secondary);
+            margin-right: -10px; /* Adjust purely for visual balance with vertical text */
+            opacity: 0.8;
+            writing-mode: vertical-rl;
+            text-orientation: sideways; /* 英文竖排 */
+            transform: rotate(180deg); /* 修正英文方向 */
+        }
+
+        .moon-icon {
+            margin-top: 3rem;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            box-shadow: inset -8px -4px 0 0 #e0e6ed;
+            opacity: 0.8;
+            transform: rotate(-15deg);
+        }
+
+        /* 动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 1024px) {
+            .container { flex-direction: column-reverse; height: auto; padding: 4rem 0; }
+            .left-content { padding-right: 0; width: 100%; margin-top: 3rem; }
+            .right-visual { flex: 0 0 auto; width: 100%; border-left: none; border-bottom: 1px solid var(--glass-border); padding-bottom: 3rem; }
+            .divider { display: none; }
+            .main-title-group { writing-mode: horizontal-tb; flex-direction: column; }
+            .card-text { writing-mode: horizontal-tb; }
+            .sub-title { writing-mode: horizontal-tb; text-orientation: mixed; transform: none; margin-right: 0; margin-top: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="background-layer"></div>
+<div class="moon-glow"></div>
+
+<div class="container">
+    <div class="left-content">
+        <div class="card">
+            <span class="card-number">I</span>
+            <div class="card-text">静谧</div>
+        </div>
+        <div class="card">
+            <span class="card-number">II</span>
+            <div class="card-text">深邃</div>
+        </div>
+        <div class="card">
+            <span class="card-number">III</span>
+            <div class="card-text">虚无</div>
+        </div>
+    </div>
+
+    <div class="right-visual">
+        <div class="divider"></div>
+        <div class="main-title-group">
+            <div class="moon-icon"></div> <h1 class="main-title">永夜</h1>
+            <div class="sub-title">ETERNAL NIGHT</div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

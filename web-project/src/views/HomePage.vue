@@ -1,5 +1,10 @@
 <template>
   <div class="home-page">
+    <SowakaNavigation
+        :mobile-menu-open="mobileMenuOpen"
+        @toggle-mobile-menu="toggleMobileMenu"
+        @scroll-to-section="scrollToSection"
+    />
     <!-- 背景色层 -->
     <div class="background-color"></div>
     
@@ -61,6 +66,10 @@ import { useRouter } from 'vue-router'
 import { createPetals, addPetalStyles } from '@/utils/cherryBlossoms'
 import { Ribbon } from '@/utils/ribbonAnimation'
 import { createRipple } from '@/utils/rippleEffect'
+import SowakaNavigation from "@/components/sowaka/SowakaNavigation.vue";
+import {useSowakaPage} from "@/composables/useSowakaPage.js";
+
+const {mobileMenuOpen, toggleMobileMenu , scrollToSection} = useSowakaPage();
 
 const router = useRouter()
 const canvasRef = ref(null)
@@ -77,7 +86,7 @@ onMounted(() => {
   }, 50)
 
   // 创建樱花
-  petalCleanup = createPetals(document.body)
+ // petalCleanup = createPetals(document.body)
 
   // 初始化Canvas
   const canvas = canvasRef.value

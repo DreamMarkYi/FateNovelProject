@@ -1,0 +1,1632 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>3D Timeline - Lightning Beam Style</title>
+    <style>
+        /* --- 基础样式 --- */
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            cursor: grab;
+            background-color: #020205;
+            color: #fff;
+        }
+
+        body.grabbing {
+            cursor: grabbing;
+        }
+
+        body.pointer {
+            cursor: pointer !important;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            z-index: 10;
+            transition: all 0.5s ease;
+            color: #fff;
+            mix-blend-mode: difference;
+        }
+
+        h1 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin: 0;
+            text-transform: uppercase;
+            font-size: 1.2rem;
+            display: inline-block;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #00ffff;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        p {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            letter-spacing: 5px;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            color: #00ffff;
+            text-shadow: 0 0 15px #00ffff;
+        }
+
+        /* --- 新增：侧边栏 UI 样式 --- */
+        #side-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 300px;
+            height: 100vh;
+            background: linear-gradient(90deg, rgba(2, 2, 5, 0.9) 0%, rgba(2, 2, 5, 0.6) 100%);
+            backdrop-filter: blur(5px);
+            border-right: 1px solid rgba(0, 255, 255, 0.3);
+            transform: translateX(-100%); /* 默认隐藏 */
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            pointer-events: auto; /* 确保可以点击 */
+        }
+
+        #side-panel.open {
+            transform: translateX(0);
+        }
+
+        /* 侧边栏开关按钮 */
+        #panel-toggle {
+            position: absolute;
+            top: 50%;
+            right: -30px;
+            width: 30px;
+            height: 60px;
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            border-left: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #00ffff;
+            font-size: 1.2rem;
+            border-radius: 0 5px 5px 0;
+            transition: all 0.3s ease;
+        }
+
+        #panel-toggle:hover {
+            background: rgba(0, 255, 255, 0.4);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+
+        /* 列表容器 */
+        #node-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 80px 20px 20px 20px; /* 顶部留出空间给原来的UI标题 */
+            scrollbar-width: thin;
+            scrollbar-color: #00ffff #020205;
+        }
+
+        /* 滚动条样式 */
+        #node-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        #node-list::-webkit-scrollbar-track {
+            background: #020205;
+        }
+        #node-list::-webkit-scrollbar-thumb {
+            background-color: #00ffff;
+            border-radius: 3px;
+        }
+
+        /* 列表项样式 */
+        .node-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-left: 3px solid #333;
+            background: rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            opacity: 0;
+            animation: slideIn 0.5s forwards;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .node-item:hover {
+            background: rgba(0, 255, 255, 0.1);
+            border-left-color: #00ffff;
+            padding-left: 15px;
+        }
+
+        .node-item h3 {
+            margin: 0 0 5px 0;
+            font-size: 0.9rem;
+            color: #fff;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .node-item p {
+            margin: 0;
+            font-size: 0.7rem;
+            color: #aaa;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .node-item .date {
+            font-size: 0.6rem;
+            color: #00ffff;
+            margin-bottom: 3px;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="ui">
+    <h1 id="ui-title">LOADING...</h1>
+    <p id="ui-desc">Initializing System</p>
+</div>
+
+<div id="side-panel">
+    <div id="panel-toggle" onclick="toggleSidePanel()">➤</div>
+    <div id="node-list">
+    </div>
+</div>
+
+<div class="loading" id="loading">CONNECTING TO DATABASE...</div>
+<div id="canvas-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+<script>
+    // --- 全局变量 ---
+    let timelineData = null;
+    let config = null;
+
+    const nodeAnimRegistry = {};
+    const edgeAnimRegistry = [];
+    const clock = new THREE.Clock();
+    const TIME_SCALE = 60.0;
+
+    // 闪电特效配置
+    const LIGHTNING_SEGMENTS = 20;
+    const LIGHTNING_STRANDS = 3;
+    const LIGHTNING_COLOR = 0x88ffff;
+
+    let buildingIdCounter = 0;
+    let buildingRegistry = new Map();
+    let zoneToBuildings = new Map();
+    const buildingHistory = new Map();
+    const BUILDING_AVOID_RADIUS = 120;
+    const BUILDING_ANIMATION_SPEED = 0.4;
+    const VISIBLE_ZONE_RADIUS = 3;
+    const BUILDING_ZONE_SIZE = 200;
+
+    // --- 新增：UI 管理变量 ---
+    const listedNodeIds = new Set();
+    const sidePanel = document.getElementById('side-panel');
+    const panelToggle = document.getElementById('panel-toggle');
+
+    // --- SHADER 管理系统 ---
+    const loadedShaders = {};
+    const shaderFiles = {
+        noise: 'shaders/noise.glsl',
+        cloudVert: 'shaders/cloud_vert.glsl',
+        cloudFrag: 'shaders/cloud_frag.glsl',
+        particlesVert: 'shaders/particles_vert.glsl',
+        particlesFrag: 'shaders/particles_frag.glsl',
+        volFogVert: 'shaders/vol_fog_vert.glsl',
+        volFogFrag: 'shaders/vol_fog_frag.glsl',
+        bloomVert: 'shaders/bloom_vert.glsl',
+        bloomFrag: 'shaders/bloom_frag.glsl'
+    };
+
+    let globalUniforms = null;
+
+    let scene, camera, renderer;
+    let bloomComposer, finalComposer;
+    let gradientPass;
+    let cloudMesh;
+    let scrollPos = 0, targetScrollPos = 0;
+    let cameraOffsetX = 0, targetCameraOffsetX = 0;
+    let cameraHeight = 100, targetCameraHeight = 100;
+    let generatedBuildingZones = new Set();
+    const affectedZones = new Set();
+    let isDragging = false, previousMouseY = 0, previousMouseX = 0;
+    let objects = [], mats = {};
+    const BLOOM_LAYER = 1;
+    let allParticles = [];
+    const particleGeo = new THREE.SphereGeometry(0.3, 6, 6);
+    let particleMat;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let interactiveObjects = [], hoveredObject = null;
+
+    class SeededRandom {
+        constructor(seed) {
+            this.seed = seed;
+        }
+        next() {
+            this.seed = (this.seed * 9301 + 49297) % 233280;
+            return this.seed / 233280;
+        }
+    }
+
+    // --- 新增：侧边栏 UI 逻辑 ---
+    window.toggleSidePanel = function() {
+        sidePanel.classList.toggle('open');
+        const isOpen = sidePanel.classList.contains('open');
+        panelToggle.innerText = isOpen ? '◀' : '➤';
+    };
+
+    function addNodeToSidebar(nodeId) {
+        if (listedNodeIds.has(nodeId)) return;
+
+        // 从 timelineData 中查找对应的数据
+        if (!timelineData || !timelineData.nodes) return;
+        const nodeData = timelineData.nodes.find(n => n.id === nodeId);
+        if (!nodeData) return;
+
+        listedNodeIds.add(nodeId);
+
+        const listContainer = document.getElementById('node-list');
+        const item = document.createElement('div');
+        item.className = 'node-item';
+
+        // 点击列表项，相机跳转到对应位置
+        item.onclick = () => {
+            // 目标 Z 坐标 (注意：现有逻辑 scrollPos 是反向的，currentFocusZ = -scrollPos)
+            // 所以 targetScrollPos 应该设为 -nodeData.pos[1]
+            targetScrollPos = -nodeData.pos[1];
+        };
+
+        const title = nodeData.info.title || "Unknown Node";
+        const desc = nodeData.info.desc || "No description available.";
+        // 如果数据里有日期字段，可以显示，这里假设没有则不显示
+        const dateStr = nodeData.info.date ? `<span class="date">${nodeData.info.date}</span>` : '';
+
+        item.innerHTML = `
+            ${dateStr}
+            <h3>${title}</h3>
+            <p>${desc}</p>
+        `;
+
+        listContainer.appendChild(item);
+    }
+
+    async function initApp() {
+        try {
+            const [configRes, dataRes] = await Promise.all([
+                fetch('config.json'),
+                fetch('data.json')
+            ]);
+
+            const configJson = await configRes.json();
+            timelineData = await dataRes.json();
+
+            config = {};
+            for(let key in configJson) {
+                let val = configJson[key];
+                if(typeof val === 'string' && val.startsWith('#') && val.length === 7) {
+                    config[key] = parseInt(val.replace('#', '0x'), 16);
+                } else {
+                    config[key] = val;
+                }
+            }
+
+            globalUniforms = {
+                time: {value: 0},
+                cloudBaseColor: {value: new THREE.Color(config.cloudBaseColor)},
+                cloudHighlightColor: {value: new THREE.Color(config.cloudHighlightColor)},
+                fogColor: {value: new THREE.Color(config.fogColor)}
+            };
+
+            await loadAllShaders();
+
+        } catch (e) {
+            console.error("Initialization Failed:", e);
+            document.getElementById('loading').innerText = "ERROR LOADING DATA";
+        }
+    }
+
+    async function loadAllShaders() {
+        const promises = Object.entries(shaderFiles).map(async ([key, url]) => {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Failed to load ${url}`);
+                const text = await response.text();
+                loadedShaders[key] = text;
+            } catch (error) {
+                console.error(error);
+            }
+        });
+        await Promise.all(promises);
+        init();
+    }
+
+    initApp();
+
+    function init() {
+        const container = document.getElementById('canvas-container');
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 10, 20000);
+
+        renderer = new THREE.WebGLRenderer({antialias: true, alpha: false});
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        renderer.setPixelRatio(dpr);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        window.addEventListener('resize', onWindowResize, false);
+        document.addEventListener('wheel', onDocumentMouseWheel, {passive: false});
+        document.addEventListener('mousedown', onMouseDown, false);
+        document.addEventListener('mouseup', onMouseUp, false);
+        document.addEventListener('mousemove', onMouseMove, false);
+        document.addEventListener('mouseleave', onMouseUp, false);
+        document.addEventListener('click', onMouseClick, false);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '1') checkAndAutoUnlock();
+        });
+
+        setupSceneMode();
+
+        document.getElementById('loading').style.opacity = 0;
+        setTimeout(() => document.getElementById('loading').style.display = 'none', 500);
+
+        animate();
+    }
+
+    function getUnlockedNodePositions() {
+        const positions = [];
+        for (const nodeId in nodeAnimRegistry) {
+            const node = nodeAnimRegistry[nodeId];
+            if (node.status === 'unlocked' || node.status === 'popping') {
+                positions.push({x: node.group.position.x, z: node.group.position.z});
+            }
+        }
+        return positions;
+    }
+
+    function isTooCloseToNodes(x, z, nodePositions) {
+        for (const nodePos of nodePositions) {
+            const dx = x - nodePos.x;
+            const dz = z - nodePos.z;
+            if (Math.sqrt(dx * dx + dz * dz) < BUILDING_AVOID_RADIUS) return true;
+        }
+        return false;
+    }
+
+    function removeBuildingsNearNode(nodeX, nodeZ) {
+        buildingRegistry.forEach((building, buildingId) => {
+            const dx = building.position.x - nodeX;
+            const dz = building.position.z - nodeZ;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+
+            if (dist < BUILDING_AVOID_RADIUS) {
+                const state = building.userData.animState;
+                if (state !== 'disappearing' && state !== 'hidden' && state !== 'collapsing' && state !== 'collapsed') {
+
+                    building.userData.animState = 'collapsing';
+                    building.userData.animProgress = 0;
+                    if (building.userData.zone !== undefined) {
+                        affectedZones.add(building.userData.zone);
+                    }
+                    let pushDir = new THREE.Vector3(dx, 0, dz).normalize();
+                    if (pushDir.lengthSq() < 0.01) {
+                        pushDir.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
+                    }
+                    const collapseAxis = new THREE.Vector3().crossVectors(pushDir, new THREE.Vector3(0, 1, 0)).normalize();
+                    if (!building.userData.collapseData) building.userData.collapseData = {};
+                    building.userData.collapseData.axis = collapseAxis;
+                }
+            }
+        });
+    }
+
+    function checkAndAutoUnlock() {
+        let unlockedCount = 0;
+        timelineData.nodes.forEach(nodeData => {
+            const registryItem = nodeAnimRegistry[nodeData.id];
+            if (!registryItem || registryItem.status === 'unlocked' || registryItem.status === 'popping') return;
+            const conditions = nodeData.unlockCondition || [];
+            let allMet = true;
+            if (conditions.length > 0) {
+                for (let reqId of conditions) {
+                    const reqNode = nodeAnimRegistry[reqId];
+                    if (!reqNode || reqNode.status !== 'unlocked') {
+                        allMet = false;
+                        break;
+                    }
+                }
+            }
+            if (allMet) {
+                unlockNode(nodeData.id);
+                unlockedCount++;
+            }
+        });
+    }
+
+    function unlockNode(nodeId) {
+        const registryItem = nodeAnimRegistry[nodeId];
+        if (!registryItem || registryItem.status !== 'locked') return;
+        let hasIncomingEdges = false;
+        edgeAnimRegistry.forEach(edge => {
+            if (edge.childId === nodeId && edge.status === 'hidden') {
+                edge.status = 'growing';
+                hasIncomingEdges = true;
+            }
+        });
+        if (!hasIncomingEdges) registryItem.status = 'popping';
+        else registryItem.targetStatus = 'unlocked';
+        removeBuildingsNearNode(registryItem.group.position.x, registryItem.group.position.z);
+    }
+
+    function setupSceneMode() {
+        scene.add(camera);
+        clearScene();
+        globalUniforms.cloudBaseColor.value.setHex(config.cloudBaseColor);
+        globalUniforms.cloudHighlightColor.value.setHex(config.cloudHighlightColor);
+        globalUniforms.fogColor.value.setHex(config.fogColor);
+        document.getElementById('ui-title').innerText = config.uiTitle;
+        document.getElementById('ui-desc').innerHTML = config.uiDesc + "<br>MERGE 节点需要等待 A 和 B 同时完成<br>左上↔右下：移动 • 按 '1'：解锁下一步";
+        scene.background = new THREE.Color(config.bgColor);
+
+        initMaterials();
+        setupLights();
+        createCloudFloor();
+        setupPostProcessing();
+        createAtmosphericParticles();
+        buildMainLineFromJSON();
+        createCrossingLines();
+
+        interactiveObjects = [];
+        objects.forEach(obj => {
+            obj.traverse(child => {
+                if (child.userData && child.userData.isInteractive) interactiveObjects.push(child);
+            });
+        });
+    }
+
+    function clearScene() {
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            scene.remove(obj);
+            disposeHierarchy(obj);
+        }
+        if (cloudMesh) {
+            scene.remove(cloudMesh);
+            if (cloudMesh.geometry) cloudMesh.geometry.dispose();
+            if (cloudMesh.material) cloudMesh.material.dispose();
+            cloudMesh = null;
+        }
+        objects = [];
+        allParticles = [];
+        generatedBuildingZones.clear();
+        buildingRegistry.clear();
+        zoneToBuildings.clear();
+        buildingIdCounter = 0;
+        const oldLights = scene.children.filter(c => c.isLight || c.type === 'GridHelper');
+        oldLights.forEach(l => {
+            scene.remove(l);
+            if (l.dispose) l.dispose();
+        });
+    }
+
+    function disposeHierarchy(node) {
+        node.traverse((child) => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) child.material.forEach(m => {
+                    if (m.map) m.map.dispose();
+                    m.dispose();
+                });
+                else {
+                    if (child.material.map) child.material.map.dispose();
+                    child.material.dispose();
+                }
+            }
+        });
+    }
+
+    function createCloudFloor() {
+        const geometry = new THREE.PlaneGeometry(8000, 8000, 100, 100);
+        const fragShader = loadedShaders.cloudFrag.replace('#include <noise>', loadedShaders.noise);
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: globalUniforms.time,
+                uBaseColor: globalUniforms.cloudBaseColor,
+                uHighlightColor: globalUniforms.cloudHighlightColor,
+                uFogColor: globalUniforms.fogColor,
+                uCameraPos: {value: camera.position}
+            },
+            vertexShader: loadedShaders.cloudVert,
+            fragmentShader: fragShader,
+            transparent: true, depthWrite: false, side: THREE.DoubleSide
+        });
+        cloudMesh = new THREE.Mesh(geometry, material);
+        cloudMesh.rotation.x = -Math.PI / 2;
+        cloudMesh.position.y = config.heightFogBase - 50;
+        scene.add(cloudMesh);
+    }
+
+    function getVolumetricFogShaderLogic() {
+        return (shader) => {
+            shader.uniforms.uTime = globalUniforms.time;
+            shader.uniforms.hFogColor = globalUniforms.fogColor;
+            shader.uniforms.hFogDensity = {value: config.heightFogDensity};
+            shader.uniforms.hFogBase = {value: config.heightFogBase};
+            const fragHead = `
+                uniform float uTime;
+                uniform vec3 hFogColor;
+                uniform float hFogDensity;
+                uniform float hFogBase;
+                varying vec3 vWorldPosition;
+                ${loadedShaders.noise}
+            `;
+            shader.vertexShader = `
+                varying vec3 vWorldPosition;
+                ${shader.vertexShader}
+            `.replace(
+                `#include <begin_vertex>`,
+                `#include <begin_vertex>
+                 ${loadedShaders.volFogVert}`
+            );
+            shader.fragmentShader = `
+                ${fragHead}
+                ${shader.fragmentShader}
+            `.replace(
+                `#include <fog_fragment>`,
+                `
+                ${loadedShaders.volFogFrag}
+                #include <fog_fragment>
+                `
+            );
+        };
+    }
+
+    function initMaterials() {
+        const shaderLogic = getVolumetricFogShaderLogic();
+        mats = {};
+        particleMat = new THREE.MeshBasicMaterial({
+            color: config.mainEdgeColor,
+            transparent: true,
+            opacity: 1.0,
+            blending: THREE.AdditiveBlending
+        });
+
+        const mainBoxColor = new THREE.Color(config.mainBlockColor);
+        mats.mainBox = new THREE.MeshBasicMaterial({color: mainBoxColor});
+        mats.mainBox.onBeforeCompile = shaderLogic;
+
+        const bgBoxColor = new THREE.Color(config.bgBlockColor);
+        mats.bgBox = new THREE.MeshLambertMaterial({color: bgBoxColor});
+        mats.bgBox.onBeforeCompile = shaderLogic;
+
+        mats.line = new THREE.LineBasicMaterial({color: config.mainEdgeColor, transparent: true, opacity: 0.95});
+        mats.line.onBeforeCompile = shaderLogic;
+
+        mats.lightning = new THREE.LineBasicMaterial({
+            color: LIGHTNING_COLOR,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+
+        const glowEdgeColor = new THREE.Color(config.mainEdgeColor);
+        glowEdgeColor.multiplyScalar(2.0);
+        mats.glowEdges = new THREE.LineBasicMaterial({
+            color: glowEdgeColor,
+            linewidth: 2,
+            transparent: true,
+            opacity: 1.0
+        });
+        mats.glowEdges.onBeforeCompile = shaderLogic;
+
+        const dimEdgeColor = new THREE.Color(config.dimEdgeColor);
+        mats.dimEdges = new THREE.LineBasicMaterial({
+            color: dimEdgeColor,
+            transparent: true,
+            opacity: 0.85,
+            linewidth: 2
+        });
+        mats.dimEdges.onBeforeCompile = shaderLogic;
+        mats.bgEdges = mats.dimEdges;
+        mats.mainEdges = mats.glowEdges;
+        mats.person = new THREE.MeshBasicMaterial({color: 0x00aaaa});
+        mats.person.onBeforeCompile = shaderLogic;
+    }
+
+    function setupLights() {
+        scene.add(new THREE.AmbientLight(0x222222, 5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        dirLight.name = "mainLight";
+        dirLight.position.set(1000, 1500, 2000);
+        dirLight.target.position.set(0, 0, 0);
+        dirLight.castShadow = false;
+        dirLight.shadowBlur = false;
+        dirLight.shadow.mapSize.width = 4096;
+        dirLight.shadow.mapSize.height = 4096;
+        const d = 4000;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 3000;
+        scene.add(dirLight);
+        scene.add(dirLight.target);
+    }
+
+    const GradientShader = {
+        uniforms: {
+            tDiffuse: {value: null},
+            uDarkness: {value: 0.2},
+            uBrightness: {value: 1.3}
+        },
+        vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+        fragmentShader: `
+                uniform sampler2D tDiffuse;
+                uniform float uDarkness;
+                uniform float uBrightness;
+                varying vec2 vUv;
+                void main() {
+                    vec4 color = texture2D(tDiffuse, vUv);
+                    float gradient = (vUv.x + vUv.y) * 0.5;
+                    float strength = mix(uDarkness, uBrightness, gradient);
+                    gl_FragColor = vec4(color.rgb * strength, color.a);
+                }
+            `
+    };
+
+    function setupPostProcessing() {
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const renderScene = new THREE.RenderPass(scene, camera);
+
+        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(width * dpr, height * dpr), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0;
+        bloomPass.strength = 1.5;
+        bloomPass.radius = 0.5;
+
+        bloomComposer = new THREE.EffectComposer(renderer);
+        bloomComposer.renderToScreen = false;
+        bloomComposer.addPass(renderScene);
+        bloomComposer.addPass(bloomPass);
+
+        const finalPass = new THREE.ShaderPass(
+            new THREE.ShaderMaterial({
+                uniforms: {
+                    baseTexture: {value: null},
+                    bloomTexture: {value: bloomComposer.renderTarget2.texture}
+                },
+                vertexShader: loadedShaders.bloomVert,
+                fragmentShader: loadedShaders.bloomFrag
+            }), "baseTexture"
+        );
+        finalPass.needsSwap = true;
+
+        finalComposer = new THREE.EffectComposer(renderer);
+        finalComposer.addPass(renderScene);
+        gradientPass = new THREE.ShaderPass(GradientShader);
+
+        // 从 config 中读取值，如果没有则使用默认值
+        gradientPass.uniforms.uDarkness.value = (config.gradDarkness !== undefined) ? config.gradDarkness : 0.2;
+        gradientPass.uniforms.uBrightness.value = (config.gradBrightness !== undefined) ? config.gradBrightness : 1.3;
+
+        finalComposer.addPass(gradientPass);
+        finalComposer.addPass(finalPass);
+
+        bloomComposer.setSize(width, height);
+        bloomComposer.setPixelRatio(dpr);
+        finalComposer.setSize(width, height);
+        finalComposer.setPixelRatio(dpr);
+    }
+
+    function enableBloom(obj) { obj.layers.set(BLOOM_LAYER); }
+
+    function spawnFlowingParticles(startPointLocal, endVectorLocal, parentGroup, count = 4, visible = true) {
+        const len = endVectorLocal.length();
+        const density = Math.max(count, Math.floor(len / 40));
+        const dirNorm = endVectorLocal.clone().normalize();
+        let sideVec = new THREE.Vector3().crossVectors(dirNorm, new THREE.Vector3(0, 1, 0)).normalize();
+        if (sideVec.lengthSq() < 0.01) sideVec = new THREE.Vector3(1, 0, 0);
+        const particleGroup = new THREE.Group();
+        particleGroup.visible = visible;
+        parentGroup.add(particleGroup);
+        for (let i = 0; i < density; i++) {
+            const pMesh = new THREE.Mesh(particleGeo, particleMat);
+            enableBloom(pMesh);
+            pMesh.userData.isParticle = true;
+            pMesh.userData.type = 'flow';
+            pMesh.userData.flowData = {
+                start: startPointLocal.clone(), endVec: endVectorLocal, sideVec: sideVec,
+                sideModifier: i % 2 === 0 ? 1 : -1, progress: Math.random(),
+                speed: 0.002 + Math.random() * 0.005, phase: Math.random() * Math.PI * 2,
+                wobbleSpeed: 2.0 + Math.random() * 4.0, wobbleAmp: 0.5 + Math.random() * 0.8
+            };
+            pMesh.position.copy(pMesh.userData.flowData.start);
+            particleGroup.add(pMesh);
+            allParticles.push(pMesh);
+        }
+        return particleGroup;
+    }
+
+    function createAtmosphericParticles() {
+        const CONFIG = {
+            count: 300000,
+            rangeX: 12000,
+            rangeZ: 2000,
+            height: 900,
+            bottom: -350,
+            baseSize: 3.0,
+            speedMin: 0.02,
+            speedMax: 0.2
+        };
+        const geometry = new THREE.BufferGeometry();
+        const positions = [];
+        const attrData = [];
+        for (let i = 0; i < CONFIG.count; i++) {
+            positions.push((Math.random() - 0.5) * CONFIG.rangeX, 0, (Math.random() - 0.5) * CONFIG.rangeZ);
+            const r = Math.random();
+            const speedFactor = Math.pow(r, 9.0);
+            const speed = CONFIG.speedMin + speedFactor * (CONFIG.speedMax - CONFIG.speedMin);
+            attrData.push(speed, Math.random() * 1000.0, 0.5 + Math.random() * 1.0);
+        }
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('aData', new THREE.Float32BufferAttribute(attrData, 3));
+        const fragShader = loadedShaders.particlesFrag.replace('#include <noise>', loadedShaders.noise);
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: globalUniforms.time,
+                uColor: {value: new THREE.Color(config.mainEdgeColor)},
+                hFogColor: globalUniforms.fogColor,
+                hFogDensity: {value: config.heightFogDensity},
+                hFogBase: {value: config.heightFogBase},
+                uHeight: {value: CONFIG.height},
+                uBottom: {value: CONFIG.bottom},
+                uBaseSize: {value: CONFIG.baseSize}
+            },
+            transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+            vertexShader: loadedShaders.particlesVert,
+            fragmentShader: fragShader
+        });
+        const particleSystem = new THREE.Points(geometry, material);
+        particleSystem.raycast = () => {};
+        scene.add(particleSystem);
+        objects.push(particleSystem);
+    }
+
+    function buildMainLineFromJSON() {
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const personGeo = new THREE.ConeGeometry(0.15, 0.8, 8);
+        const nodeLookup = new Map();
+        timelineData.nodes.forEach(node => {
+            const group = new THREE.Group();
+            const x = node.pos[0];
+            const z = node.pos[1];
+            const y = Math.random() * 100;
+            group.position.set(x, y, z);
+            const isUnlocked = (node.status === 'unlocked');
+            if (!isUnlocked) group.scale.set(0.001, 0.001, 0.001);
+            group.userData = {type: 'mainNode', baseY: y, nodeId: node.id};
+            const scaleMult = 5;
+            const mainSx = 5 * scaleMult;
+            const mainSy = 1 * scaleMult * 0.5;
+            const mainSz = 3 * scaleMult;
+            const platform = new THREE.Mesh(boxGeo, mats.mainBox);
+            platform.scale.set(mainSx, mainSy, mainSz);
+            platform.castShadow = false;
+            platform.receiveShadow = false;
+            platform.userData = {
+                isInteractive: true,
+                originScale: new THREE.Vector3(mainSx, mainSy, mainSz),
+                storyData: node.info,
+                nodeId: node.id
+            };
+            const platformEdges = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), mats.mainEdges);
+            enableBloom(platformEdges);
+            platform.add(platformEdges);
+            group.add(platform);
+            const lineHeight = 60 + Math.random() * 5;
+            const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, lineHeight, 0)]), mats.glowEdges);
+            enableBloom(line);
+            line.position.set(mainSx / 2 - 0.5, mainSy / 2, mainSz / 2 - 0.5);
+            group.add(line);
+            if (node.info && node.info.title) {
+                const panelMat = new THREE.MeshBasicMaterial({
+                    map: createTextTexture(node.info.title, node.info.desc),
+                    transparent: false,
+                    depthWrite: true,
+                    blending: THREE.NormalBlending
+                });
+                const panel = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), panelMat);
+                panel.position.set(mainSx / 2 - 0.5 + 4, mainSy / 2 + lineHeight, mainSz / 2 - 0.5);
+                panel.rotation.y = -Math.PI / 4;
+                enableBloom(panel);
+                group.add(panel);
+            }
+            const person = new THREE.Mesh(personGeo, mats.person);
+            person.position.set(0, mainSy / 2 + 0.4, 0);
+            group.add(person);
+            scene.add(group);
+            objects.push(group);
+            nodeLookup.set(node.id, group);
+            nodeAnimRegistry[node.id] = {
+                group: group,
+                status: node.status,
+                targetStatus: node.status,
+                scaleProgress: isUnlocked ? 1.0 : 0.0
+            };
+        });
+
+        timelineData.nodes.forEach(node => {
+            if (node.children && node.children.length > 0) {
+                const startGroup = nodeLookup.get(node.id);
+                if (!startGroup) return;
+                node.children.forEach(childId => {
+                    const endGroup = nodeLookup.get(childId);
+                    if (endGroup) {
+                        const startWorld = startGroup.position.clone();
+                        const endWorld = endGroup.position.clone();
+                        const vecLocal = endWorld.sub(startWorld);
+                        const childStatus = nodeAnimRegistry[childId].status;
+                        const isChildUnlocked = (childStatus === 'unlocked');
+
+                        const lightningLines = [];
+                        for (let i = 0; i < LIGHTNING_STRANDS; i++) {
+                            const pts = new Float32Array((LIGHTNING_SEGMENTS + 1) * 3);
+                            const lGeo = new THREE.BufferGeometry();
+                            lGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+                            const lMat = mats.lightning.clone();
+                            lMat.opacity = (i === 0) ? 0.9 : 0.4;
+                            const lLine = new THREE.Line(lGeo, lMat);
+                            lLine.frustumCulled = false;
+                            lLine.userData = {isLightning: true, strandIndex: i};
+                            enableBloom(lLine);
+                            startGroup.add(lLine);
+                            lightningLines.push(lLine);
+                        }
+
+                        const pGroup = spawnFlowingParticles(new THREE.Vector3(0, 0, 0), vecLocal, startGroup, 50, isChildUnlocked);
+
+                        edgeAnimRegistry.push({
+                            lightningLines: lightningLines,
+                            targetVec: vecLocal,
+                            particleGroup: pGroup,
+                            childId: childId,
+                            status: isChildUnlocked ? 'shown' : 'hidden',
+                            progress: isChildUnlocked ? 1.0 : 0.0
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    function createCrossingLines() {
+        const CONFIG = {
+            count: 600,
+            rangeX: 8000,
+            rangeZ: 8000,
+            yTop: 2000,
+            yBottom: -2000,
+            tiltRange: 400,
+            color: 0x88ccff,
+            baseOpacity: 0.15,
+            animSpeed: 0.5
+        };
+
+        const geometry = new THREE.BufferGeometry();
+        const positions = [];
+        const animAttributes = [];
+
+        for (let i = 0; i < CONFIG.count; i++) {
+            const cx = (Math.random() - 0.5) * CONFIG.rangeX;
+            const cz = (Math.random() - 0.5) * CONFIG.rangeZ;
+            const topX = cx + (Math.random() - 0.5) * CONFIG.tiltRange;
+            const topZ = cz + (Math.random() - 0.5) * CONFIG.tiltRange;
+            const botX = cx + (Math.random() - 0.5) * CONFIG.tiltRange;
+            const botZ = cz + (Math.random() - 0.5) * CONFIG.tiltRange;
+            positions.push(topX, CONFIG.yTop, topZ);
+            positions.push(botX, CONFIG.yBottom, botZ);
+            const speed = 0.5 + Math.random() * 1.5;
+            const phase = Math.random() * Math.PI * 2;
+            animAttributes.push(speed, phase);
+            animAttributes.push(speed, phase);
+        }
+
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('aAnim', new THREE.Float32BufferAttribute(animAttributes, 2));
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: globalUniforms.time,
+                uColor: { value: new THREE.Color(CONFIG.color) },
+                uBaseOpacity: { value: CONFIG.baseOpacity },
+                hFogColor: globalUniforms.fogColor,
+                hFogDensity: { value: config.heightFogDensity },
+                hFogBase: { value: config.heightFogBase }
+            },
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            vertexShader: `
+                attribute vec2 aAnim;
+                varying float vAlpha;
+                varying float vDist;
+                uniform float uTime;
+                void main() {
+                    vec3 transformed = position;
+                    vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
+                    gl_Position = projectionMatrix * mvPosition;
+                    float blink = 0.0 + 0.2 * sin(uTime * aAnim.x + aAnim.y);
+                    vAlpha = 0.05 + 0.9 * blink;
+                    vDist = -mvPosition.z;
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 uColor;
+                uniform float uBaseOpacity;
+                uniform vec3 hFogColor;
+                varying float vAlpha;
+                varying float vDist;
+                void main() {
+                    float fogFactor = smoothstep(200.0, 6000.0, vDist);
+                    float finalAlpha = uBaseOpacity * vAlpha * (1.0 - fogFactor);
+                    gl_FragColor = vec4(uColor, finalAlpha);
+                }
+            `
+        });
+
+        const linesMesh = new THREE.LineSegments(geometry, material);
+        enableBloom(linesMesh);
+        scene.add(linesMesh);
+        objects.push(linesMesh);
+    }
+
+    function createRandomBuildings(zone) {
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const totalWidth = config.laneCount * config.laneDist;
+        const centerZ = zone * BUILDING_ZONE_SIZE;
+        const rng = new SeededRandom(config.seed + zone);
+        const nodePositions = getUnlockedNodePositions();
+        const zoneBuildingIds = [];
+
+        const bottomCount = 66 + Math.floor(rng.next() * 8);
+        for (let k = 0; k < bottomCount; k++) {
+            const uniqueId = `z${zone}_b${k}`;
+            const bZPos = centerZ + (rng.next() - 0.5) * BUILDING_ZONE_SIZE * 2;
+            const bXPos = (rng.next() - 0.5) * totalWidth * 10;
+
+            const animSpeed = 0.075 + rng.next() * 0.26;
+            const animPhase = rng.next() * Math.PI * 2;
+            const animAmp = 2 + rng.next() * 4;
+            const targetAngle = (Math.PI / 18) + (rng.next() * Math.PI / 6);
+            const sinkAmount = 100 + rng.next() * 300;
+            const h = 30 + rng.next() * 400;
+            const w = 10 + rng.next() * 20;
+
+            let tiltX = 0, tiltZ = 0;
+            let hasTilt = false;
+            if (rng.next() < 0.1) {
+                const minTilt = 0.08;
+                const maxTilt = 0.35;
+                tiltX = (minTilt + rng.next() * (maxTilt - minTilt)) * (rng.next() > 0.5 ? 1 : -1);
+                tiltZ = (minTilt + rng.next() * (maxTilt - minTilt)) * (rng.next() > 0.5 ? 1 : -1);
+                hasTilt = true;
+            }
+
+            const isInsideClearRadius = isTooCloseToNodes(bXPos, bZPos, nodePositions);
+            const hasHistory = buildingHistory.has(uniqueId);
+
+            if (isInsideClearRadius) {
+                if (hasHistory) { }
+                else { continue; }
+            }
+
+            const bGroup = new THREE.Group();
+            const bYBase = -240 - rng.next() * 200;
+            const disappearOffset = -300;
+
+            bGroup.position.set(bXPos, bYBase + disappearOffset, bZPos);
+
+            bGroup.userData = {
+                buildingId: uniqueId,
+                baseY: bYBase,
+                type: 'bottom',
+                animSpeed: animSpeed,
+                animPhase: animPhase,
+                animAmp: animAmp,
+                animState: 'appearing',
+                animProgress: 0,
+                zone: zone,
+                collapseData: {
+                    axis: new THREE.Vector3(1, 0, 0),
+                    targetAngle: targetAngle,
+                    sinkAmount: sinkAmount
+                }
+            };
+
+            const bMesh = new THREE.Mesh(boxGeo, mats.bgBox);
+            bMesh.scale.set(w, h, w);
+            bMesh.position.set(0, h / 2, 0);
+            bGroup.add(bMesh);
+
+            const bLines = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, w)), mats.bgEdges);
+            bLines.position.set(0, h / 2, 0);
+            bGroup.add(bLines);
+
+            if (hasTilt) {
+                bMesh.rotation.x = tiltX;
+                bMesh.rotation.z = tiltZ;
+                bLines.rotation.x = tiltX;
+                bLines.rotation.z = tiltZ;
+            }
+
+            bMesh.castShadow = false;
+            bMesh.receiveShadow = true;
+
+            if (hasHistory) {
+                const record = buildingHistory.get(uniqueId);
+                bGroup.position.copy(record.pos);
+                bGroup.quaternion.copy(record.rot);
+                bGroup.scale.copy(record.scale);
+                bGroup.userData.animState = 'collapsed';
+                bGroup.userData.animProgress = 1.0;
+            }
+
+            scene.add(bGroup);
+            objects.push(bGroup);
+            buildingRegistry.set(uniqueId, bGroup);
+            zoneBuildingIds.push(uniqueId);
+        }
+        zoneToBuildings.set(zone, zoneBuildingIds);
+    }
+
+    function createTextTexture(title, desc) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const width = 512, height = 512;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.fillStyle = 'rgba(1.0,1.0,1.0, 0)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(0, 0, width, height);
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 100px Helvetica, Arial';
+        ctx.fillStyle = '#666666';
+        ctx.shadowColor = "#00ffff";
+        ctx.shadowBlur = 0;
+        ctx.fillText(title, 40, 130);
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.moveTo(40, 150);
+        ctx.lineTo(width - 40, 150);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#00ffff';
+        ctx.stroke();
+        ctx.font = 'normal 40px Helvetica, Arial';
+        ctx.fillStyle = '#666666';
+        const words = (desc || "").split(' ');
+        let line = '', y = 220;
+        for (let n = 0; n < words.length; n++) {
+            if (ctx.measureText(line + words[n]).width > width - 80) {
+                ctx.fillText(line, 40, y);
+                line = words[n] + ' ';
+                y += 50;
+            } else {
+                line += words[n] + ' ';
+            }
+        }
+        ctx.fillText(line, 40, y);
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    function onWindowResize() {
+        const dpr = Math.min(window.devicePixelRatio, config.maxPixelRatio);
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        if (bloomComposer) {
+            bloomComposer.setSize(window.innerWidth, window.innerHeight);
+            bloomComposer.setPixelRatio(dpr);
+        }
+        if (finalComposer) {
+            finalComposer.setSize(window.innerWidth, window.innerHeight);
+            finalComposer.setPixelRatio(dpr);
+        }
+    }
+
+    function onDocumentMouseWheel(event) {
+        event.preventDefault();
+        targetCameraHeight = Math.max(50, Math.min(400, targetCameraHeight + event.deltaY * 0.5));
+    }
+    function onMouseDown(event) {
+        isDragging = true;
+        previousMouseY = event.clientY;
+        previousMouseX = event.clientX;
+        document.body.classList.add('grabbing');
+    }
+    function onMouseUp() {
+        isDragging = false;
+        document.body.classList.remove('grabbing');
+    }
+    function onMouseClick(event) {
+        if (isDragging) return;
+        if (hoveredObject) {
+            const info = hoveredObject.userData.storyData;
+            const nodeId = hoveredObject.userData.nodeId;
+            if (nodeAnimRegistry[nodeId] && nodeAnimRegistry[nodeId].status !== 'unlocked') return;
+            if (info.url && info.url !== "") window.open(info.url, '_blank');
+            else alert(`Selected: ${info.title ? info.title : "Node"}\n\n${info.desc ? info.desc : ""}\n(No URL linked)`);
+        }
+    }
+    function checkIntersection() {
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(interactiveObjects);
+        if (intersects.length > 0) {
+            const object = intersects[0].object;
+            const nodeId = object.userData.nodeId || object.parent.userData.nodeId;
+            if (nodeId && nodeAnimRegistry[nodeId] && nodeAnimRegistry[nodeId].status !== 'unlocked') {
+                if (hoveredObject) {
+                    restoreObject(hoveredObject);
+                    hoveredObject = null;
+                }
+                return;
+            }
+            if (hoveredObject !== object) {
+                if (hoveredObject) restoreObject(hoveredObject);
+                hoveredObject = object;
+                highlightObject(hoveredObject);
+            }
+        } else {
+            if (hoveredObject) {
+                restoreObject(hoveredObject);
+                hoveredObject = null;
+            }
+        }
+    }
+    function highlightObject(mesh) {
+        document.body.classList.add('pointer');
+        const targetScale = mesh.userData.originScale.clone().multiplyScalar(1.2);
+        mesh.scale.copy(targetScale);
+    }
+    function restoreObject(mesh) {
+        document.body.classList.remove('pointer');
+        mesh.scale.copy(mesh.userData.originScale);
+    }
+    function onMouseMove(event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        if (!isDragging) {
+            checkIntersection();
+            return;
+        }
+        const deltaX = event.clientX - previousMouseX;
+        const deltaY = event.clientY - previousMouseY;
+        const scrollInput = (deltaX + deltaY);
+        targetScrollPos += scrollInput * 0.35;
+        const panInput = (deltaX - deltaY);
+        targetCameraOffsetX -= panInput * 0.35;
+        previousMouseX = event.clientX;
+        previousMouseY = event.clientY;
+    }
+
+    function updateParticles(delta) {
+        const t = globalUniforms.time.value;
+        allParticles.forEach(pMesh => {
+            if (pMesh.parent.visible === false) return;
+            if (pMesh.userData.type === 'flow') {
+                const data = pMesh.userData.flowData;
+                data.progress = (data.progress + data.speed * TIME_SCALE * delta) % 1;
+                const wobble = Math.sin(t * data.wobbleSpeed + data.phase) * data.wobbleAmp;
+                pMesh.position.copy(data.start).add(data.endVec.clone().multiplyScalar(data.progress)).add(data.sideVec.clone().multiplyScalar((1.2 + wobble) * data.sideModifier));
+            }
+        });
+    }
+
+    function updateBuildingAnimations(currentZone, delta) {
+        const t = globalUniforms.time.value;
+        buildingRegistry.forEach((building, buildingId) => {
+            const userData = building.userData;
+            const zoneDist = Math.abs(userData.zone - currentZone);
+            const shouldBeVisible = zoneDist <= VISIBLE_ZONE_RADIUS;
+
+            let floatOffset = 0;
+            const isAlive = (userData.animState !== 'collapsing' && userData.animState !== 'collapsed');
+            if (userData.animSpeed && isAlive) {
+                floatOffset = Math.sin(t * userData.animSpeed + userData.animPhase) * userData.animAmp;
+            }
+
+            if (userData.animState === 'appearing') {
+                if (userData.animProgress === 0) {
+                    building.rotation.set(0, 0, 0);
+                    building.scale.set(1, 1, 1);
+                }
+                const increment = 0.02 * BUILDING_ANIMATION_SPEED * TIME_SCALE * delta;
+                userData.animProgress += increment;
+                if (userData.animProgress >= 1.0) {
+                    userData.animProgress = 1.0;
+                    userData.animState = 'visible';
+                }
+                const k = userData.animProgress;
+                const eased = 1 - Math.pow(1 - k, 3);
+                const disappearOffset = userData.type === 'top' ? 300 : -300;
+                building.position.y = userData.baseY + (disappearOffset * (1 - eased)) + (floatOffset * eased);
+
+            } else if (userData.animState === 'visible') {
+                if (!shouldBeVisible) {
+                    userData.animState = 'disappearing';
+                    userData.animProgress = 0;
+                } else {
+                    building.position.y = userData.baseY + floatOffset;
+                }
+
+            } else if (userData.animState === 'collapsing') {
+                const startSpeed = 0.002;
+                const acceleration = 0.035;
+
+                let calculatedSpeed = startSpeed + (acceleration * userData.animProgress);
+                const maxSpeed = 0.015;
+                if (calculatedSpeed > maxSpeed) calculatedSpeed = maxSpeed;
+
+                const collapseSpeed = calculatedSpeed * TIME_SCALE * delta;
+
+                userData.animProgress += collapseSpeed;
+
+                if (userData.animProgress >= 1.0) {
+                    userData.animProgress = 1.0;
+                    userData.animState = 'collapsed';
+                    buildingHistory.set(userData.buildingId, {
+                        pos: building.position.clone(),
+                        rot: building.quaternion.clone(),
+                        scale: building.scale.clone()
+                    });
+                }
+
+                const p = userData.animProgress;
+                const easeRot = p * p;
+                const easeDrop = Math.pow(p, 2.2);
+
+                if (userData.collapseData) {
+                    building.rotation.set(0, 0, 0);
+                    const curAngle = userData.collapseData.targetAngle * easeRot;
+                    building.rotateOnWorldAxis(userData.collapseData.axis, curAngle);
+                }
+
+                const sink = userData.collapseData.sinkAmount * easeDrop * 0.2;
+                building.position.y = (userData.baseY + floatOffset) - sink;
+
+                const jitter = Math.sin(p * 25) * 0.01 * (1 - p);
+                building.scale.set(1 + jitter, 1 - p * 0.05, 1 + jitter);
+
+            } else if (userData.animState === 'collapsed') {
+                if (!shouldBeVisible) {
+                    userData.animState = 'disappearing';
+                    userData.animProgress = 0;
+                }
+            } else if (userData.animState === 'disappearing') {
+                const increment = 0.02 * BUILDING_ANIMATION_SPEED * TIME_SCALE * delta;
+                userData.animProgress += increment;
+                if (userData.animProgress >= 1.0) {
+                    userData.animProgress = 1.0;
+                    userData.animState = 'hidden';
+                }
+                const k = userData.animProgress;
+                if (userData.type === 'bottom') {
+                    building.scale.setScalar(1 - k);
+                } else {
+                    const eased = k * k * k;
+                    const disappearOffset = 300;
+                    building.position.y = userData.baseY + (disappearOffset * eased) + (floatOffset * (1 - eased));
+                }
+            }
+        });
+    }
+
+    function updateLightningEffects(delta) {
+        edgeAnimRegistry.forEach(edge => {
+            if (edge.status === 'hidden') {
+                edge.lightningLines.forEach(l => l.visible = false);
+                return;
+            }
+            const currentEnd = edge.targetVec.clone().multiplyScalar(edge.progress);
+            edge.lightningLines.forEach((line, strandIndex) => {
+                line.visible = true;
+                const positions = line.geometry.attributes.position.array;
+                for (let i = 0; i <= LIGHTNING_SEGMENTS; i++) {
+                    const pct = i / LIGHTNING_SEGMENTS;
+                    const baseX = currentEnd.x * pct;
+                    const baseY = currentEnd.y * pct;
+                    const baseZ = currentEnd.z * pct;
+                    const envelope = Math.sin(pct * Math.PI);
+                    const ampBase = (strandIndex === 0) ? 5.0 : 2.5;
+                    const amp = ampBase * envelope;
+                    const jitterX = (Math.random() - 0.5) * amp;
+                    const jitterY = (Math.random() - 0.5) * amp;
+                    const jitterZ = (Math.random() - 0.5) * amp;
+                    positions[i * 3] = baseX + jitterX;
+                    positions[i * 3 + 1] = baseY + jitterY;
+                    positions[i * 3 + 2] = baseZ + jitterZ;
+                }
+                line.geometry.attributes.position.needsUpdate = true;
+            });
+        });
+    }
+
+    function updateUnlockAnimations(delta) {
+        const edgeSpeed = 0.02 * TIME_SCALE * delta;
+        const nodeSpeed = 0.05 * TIME_SCALE * delta;
+        edgeAnimRegistry.forEach(edge => {
+            if (edge.status === 'growing') {
+                edge.progress += edgeSpeed;
+                if (edge.progress >= 1.0) {
+                    edge.progress = 1.0;
+                    edge.status = 'shown';
+                    edge.particleGroup.visible = true;
+                    const childNode = nodeAnimRegistry[edge.childId];
+                    if (childNode && childNode.status === 'locked') childNode.status = 'popping';
+                }
+            }
+        });
+        for (const nodeId in nodeAnimRegistry) {
+            const data = nodeAnimRegistry[nodeId];
+
+            // --- 修改：检查是否已经 unlocked 但还未在列表中 ---
+            if (data.status === 'unlocked') {
+                addNodeToSidebar(nodeId);
+            }
+
+            if (data.status === 'popping') {
+                data.scaleProgress += nodeSpeed;
+                let scale = data.scaleProgress;
+                const backScale = 1 + 2.70158 * Math.pow(scale - 1, 3) + 1.70158 * Math.pow(scale - 1, 2);
+                if (data.scaleProgress >= 1.0) {
+                    data.scaleProgress = 1.0;
+                    data.status = 'unlocked';
+                    scale = 1.0;
+
+                    // --- 修改：当动画完成解锁时，添加到列表 ---
+                    addNodeToSidebar(nodeId);
+
+                } else {
+                    scale = scale > 1 ? backScale : scale;
+                }
+                data.group.scale.set(scale, scale, scale);
+            }
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+        if(globalUniforms) globalUniforms.time.value += delta * 1.2;
+        updateParticles(delta);
+        updateUnlockAnimations(delta);
+        updateLightningEffects(delta);
+
+        if (cloudMesh) {
+            cloudMesh.position.x = camera.position.x;
+            cloudMesh.position.z = camera.position.z;
+        }
+        const dampingBase = 0.95;
+        const safeDelta = Math.min(delta, 0.1);
+        const dampingFactor = 1.0 - Math.pow(dampingBase, safeDelta * 60);
+        scrollPos += (targetScrollPos - scrollPos) * dampingFactor;
+        cameraOffsetX += (targetCameraOffsetX - cameraOffsetX) * dampingFactor;
+        cameraHeight += (targetCameraHeight - cameraHeight) * dampingFactor;
+
+        const currentFocusZ = -scrollPos;
+        const currentZone = Math.floor(currentFocusZ / BUILDING_ZONE_SIZE);
+        const buildingRenderRange = 500;
+        const minBuildingZ = currentFocusZ - buildingRenderRange;
+        const maxBuildingZ = currentFocusZ + buildingRenderRange;
+        const minZone = Math.floor(minBuildingZ / BUILDING_ZONE_SIZE);
+        const maxZone = Math.floor(maxBuildingZ / BUILDING_ZONE_SIZE);
+
+        for (let zone = minZone; zone <= maxZone; zone++) {
+            if (!generatedBuildingZones.has(zone)) {
+                createRandomBuildings(zone);
+                generatedBuildingZones.add(zone);
+            }
+        }
+
+        updateBuildingAnimations(currentZone, delta);
+
+        const baseCenterX = 0;
+        const finalCamX = baseCenterX + cameraOffsetX - 100 * (cameraHeight / 100);
+        camera.position.set(finalCamX, cameraHeight, currentFocusZ + 120 * (cameraHeight / 100));
+        camera.lookAt(baseCenterX + cameraOffsetX, 0, currentFocusZ);
+
+        const light = scene.getObjectByName("mainLight");
+        if (light) {
+            light.position.set(baseCenterX + cameraOffsetX + 200, 1500, currentFocusZ + 200);
+            light.target.position.set(baseCenterX + cameraOffsetX, 0, currentFocusZ);
+            light.target.updateMatrixWorld();
+        }
+
+        // 清理逻辑
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            const isMainNode = (obj.userData.type === 'mainNode');
+
+            if (!isMainNode && obj.userData.buildingId !== undefined) {
+                const buildingId = obj.userData.buildingId;
+                const isOutOfRange = (obj.position.z < minBuildingZ - 200 || obj.position.z > maxBuildingZ + 200);
+
+                const isDead = (obj.userData.animState === 'hidden');
+                const isLostRuins = (obj.userData.animState === 'collapsed' && isOutOfRange);
+
+                if ((isDead || isLostRuins) && isOutOfRange) {
+                    obj.traverse((child) => {
+                        if (child.userData && child.userData.isInteractive) {
+                            const idx = interactiveObjects.indexOf(child);
+                            if (idx > -1) interactiveObjects.splice(idx, 1);
+                            if (hoveredObject === child) {
+                                hoveredObject = null;
+                                document.body.classList.remove('pointer');
+                            }
+                        }
+                    });
+                    scene.remove(obj);
+                    disposeHierarchy(obj);
+                    objects.splice(i, 1);
+                    buildingRegistry.delete(buildingId);
+                    if (obj.userData.zone !== undefined) generatedBuildingZones.delete(obj.userData.zone);
+                }
+            }
+        }
+
+        if (bloomComposer) {
+            if (cloudMesh) cloudMesh.visible = false;
+            scene.background = new THREE.Color(0x000000);
+            camera.layers.set(BLOOM_LAYER);
+            bloomComposer.render();
+            if (cloudMesh) cloudMesh.visible = true;
+            scene.background = new THREE.Color(config.bgColor);
+            camera.layers.set(0);
+            finalComposer.render();
+        }
+    }
+
+    window.addEventListener('message', function (event) {
+        const data = event.data;
+        if (data.type === 'updateConfig') {
+            const key = data.key;
+            const value = data.value;
+            if (typeof value === 'string' && value.startsWith('#')) {
+                config[key] = parseInt(value.replace('#', '0x'), 16);
+            } else {
+                config[key] = value;
+            }
+            updateSceneFromConfig(key, value);
+        } else if (data.type === 'requestConfig') {
+            const exportConfig = {};
+            for (let k in config) {
+                const val = config[k];
+                if (k.toLowerCase().includes('color') && typeof val === 'number') {
+                    exportConfig[k] = '#' + val.toString(16).padStart(6, '0');
+                } else {
+                    exportConfig[k] = val;
+                }
+            }
+            window.parent.postMessage({type: 'configLoaded', config: exportConfig}, '*');
+        }
+    });
+
+    function updateSceneFromConfig(key, rawValue) {
+        let colorObj;
+        if (typeof rawValue === 'string' && rawValue.startsWith('#')) {
+            colorObj = new THREE.Color(rawValue);
+        } else if (typeof rawValue === 'number') {
+            colorObj = new THREE.Color(rawValue);
+        }
+
+        switch (key) {
+            case 'bgColor':
+                scene.background = colorObj;
+                break;
+            case 'fogColor':
+                globalUniforms.fogColor.value.copy(colorObj);
+                break;
+            case 'cloudBaseColor':
+                globalUniforms.cloudBaseColor.value.copy(colorObj);
+                break;
+            case 'cloudHighlightColor':
+                globalUniforms.cloudHighlightColor.value.copy(colorObj);
+                break;
+            case 'mainBlockColor':
+                if (mats.mainBox) mats.mainBox.color.copy(colorObj);
+                break;
+            case 'bgBlockColor':
+                if (mats.bgBox) mats.bgBox.color.copy(colorObj);
+                break;
+            case 'mainEdgeColor':
+                if (mats.mainEdges) mats.mainEdges.color.copy(colorObj);
+                if (mats.line) mats.line.color.copy(colorObj);
+                if (particleMat) particleMat.color.copy(colorObj);
+                break;
+            case 'dimEdgeColor':
+                if (mats.dimEdges) mats.dimEdges.color.copy(colorObj);
+                break;
+            case 'heightFogDensity':
+                updateMaterialUniforms('hFogDensity', rawValue);
+                break;
+            case 'heightFogBase':
+                updateMaterialUniforms('hFogBase', rawValue);
+                break;
+            case 'gradDarkness':
+                if (gradientPass) gradientPass.uniforms.uDarkness.value = rawValue;
+                break;
+            case 'gradBrightness':
+                if (gradientPass) gradientPass.uniforms.uBrightness.value = rawValue;
+                break;
+        }
+    }
+
+    function updateMaterialUniforms(uniformName, value) {
+        scene.traverse(obj => {
+            if (obj.material) {
+                const matList = Array.isArray(obj.material) ? obj.material : [obj.material];
+                matList.forEach(m => {
+                    if (m.userData && m.userData.shader && m.userData.shader.uniforms && m.userData.shader.uniforms[uniformName]) {
+                        m.userData.shader.uniforms[uniformName].value = value;
+                    }
+                });
+            }
+        });
+    }
+</script>
+</body>
+
+</html>

@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 空间无限延伸时间轴 - 可切换发光版</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            cursor: grab;
+            transition: background-color 0.5s ease;
+        }
+
+        body.grabbing {
+            cursor: grabbing;
+        }
+
+        body.light-mode {
+            background-color: #f0f0f0;
+        }
+
+        body.dark-mode {
+            background-color: #050505;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            z-index: 10;
+            transition: color 0.5s ease;
+        }
+
+        body.light-mode #ui {
+            color: #333;
+        }
+
+        body.dark-mode #ui {
+            color: #fff;
+            mix-blend-mode: difference;
+        }
+
+        h1 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin: 0;
+            text-transform: uppercase;
+            font-size: 1.2rem;
+            display: inline-block;
+            padding-bottom: 5px;
+            border-bottom: 1px solid;
+            transition: all 0.5s ease;
+        }
+
+        body.light-mode h1 {
+            border-color: #333;
+            color: #333;
+            text-shadow: none;
+        }
+
+        body.dark-mode h1 {
+            border-color: #00ffff;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        p {
+            font-size: 0.8rem;
+            margin-top: 5px;
+            transition: all 0.5s ease;
+        }
+
+        body.light-mode p {
+            opacity: 0.7;
+            color: #333;
+        }
+
+        body.dark-mode p {
+            opacity: 0.8;
+            color: #ccc;
+        }
+
+        #toggle-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            border: 2px solid;
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 100;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        body.light-mode #toggle-btn {
+            background-color: #fff;
+            color: #333;
+            border-color: #333;
+        }
+
+        body.light-mode #toggle-btn:hover {
+            background-color: #333;
+            color: #fff;
+        }
+
+        body.dark-mode #toggle-btn {
+            background-color: #111;
+            color: #00ffff;
+            border-color: #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+
+        body.dark-mode #toggle-btn:hover {
+            background-color: #00ffff;
+            color: #000;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            letter-spacing: 5px;
+            transition: opacity 0.5s;
+        }
+
+        body.light-mode .loading {
+            color: #666;
+        }
+
+        body.dark-mode .loading {
+            color: #00ffff;
+            text-shadow: 0 0 15px #00ffff;
+        }
+    </style>
+</head>
+
+<body class="light-mode">
+
+<div id="ui">
+    <h1 id="ui-title">CHRONO INFINITY // MULTIVERSE</h1>
+    <p id="ui-desc">5 PARALLEL TIMELINES • CROSS-LINKS ACTIVE<br>5条并行主线 • 随机跨线连接 • 滚轮拉远查看全貌</p>
+</div>
+
+<button id="toggle-btn">启用霓虹发光</button>
+
+<div id="loading" class="loading">CONSTRUCTING MULTIVERSE...</div>
+<div id="canvas-container"></div>
+
+<!-- Three.js Core -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<!-- Post-Processing Dependencies -->
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+<script>
+    // --- 配置参数 ---
+    const config = {
+        spacingZ: 40,
+        renderRange: 45,
+        laneCount: 5,
+        laneDist: 350,
+        crossLinkChance: 0.35
+    };
+
+    // 两套配置
+    const lightModeConfig = {
+        bgColor: 0xf0f0f0,
+        fogColor: 0xf0f0f0,
+        heightFogDensity: 0.005,
+        heightFogBase: -20.0,
+        blockColor: 0xffffff,
+        lineColor: 0x333333,
+        edgeColor: 0x000000,
+        personColor: 0x333333,
+        textColor: '#1a1a1a'
+    };
+
+    const darkModeConfig = {
+        bgColor: 0x050505,
+        fogColor: 0x050505,
+        heightFogDensity: 0.005,
+        heightFogBase: -50.0,
+        blockColor: 0x111111,
+        lineColor: 0x222222,
+        glowEdgeColor: 0x00ffff,
+        dimEdgeColor: 0x333333,
+        personColor: 0x00aaaa,
+        textColor: '#ffffff'
+    };
+
+    // --- 核心变量 ---
+    let scene, camera, renderer, composer, bloomPass;
+    let scrollPos = -50;
+    let targetScrollPos = -50;
+    let activeIndices = new Set();
+    let cameraHeight = 100;
+    let targetCameraHeight = 100;
+    let isDragging = false;
+    let previousMouseY = 0;
+    let objects = [];
+    let isGlowMode = false;
+
+    // 材质集合
+    let materials = {
+        light: {},
+        dark: {}
+    };
+
+    let heightFogShaderLogic;
+
+    // --- 初始化 ---
+    function init() {
+        const container = document.getElementById('canvas-container');
+
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(lightModeConfig.bgColor);
+        scene.fog = new THREE.FogExp2(lightModeConfig.fogColor, 0.0006);
+
+        // Shader 注入逻辑 (保持雾效)
+        heightFogShaderLogic = (shader) => {
+            const currentConfig = isGlowMode ? darkModeConfig : lightModeConfig;
+            shader.uniforms.hFogColor = { value: new THREE.Color(currentConfig.fogColor) };
+            shader.uniforms.hFogDensity = { value: currentConfig.heightFogDensity };
+            shader.uniforms.hFogBase = { value: currentConfig.heightFogBase };
+
+            shader.vertexShader = shader.vertexShader.replace(
+                `#include <common>`,
+                `#include <common>
+                    varying vec3 vWorldPosition;`
+            );
+            shader.vertexShader = shader.vertexShader.replace(
+                `#include <begin_vertex>`,
+                `#include <begin_vertex>
+                    vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;`
+            );
+
+            shader.fragmentShader = shader.fragmentShader.replace(
+                `#include <common>`,
+                `#include <common>
+                    uniform vec3 hFogColor;
+                    uniform float hFogDensity;
+                    uniform float hFogBase;
+                    varying vec3 vWorldPosition;`
+            );
+
+            shader.fragmentShader = shader.fragmentShader.replace(
+                `#include <fog_fragment>`,
+                `
+                    float heightFactor = 0.0;
+                    if (vWorldPosition.y < hFogBase) {
+                        float dist = hFogBase - vWorldPosition.y;
+                        heightFactor = 1.0 - exp(-dist * hFogDensity);
+                    }
+                    heightFactor = clamp(heightFactor, 0.0, 1.0);
+                    gl_FragColor.rgb = mix(gl_FragColor.rgb, hFogColor, heightFactor);
+                    #include <fog_fragment>
+                    `
+            );
+        };
+
+        // 创建两套材质
+        createMaterials();
+
+        camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 10, 10000);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // --- Post-Processing: Bloom (泛光) ---
+        const renderScene = new THREE.RenderPass(scene, camera);
+
+        // 参数: resolution, strength, radius, threshold
+        // strength: 泛光强度 (1.5 很强)
+        // radius: 泛光扩散半径 (0.4 适中)
+        // threshold: 亮度阈值 (0: 所有东西都发光, 1: 只有极亮的发光)
+        bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0; // 设置为0让线条更容易发光，因为我们通过颜色控制
+        bloomPass.strength = 1.8; // 增强发光强度
+        bloomPass.radius = 0.5;
+        bloomPass.enabled = false; // 初始禁用
+
+        composer = new THREE.EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+        // -------------------------------------
+
+        // 灯光
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        ambientLight.name = "ambientLight";
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        dirLight.name = "mainLight";
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 4096;
+        dirLight.shadow.mapSize.height = 4096;
+        const shadowRange = config.laneCount * config.laneDist + 500;
+        dirLight.shadow.camera.left = -500;
+        dirLight.shadow.camera.right = shadowRange;
+        dirLight.shadow.camera.top = 500;
+        dirLight.shadow.camera.bottom = -500;
+        dirLight.shadow.camera.near = 0.1;
+        dirLight.shadow.camera.far = 2000;
+        scene.add(dirLight);
+
+        const gridHelper = new THREE.GridHelper(20000, 1000, 0xcccccc, 0xe5e5e5);
+        gridHelper.name = "gridHelper";
+        gridHelper.position.y = -20;
+        scene.add(gridHelper);
+
+        // 事件监听
+        window.addEventListener('resize', onWindowResize, false);
+        document.addEventListener('wheel', onDocumentMouseWheel, { passive: false });
+        document.addEventListener('mousedown', onMouseDown, false);
+        document.addEventListener('mouseup', onMouseUp, false);
+        document.addEventListener('mousemove', onMouseMove, false);
+        document.addEventListener('mouseleave', onMouseUp, false);
+        document.getElementById('toggle-btn').addEventListener('click', toggleGlowMode);
+
+        document.getElementById('loading').style.opacity = 0;
+
+        animate();
+    }
+
+    // --- 创建两套材质 ---
+    function createMaterials() {
+        // Light Mode 材质
+        materials.light.box = new THREE.MeshLambertMaterial({ color: lightModeConfig.blockColor });
+        materials.light.box.onBeforeCompile = heightFogShaderLogic;
+
+        materials.light.line = new THREE.LineBasicMaterial({ color: lightModeConfig.lineColor, transparent: true, opacity: 0.5 });
+        materials.light.line.onBeforeCompile = heightFogShaderLogic;
+
+        materials.light.edge = new THREE.LineBasicMaterial({ color: lightModeConfig.edgeColor, linewidth: 2 });
+        materials.light.edge.onBeforeCompile = heightFogShaderLogic;
+
+        materials.light.person = new THREE.MeshBasicMaterial({ color: lightModeConfig.personColor });
+
+        // Dark Mode 材质
+        materials.dark.box = new THREE.MeshLambertMaterial({ color: darkModeConfig.blockColor });
+        materials.dark.box.onBeforeCompile = heightFogShaderLogic;
+
+        materials.dark.line = new THREE.LineBasicMaterial({ color: darkModeConfig.lineColor, transparent: true, opacity: 0.3 });
+        materials.dark.line.onBeforeCompile = heightFogShaderLogic;
+
+        // 【关键】发光的主线边框 (高亮青色)
+        materials.dark.glowEdge = new THREE.LineBasicMaterial({ color: darkModeConfig.glowEdgeColor, linewidth: 2 });
+        // 注意：LineBasicMaterial 不受光照影响，它的颜色就是最终颜色，配合 BloomPass 即可发光
+        materials.dark.glowEdge.onBeforeCompile = heightFogShaderLogic;
+
+        // 【关键】不发光的暗淡边框 (用于背景建筑)
+        materials.dark.dimEdge = new THREE.LineBasicMaterial({ color: darkModeConfig.dimEdgeColor, transparent: true, opacity: 0.4 });
+        materials.dark.dimEdge.onBeforeCompile = heightFogShaderLogic;
+
+        materials.dark.person = new THREE.MeshBasicMaterial({ color: darkModeConfig.personColor });
+    }
+
+    // --- 切换发光模式 ---
+    function toggleGlowMode() {
+        isGlowMode = !isGlowMode;
+        const body = document.body;
+        const btn = document.getElementById('toggle-btn');
+        const title = document.getElementById('ui-title');
+        const desc = document.getElementById('ui-desc');
+
+        if (isGlowMode) {
+            // 切换到发光模式
+            body.classList.remove('light-mode');
+            body.classList.add('dark-mode');
+            btn.textContent = '关闭霓虹发光';
+            title.textContent = 'NEON INFINITY // MULTIVERSE';
+            desc.innerHTML = '5 PARALLEL TIMELINES • NEON GLOW ACTIVE<br>5条并行主线 • 自发光边框 • 滚轮拉远查看全貌';
+
+            scene.background = new THREE.Color(darkModeConfig.bgColor);
+            scene.fog.color = new THREE.Color(darkModeConfig.fogColor);
+            bloomPass.enabled = true;
+
+            // 更新网格
+            const gridHelper = scene.getObjectByName("gridHelper");
+            if (gridHelper) {
+                scene.remove(gridHelper);
+                const newGrid = new THREE.GridHelper(20000, 1000, 0x111111, 0x0a0a0a);
+                newGrid.name = "gridHelper";
+                newGrid.position.y = -20;
+                if (newGrid.material instanceof THREE.Material) {
+                    newGrid.material.transparent = true;
+                    newGrid.material.opacity = 0.2;
+                }
+                scene.add(newGrid);
+            }
+
+            // 更新灯光
+            const ambientLight = scene.getObjectByName("ambientLight");
+            if (ambientLight) {
+                ambientLight.intensity = 0.5; // 降低环境光，增加对比度
+            }
+
+            const dirLight = scene.getObjectByName("mainLight");
+            if (dirLight) {
+                dirLight.intensity = 0.8;
+                dirLight.color.setHSL(0.6, 0.2, 1.0);
+            }
+        } else {
+            // 切换到普通模式
+            body.classList.remove('dark-mode');
+            body.classList.add('light-mode');
+            btn.textContent = '启用霓虹发光';
+            title.textContent = 'CHRONO INFINITY // MULTIVERSE';
+            desc.innerHTML = '5 PARALLEL TIMELINES • CROSS-LINKS ACTIVE<br>5条并行主线 • 随机跨线连接 • 滚轮拉远查看全貌';
+
+            scene.background = new THREE.Color(lightModeConfig.bgColor);
+            scene.fog.color = new THREE.Color(lightModeConfig.fogColor);
+            bloomPass.enabled = false;
+
+            // 更新网格
+            const gridHelper = scene.getObjectByName("gridHelper");
+            if (gridHelper) {
+                scene.remove(gridHelper);
+                const newGrid = new THREE.GridHelper(20000, 1000, 0xcccccc, 0xe5e5e5);
+                newGrid.name = "gridHelper";
+                newGrid.position.y = -20;
+                scene.add(newGrid);
+            }
+
+            // 更新灯光
+            const ambientLight = scene.getObjectByName("ambientLight");
+            if (ambientLight) {
+                ambientLight.intensity = 0.7; // 恢复环境光强度
+            }
+
+            const dirLight = scene.getObjectByName("mainLight");
+            if (dirLight) {
+                dirLight.intensity = 0.6;
+                dirLight.color.setRGB(1, 1, 1);
+            }
+        }
+
+        // 重新创建材质以应用新的shader配置
+        createMaterials();
+
+        // 清除所有现有对象，让它们用新材质重新生成
+        clearAllObjects();
+    }
+
+    // --- 清除所有对象 ---
+    function clearAllObjects() {
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            scene.remove(obj);
+            obj.traverse((child) => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (child.material.map) child.material.map.dispose();
+                    child.material.dispose();
+                }
+            });
+        }
+        objects = [];
+        activeIndices.clear();
+    }
+
+    // --- 数据生成逻辑 ---
+    function generateDataForIndex(i, laneIdx) {
+        const year = 2024 - i;
+        const prefixes = ["INIT", "CORE", "NODE", "DATA", "SYNC"];
+        const descs = [
+            "Analysis complete.",
+            "Foundation sector.",
+            "Integration core.",
+            "System upgrade.",
+            "Link established."
+        ];
+        const laneNames = ["ALPHA", "BETA", "GAMMA", "DELTA", "EPSILON", "ZETA", "ETA", "THETA"];
+        const laneName = laneNames[laneIdx % laneNames.length];
+        const safeIdx = Math.abs(i);
+        return {
+            year: year.toString(),
+            title: `${prefixes[safeIdx % prefixes.length]} ${laneName}-${safeIdx + 1}`,
+            desc: descs[safeIdx % descs.length]
+        };
+    }
+
+    function createRow(index) {
+        const laneGroups = [];
+        for (let l = 0; l < config.laneCount; l++) {
+            const group = createLane(index, l);
+            laneGroups.push(group);
+        }
+
+        // 跨线连接
+        for (let l = 0; l < config.laneCount - 1; l++) {
+            const linkSeed = Math.sin(index * 999 + l * 777) * 43758.5453;
+            const shouldLink = ((linkSeed - Math.floor(linkSeed)) < config.crossLinkChance);
+
+            if (shouldLink) {
+                const groupA = laneGroups[l];
+                const groupB = laneGroups[l + 1];
+                const posA = groupA.position;
+                const posB = groupB.position;
+
+                const startLocal = new THREE.Vector3(0, 0, 0);
+                const endLocal = new THREE.Vector3(
+                    posB.x - posA.x,
+                    posB.y - posA.y,
+                    posB.z - posA.z
+                );
+
+                const linkGeo = new THREE.BufferGeometry().setFromPoints([startLocal, endLocal]);
+                const linkLine = new THREE.Line(linkGeo, getCurrentMaterial('line'));
+                groupA.add(linkLine);
+
+                const midPoint = endLocal.clone().multiplyScalar(0.5);
+                const markerGeo = new THREE.BoxGeometry(2, 2, 2);
+                const marker = new THREE.Mesh(markerGeo, getCurrentMaterial('box'));
+                marker.position.copy(midPoint);
+                groupA.add(marker);
+            }
+        }
+    }
+
+    function createLane(index, laneIdx) {
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const personGeo = new THREE.ConeGeometry(0.15, 0.8, 8);
+        const data = generateDataForIndex(index, laneIdx);
+
+        const seedBase = index * 12.9898 + (laneIdx * 999.99);
+        const seed = Math.sin(seedBase) * 43758.5453;
+        const pseudoRand = (offset) => (Math.sin(seed + offset) * 10000) % 1;
+
+        const zPos = -index * config.spacingZ;
+        const laneOffsetX = laneIdx * config.laneDist;
+
+        const group = new THREE.Group();
+        const xPos = laneOffsetX + pseudoRand(1) * 20;
+        const yPos = pseudoRand(2) * 10;
+
+         group.position.set(xPos, yPos, zPos);
+         group.userData = { baseY: yPos, type: 'main', index: index, lane: laneIdx };
+         group.scale.set(1, 1, 1);
+
+        // 纵向连接线
+        const nextIndex = index + 1;
+        const nextSeedBase = nextIndex * 12.9898 + (laneIdx * 999.99);
+        const nextSeed = Math.sin(nextSeedBase) * 43758.5453;
+        const nextPseudoRand = (offset) => (Math.sin(nextSeed + offset) * 10000) % 1;
+
+        const nextXPos = laneOffsetX + nextPseudoRand(1) * 20;
+        const nextYPos = nextPseudoRand(2) * 10;
+        const nextZPos = -nextIndex * config.spacingZ;
+
+        const lineEndLocal = new THREE.Vector3(
+            nextXPos - xPos,
+            nextYPos - yPos,
+            nextZPos - zPos
+        );
+
+        const timelineConnGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            lineEndLocal
+        ]);
+        const timelineConnLine = new THREE.Line(timelineConnGeo, getCurrentMaterial('line'));
+        group.add(timelineConnLine);
+
+        // 主平台
+        const mainSx = 4 + Math.abs(pseudoRand(3)) * 4;
+        const mainSy = 1 + Math.abs(pseudoRand(4)) * 2;
+        const mainSz = 4 + Math.abs(pseudoRand(5)) * 4;
+
+        const platform = new THREE.Mesh(boxGeo, getCurrentMaterial('box'));
+        platform.scale.set(mainSx, mainSy, mainSz);
+        platform.castShadow = true;
+        platform.receiveShadow = true;
+
+        const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(mainSx, mainSy, mainSz));
+        const edgeLines = new THREE.LineSegments(edges, getCurrentMaterial('mainEdge'));
+        platform.add(edgeLines);
+        group.add(platform);
+
+        // 水平分支 - 发光模式下也要发光
+        if (Math.abs(pseudoRand(10)) > 0.6) {
+            const branchDir = pseudoRand(11) > 0 ? 1 : -1;
+            const segments = 2 + Math.floor(Math.abs(pseudoRand(12)) * 3);
+
+            let currentBranchX = (mainSx / 2) * branchDir;
+            let currentBranchY = 0;
+            let currentBranchZ = 0;
+
+            for (let s = 0; s < segments; s++) {
+                const distX = (25 + Math.abs(pseudoRand(20 + s)) * 35) * branchDir;
+                const distY = (pseudoRand(14 + s) - 0.5) * 30;
+                const distZ = (pseudoRand(19 + s) - 0.5) * 30;
+
+                const nextX = currentBranchX + distX;
+                const nextY = currentBranchY + distY;
+                const nextZ = currentBranchZ + distZ;
+
+                const connGeo = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(currentBranchX, currentBranchY, currentBranchZ),
+                    new THREE.Vector3(nextX, nextY, nextZ)
+                ]);
+                const connLine = new THREE.Line(connGeo, getCurrentMaterial('line'));
+                group.add(connLine);
+
+                const bSx = 3 + Math.abs(pseudoRand(15 + s)) * 30;
+                const bSy = 1 + Math.abs(pseudoRand(16 + s));
+                const bSz = 3 + Math.abs(pseudoRand(17 + s)) * 30;
+
+                // 分支平台边框 - 发光模式下使用发光材质
+                const bEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(bSx, bSy, bSz));
+                const bEdgeLines = new THREE.LineSegments(bEdges, getCurrentMaterial('mainEdge'));
+                bEdgeLines.position.set(nextX, nextY, nextZ);
+                group.add(bEdgeLines);
+
+                const bLineHeight = 8 + Math.abs(pseudoRand(18 + s)) * 8;
+                const bVertLine = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints([
+                        new THREE.Vector3(nextX, nextY, nextZ),
+                        new THREE.Vector3(nextX, nextY + bLineHeight, nextZ)
+                    ]),
+                    getCurrentMaterial('mainEdge')
+                );
+                group.add(bVertLine);
+
+                const bPanelGeo = new THREE.PlaneGeometry(6, 6);
+                const bPanelText = createTextTexture(data.year, "NODE " + s, "Sub-branch");
+                const bPanelMat = new THREE.MeshBasicMaterial({
+                    map: bPanelText,
+                    side: THREE.DoubleSide,
+                    transparent: true
+                });
+                if (isGlowMode) {
+                    bPanelMat.blending = THREE.AdditiveBlending; // 增加文字的发光感
+                }
+
+                const bPanel = new THREE.Mesh(bPanelGeo, bPanelMat);
+                bPanel.position.set(nextX + 4, nextY + bLineHeight, nextZ);
+                bPanel.rotation.y = -Math.PI / 4;
+                group.add(bPanel);
+
+                currentBranchX = nextX;
+                currentBranchY = nextY;
+                currentBranchZ = nextZ;
+            }
+        }
+
+        const lineHeight = 10 + Math.abs(pseudoRand(6)) * 10;
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, lineHeight, 0)
+        ]);
+        const line = new THREE.Line(lineGeo, getCurrentMaterial('mainEdge'));
+        line.position.set(mainSx / 2 - 0.5, mainSy / 2, mainSz / 2 - 0.5);
+        group.add(line);
+
+        const panelWidth = 8;
+        const panelHeight = 8;
+        const panelGeo = new THREE.PlaneGeometry(panelWidth, panelHeight);
+        const panelTexture = createTextTexture(data.year, data.title, data.desc);
+        const panelMat = new THREE.MeshBasicMaterial({
+            map: panelTexture,
+            side: THREE.DoubleSide,
+            transparent: true
+        });
+        if (isGlowMode) {
+            panelMat.depthWrite = false; // 防止透明遮挡
+            panelMat.blending = THREE.AdditiveBlending; // 叠加混合模式让文字更亮
+        }
+
+        const panel = new THREE.Mesh(panelGeo, panelMat);
+        panel.position.set(mainSx / 2 - 0.5 + panelWidth / 2, mainSy / 2 + lineHeight, mainSz / 2 - 0.5);
+        panel.rotation.y = -Math.PI / 4;
+        group.add(panel);
+
+        const person = new THREE.Mesh(personGeo, getCurrentMaterial('person'));
+        person.position.set(0, mainSy / 2 + 0.4, 0);
+        group.add(person);
+
+        scene.add(group);
+        objects.push(group);
+
+        // 底部建筑群
+        const bottomCount = 2 + Math.floor(Math.abs(pseudoRand(7)) * 4);
+        for (let k = 0; k < bottomCount; k++) {
+            const bGroup = new THREE.Group();
+            const zOffset = pseudoRand(k * 10) * 120;
+            const bZPos = zPos + zOffset;
+
+            const placeType = Math.floor(Math.abs(pseudoRand(k * 123)) * 3);
+            let bXOffset = 0;
+            const halfDist = config.laneDist / 2;
+
+            if (placeType === 0) {
+                bXOffset = pseudoRand(k * 20) * 80;
+                if (Math.abs(bXOffset) < 25) bXOffset += (bXOffset > 0 ? 25 : -25);
+            } else if (placeType === 1) {
+                bXOffset = halfDist + pseudoRand(k * 30) * 100;
+            } else {
+                bXOffset = -halfDist + pseudoRand(k * 40) * 100;
+            }
+
+            const bXPos = laneOffsetX + bXOffset;
+            const bYBase = -100 - Math.abs(pseudoRand(k * 30)) * 250;
+
+             bGroup.position.set(bXPos, bYBase, bZPos);
+             bGroup.userData = { baseY: bYBase, type: 'bottom', index: index, lane: laneIdx };
+             bGroup.scale.set(1, 1, 1);
+
+             const floors = 1 + Math.floor(Math.abs(pseudoRand(k * 40)) * 6);
+             let currentY = 0;
+             const baseW = 15 + Math.abs(pseudoRand(k * 50)) * 25;
+             const baseD = 15 + Math.abs(pseudoRand(k * 60)) * 25;
+
+             for (let f = 0; f < floors; f++) {
+                 const h = 25 + Math.abs(pseudoRand(k * 70 + f)) * 45; // 从 20-50 增加到 25-70
+                 const taper = 1.0 - (f * 0.08);
+                 const w = baseW * taper;
+                 const d = baseD * taper;
+
+                const bMesh = new THREE.Mesh(boxGeo, getCurrentMaterial('box'));
+                bMesh.scale.set(w, h, d);
+                bMesh.position.set(0, currentY + h / 2, 0);
+                bMesh.castShadow = true;
+                bMesh.receiveShadow = true;
+                bGroup.add(bMesh);
+
+                const bEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d));
+                const bLines = new THREE.LineSegments(bEdges, getCurrentMaterial('dimEdge'));
+                bLines.position.set(0, currentY + h / 2, 0);
+                bGroup.add(bLines);
+                currentY += h;
+            }
+
+             const antennaH = 60 + Math.abs(pseudoRand(k * 80)) * 180; // 从 50-200 增加到 60-240
+             const antenna = new THREE.Line(
+                 new THREE.BufferGeometry().setFromPoints([
+                     new THREE.Vector3(0, currentY, 0),
+                     new THREE.Vector3(0, currentY + antennaH, 0)
+                 ]),
+                 getCurrentMaterial('line')
+             );
+             bGroup.add(antenna);
+
+            scene.add(bGroup);
+            objects.push(bGroup);
+        }
+
+        // 天空倒置建筑群
+        const topCount = 1 + Math.floor(Math.abs(pseudoRand(50)) * 2);
+        for (let k = 0; k < topCount; k++) {
+            const tGroup = new THREE.Group();
+            const zOffset = pseudoRand(k * 15) * 120;
+            const tZPos = zPos + zOffset;
+
+            let randOffset = pseudoRand(k * 25) * 240;
+            if (Math.abs(randOffset) < 30) randOffset += (randOffset > 0 ? 30 : -30);
+            const tXPos = laneOffsetX + randOffset;
+
+            const tYBase = isGlowMode ? (350 + Math.abs(pseudoRand(k * 35)) * 150) : (600 + Math.abs(pseudoRand(k * 35)) * 300);
+
+             tGroup.position.set(tXPos, tYBase, tZPos);
+             tGroup.userData = { baseY: tYBase, type: 'top', index: index, lane: laneIdx };
+             tGroup.scale.set(1, 1, 1);
+
+            const floors = 2 + Math.floor(Math.abs(pseudoRand(k * 45)) * 4);
+            let currentY = 0;
+            const baseW = 15 + Math.abs(pseudoRand(k * 55)) * 25;
+            const baseD = 15 + Math.abs(pseudoRand(k * 65)) * 25;
+
+            for (let f = 0; f < floors; f++) {
+                const h = 20 + Math.abs(pseudoRand(k * 75 + f)) * (isGlowMode ? 40 : 80);
+                const taper = 1.0 - (f * 0.05);
+                const w = baseW * taper;
+                const d = baseD * taper;
+
+                const tMesh = new THREE.Mesh(boxGeo, getCurrentMaterial('box'));
+                tMesh.scale.set(w, h, d);
+                tMesh.position.set(0, currentY - h / 2, 0);
+                tMesh.castShadow = true;
+                tMesh.receiveShadow = true;
+                tGroup.add(tMesh);
+
+                const tEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d));
+                const tLines = new THREE.LineSegments(tEdges, getCurrentMaterial('dimEdge'));
+                tLines.position.set(0, currentY - h / 2, 0);
+                tGroup.add(tLines);
+
+                currentY -= h;
+            }
+
+            const antennaH = 50 + Math.abs(pseudoRand(k * 95)) * 150;
+            const antenna = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(0, currentY, 0),
+                    new THREE.Vector3(0, currentY - antennaH, 0)
+                ]),
+                getCurrentMaterial('line')
+            );
+            tGroup.add(antenna);
+
+            scene.add(tGroup);
+            objects.push(tGroup);
+        }
+
+        return group;
+    }
+
+    // --- 获取当前模式的材质 ---
+    function getCurrentMaterial(type) {
+        if (isGlowMode) {
+            switch (type) {
+                case 'box': return materials.dark.box;
+                case 'line': return materials.dark.line;
+                case 'mainEdge': return materials.dark.glowEdge; // 主线和分支都发光
+                case 'dimEdge': return materials.dark.dimEdge;
+                case 'person': return materials.dark.person;
+            }
+        } else {
+            switch (type) {
+                case 'box': return materials.light.box;
+                case 'line': return materials.light.line;
+                case 'mainEdge': return materials.light.edge;
+                case 'dimEdge': return materials.light.edge;
+                case 'person': return materials.light.person;
+            }
+        }
+    }
+
+    // --- 交互控制 ---
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function onDocumentMouseWheel(event) {
+        event.preventDefault();
+        targetCameraHeight += event.deltaY * 0.5;
+        if (targetCameraHeight < 10) targetCameraHeight = 10;
+        if (targetCameraHeight > 3000) targetCameraHeight = 3000;
+    }
+
+    function onMouseDown(event) {
+        isDragging = true;
+        previousMouseY = event.clientY;
+        document.body.classList.add('grabbing');
+    }
+
+    function onMouseUp() {
+        isDragging = false;
+        document.body.classList.remove('grabbing');
+    }
+
+    function onMouseMove(event) {
+        if (!isDragging) return;
+        const deltaY = event.clientY - previousMouseY;
+        previousMouseY = event.clientY;
+        targetScrollPos += deltaY * 0.5;
+    }
+
+    // --- 材质生成 ---
+    function createTextTexture(year, title, desc) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const width = 512;
+        const height = 512;
+        canvas.width = width;
+        canvas.height = height;
+
+        if (isGlowMode) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+            ctx.fillRect(0, 0, width, height);
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(0, 0, width, height);
+        } else {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(0, 0, width, height);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(0, 0, width, height);
+        }
+
+        ctx.fillStyle = isGlowMode ? darkModeConfig.textColor : lightModeConfig.textColor;
+        ctx.textAlign = 'left';
+
+        ctx.font = 'bold 120px Helvetica, Arial';
+        if (isGlowMode) {
+            ctx.shadowColor = "#00ffff";
+            ctx.shadowBlur = 10;
+        }
+        ctx.fillText(year, 40, 140);
+        ctx.shadowBlur = 0;
+
+        ctx.beginPath();
+        ctx.moveTo(40, 160);
+        ctx.lineTo(width - 40, 160);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = isGlowMode ? '#00ffff' : '#000';
+        ctx.stroke();
+
+        ctx.font = 'bold 40px Helvetica, Arial';
+        ctx.fillText(title, 40, 220);
+
+        ctx.font = 'normal 28px Helvetica, Arial';
+        const words = desc.split(' ');
+        let line = '';
+        let y = 280;
+        for (let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > width - 80 && n > 0) {
+                ctx.fillText(line, 40, y);
+                line = words[n] + ' ';
+                y += 40;
+            } else {
+                line = testLine;
+            }
+        }
+        ctx.fillText(line, 40, y);
+
+        ctx.fillStyle = isGlowMode ? '#00ffff' : '#000';
+        ctx.fillRect(40, height - 40, 20, 20);
+        ctx.fillRect(70, height - 40, 20, 20);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        return texture;
+    }
+
+    // --- 动画循环 ---
+    function animate() {
+        requestAnimationFrame(animate);
+
+        scrollPos += (targetScrollPos - scrollPos) * 0.05;
+        cameraHeight += (targetCameraHeight - cameraHeight) * 0.05;
+
+        const currentIndex = Math.floor(scrollPos / config.spacingZ);
+        const minIdx = currentIndex - config.renderRange;
+        const maxIdx = currentIndex + config.renderRange;
+
+        for (let i = minIdx; i <= maxIdx; i++) {
+            if (!activeIndices.has(i)) {
+                createRow(i);
+                activeIndices.add(i);
+            }
+        }
+
+        const baseHeight = 100;
+        const baseRelX = -100;
+        const baseRelZ = 120;
+        const scale = cameraHeight / baseHeight;
+
+        const currentDistX = baseRelX * scale;
+        const currentDistZ = baseRelZ * scale;
+
+        const centerLaneIndex = Math.floor(config.laneCount / 2);
+        const centerLineX = centerLaneIndex * config.laneDist;
+
+        const targetX = centerLineX;
+        const targetY = 0;
+        const currentFocusZ = -scrollPos;
+
+        const camX = targetX + currentDistX;
+        const camY = cameraHeight;
+        const camZ = currentFocusZ + currentDistZ;
+
+        camera.position.set(camX, camY, camZ);
+        camera.lookAt(targetX, targetY, currentFocusZ);
+
+        const light = scene.getObjectByName("mainLight");
+        if (light) {
+            light.position.set(camX + 50, camY + 50, camZ + 50);
+            light.target.position.set(targetX, targetY, currentFocusZ);
+            light.target.updateMatrixWorld();
+        }
+
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            const objIndex = obj.userData.index;
+
+            if (objIndex < minIdx || objIndex > maxIdx) {
+                scene.remove(obj);
+                obj.traverse((child) => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material && child.material.map) {
+                        child.material.map.dispose();
+                    }
+                });
+                objects.splice(i, 1);
+                activeIndices.delete(objIndex);
+                continue;
+            }
+
+             const dist = obj.position.z - currentFocusZ;
+             const isVisible = isGlowMode ? (dist > -650 && dist < 300) : (dist > -750 && dist < 500);
+
+             let hiddenOffset = -50;
+             if (obj.userData.type === 'top') hiddenOffset = 50;
+
+             const targetY = isVisible ? obj.userData.baseY : (obj.userData.baseY + hiddenOffset);
+
+             const lerpSpeed = 0.05;
+             if (Math.abs(obj.position.y - targetY) > 0.01) {
+                 obj.position.y = THREE.MathUtils.lerp(obj.position.y, targetY, lerpSpeed);
+             } else {
+                 obj.position.y = targetY;
+             }
+
+             const time = Date.now() * 0.001;
+             if (isVisible) {
+                 obj.children.forEach(c => {
+                     if (c.geometry && c.geometry.type === 'PlaneGeometry') {
+                         c.position.y += Math.sin(time + i + (obj.userData.lane || 0)) * 0.005;
+                     }
+                 });
+             }
+        }
+
+        if (composer) {
+            composer.render();
+        } else {
+            renderer.render(scene, camera);
+        }
+    }
+
+    init();
+
+</script>
+</body>
+
+</html>
+

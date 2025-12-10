@@ -310,7 +310,7 @@
         #background {
             --shadow-opacity: 0.6;        /* CSS变量：默认阴影不透明度为0.6 */
         }
-        
+
         /* 右侧前景图片的背景阴影层 - 创建3D深度效果 */
         #background::before {
             content: '';                  /* 伪元素必须有content属性 */
@@ -483,17 +483,17 @@
             .container {
                 padding-left: 40px;       /* 减少左侧内边距到40px */
             }
-            
+
             /* 在小屏幕上减少动画强度，提升性能 */
             .left-blur-bg::before,
             .right-blur-bg::before {
                 animation-duration: 30s;  /* 延长动画时间到30秒（减慢动画） */
             }
-            
+
             .left-blur-bg:hover::before {
                 animation-duration: 12s;  /* 悬停动画延长到12秒 */
             }
-            
+
             .right-blur-bg:hover::before {
                 animation-duration: 15s;  /* 悬停动画延长到15秒 */
             }
@@ -502,7 +502,7 @@
             #background, #background2 {
                 perspective: 800px;       /* 减少透视距离到800px（减弱3D效果） */
             }
-            
+
             #background::before,
             #background2::before {
                 filter: blur(10px);       /* 减少阴影模糊到10px */
@@ -521,7 +521,7 @@
                 filter: blur(8px);        /* 进一步减少模糊到8px */
             }
         }
-        
+
         /* 减少动画偏好用户的优化 - 遵循用户的无障碍设置 */
         @media (prefers-reduced-motion: reduce) {
             /* 禁用所有背景动画 */
@@ -677,7 +677,7 @@
     // ========== 文字内容和样式配置数组 ==========
     // 每个对象定义一行文字的所有属性
     const texts = [
-        { 
+        {
             text: 'SILENT HAZE',                           // 文字内容：标题
             x: 0,                                           // x坐标位置
             y: 50,                                          // y坐标位置
@@ -686,31 +686,31 @@
             spacing: 5,                                     // 字间距（像素）
             noiseScale: 0.05                                // 噪声缩放比例（控制噪声"瓦片"大小）
         },
-        { 
+        {
             text: 'SUMMER',                                 // 文字内容：主标题1
-            x: 0, 
-            y: 180, 
+            x: 0,
+            y: 180,
             size: 96,                                       // 大字号：96像素
             weight: '700',                                  // 字重：700（粗体）
-            spacing: 0, 
+            spacing: 0,
             noiseScale: 0.02                                // 较小的噪声比例（更细腻的效果）
         },
-        { 
+        {
             text: 'BREEZE',                                 // 文字内容：主标题2
-            x: 0, 
-            y: 280, 
-            size: 96, 
-            weight: '700', 
-            spacing: 0, 
-            noiseScale: 0.02 
+            x: 0,
+            y: 280,
+            size: 96,
+            weight: '700',
+            spacing: 0,
+            noiseScale: 0.02
         },
-        { 
+        {
             text: '25時、ナイトコードで。× 初音ミク',  // 文字内容：日文副标题
-            x: 0, 
-            y: 360, 
+            x: 0,
+            y: 360,
             size: 15,                                       // 小字号：15像素
-            weight: '300', 
-            spacing: 2, 
+            weight: '300',
+            spacing: 2,
             noiseScale: 0.08                                // 较大的噪声比例（更明显的波动效果）
         }
     ];
@@ -805,7 +805,7 @@
     const backgroundImg2 = document.querySelector('#background2 img');       // 左侧前景图片元素
     const backgroundContainer1 = document.querySelector('#background');      // 右侧前景图片容器
     const backgroundContainer2 = document.querySelector('#background2');     // 左侧前景图片容器
-    
+
     let mouseX = window.innerWidth / 2;                                      // 鼠标当前x坐标（初始化为屏幕中心）
     let mouseY = window.innerHeight / 2;                                     // 鼠标当前y坐标（初始化为屏幕中心）
     let targetX1 = 0;                                                        // 右侧图片目标x偏移量（归一化值，-1到1）
@@ -814,7 +814,7 @@
     let targetY2 = 0;                                                        // 左侧图片目标y偏移量（归一化值，-1到1）
     let isHoveringImg1 = false;                                              // 是否悬停在右侧图片上
     let isHoveringImg2 = false;                                              // 是否悬停在左侧图片上
-    
+
     // ========== 检测鼠标是否在前景图片区域内的函数 ==========
     /**
      * 检测鼠标是否在指定的前景图片区域内
@@ -826,14 +826,14 @@
      */
     function isMouseOverImage(mouseX, mouseY, container, img) {
         if (!container || !img) return false;
-        
+
         const containerRect = container.getBoundingClientRect();
         const imgRect = img.getBoundingClientRect();
-        
+
         // 检测鼠标是否在图片的实际显示区域内
-        return mouseX >= imgRect.left && 
-               mouseX <= imgRect.right && 
-               mouseY >= imgRect.top && 
+        return mouseX >= imgRect.left &&
+               mouseX <= imgRect.right &&
+               mouseY >= imgRect.top &&
                mouseY <= imgRect.bottom;
     }
 
@@ -845,17 +845,17 @@
     document.addEventListener('mousemove', (e) => {
         mouseX = e.clientX;                                                  // 更新鼠标x坐标
         mouseY = e.clientY;                                                  // 更新鼠标y坐标
-        
+
         // 检测鼠标是否悬停在各个前景图片上
         isHoveringImg1 = isMouseOverImage(mouseX, mouseY, backgroundContainer1, backgroundImg1);
         isHoveringImg2 = isMouseOverImage(mouseX, mouseY, backgroundContainer2, backgroundImg2);
-        
+
         // 计算鼠标相对于屏幕中心的归一化偏移量（-1到1之间）
         const centerX = window.innerWidth / 2;                               // 屏幕中心x坐标
         const centerY = window.innerHeight / 2;                              // 屏幕中心y坐标
         const offsetX = (mouseX - centerX) / centerX;                        // x方向偏移量：-1（最左）到1（最右）
         const offsetY = (mouseY - centerY) / centerY;                        // y方向偏移量：-1（最上）到1（最下）
-        
+
         // 只为悬停的图片更新目标位置，未悬停的图片目标位置逐渐回到0
         if (isHoveringImg1) {
             targetX1 = offsetX;
@@ -865,7 +865,7 @@
             targetX1 *= 0.95;
             targetY1 *= 0.95;
         }
-        
+
         if (isHoveringImg2) {
             targetX2 = offsetX;
             targetY2 = offsetY;
@@ -875,7 +875,7 @@
             targetY2 *= 0.95;
         }
     });
-    
+
     // ========== 平滑视差动画更新函数 ==========
     /**
      * 根据鼠标位置更新前景图片的3D变换效果
@@ -889,21 +889,21 @@
         const parallaxStrength2 = 30;       // 左侧图片视差移动强度（像素，略强于右侧）
         const tiltStrength = 4;             // 3D倾斜旋转强度（度数）
         const scaleBase = 1.02;             // 基础缩放比例（1.02 = 放大2%）
-        
+
         // ---------- 计算右侧图片的变换值 ----------
         const moveX1 = targetX1 * parallaxStrength1;                         // x方向移动距离（像素）：鼠标右移图片右移
         const moveY1 = targetY1 * parallaxStrength1 * 0.7;                   // y方向移动距离（像素）：系数0.7使垂直移动较弱
         const tiltX1 = targetY1 * tiltStrength;                              // 绕x轴旋转角度（度）：鼠标下移图片向后倾
         const tiltY1 = -targetX1 * tiltStrength;                             // 绕y轴旋转角度（度）：鼠标右移图片向左转（负值）
         const scale1 = scaleBase + Math.abs(targetX1 * 0.03) + Math.abs(targetY1 * 0.02);  // 动态缩放：鼠标远离中心时放大
-        
+
         // ---------- 计算左侧图片的变换值 ----------
         const moveX2 = -targetX2 * parallaxStrength2;                        // x方向移动距离（像素）：与右侧相反（负值）
         const moveY2 = targetY2 * parallaxStrength2 * 0.8;                   // y方向移动距离（像素）：系数0.8
         const tiltX2 = -targetY2 * tiltStrength;                             // 绕x轴旋转角度（度）：与右侧相反
         const tiltY2 = targetX2 * tiltStrength;                              // 绕y轴旋转角度（度）：与右侧相反
         const scale2 = scaleBase + Math.abs(targetX2 * 0.025) + Math.abs(targetY2 * 0.025);  // 动态缩放：系数略小于右侧
-        
+
         // 应用3D变换到右侧图片
         if (backgroundImg1) {
             backgroundImg1.style.transform =
@@ -923,16 +923,16 @@
             backgroundImg1.style.filter =
                 `contrast(${filterContrast}) brightness(${filterBrightness }) saturate(${filterSaturate}) drop-shadow(0 0 20px rgba(255, 255, 255, ${glowIntensity})) drop-shadow(0 0 70px rgba(102, 242, 255, ${glowBlue }))`;
         }
-        
+
         // 应用3D变换到左侧图片
         if (backgroundImg2) {
-            backgroundImg2.style.transform = 
+            backgroundImg2.style.transform =
                 `perspective(1200px) ` +
                 `translateX(${moveX2}px) translateY(${moveY2}px) ` +
                 `rotateX(${tiltX2}deg) rotateY(${tiltY2}deg) ` +
                 `scale(${scale2}) ` +
                 `translateZ(15px)`;
-                
+
             // 动态调整滤镜
             const filterBrightness = 1.03 + Math.abs(targetY2 * 0.06);
             const filterContrast = 1.02 + Math.abs(targetX2 * 0.07);
@@ -940,13 +940,13 @@
             backgroundImg2.style.filter =
                 `contrast(${filterContrast}) brightness(${filterBrightness}) saturate(${filterSaturate})`;
         }
-        
+
         // 更新深度阴影
         if (backgroundContainer1) {
             const shadowIntensity1 = 0.6 + Math.abs(targetX1 * 0.2) + Math.abs(targetY1 * 0.15);
             backgroundContainer1.style.setProperty('--shadow-opacity', shadowIntensity1);
         }
-        
+
         if (backgroundContainer2) {
             const shadowIntensity2 = 0.7 + Math.abs(targetX2 * 0.25) + Math.abs(targetY2 * 0.2);
             backgroundContainer2.style.setProperty('--shadow-opacity', shadowIntensity2);
@@ -968,7 +968,7 @@
     // ========== 滚动视差效果 ==========
     let scrollY = 0;                                                          // 当前滚动位置
     let ticking = false;                                                      // 防抖标志，避免频繁触发
-    
+
     /**
      * 更新滚动视差效果
      * 根据页面滚动位置调整前景图片的垂直位置
@@ -976,20 +976,20 @@
     function updateScrollParallax() {
         const scrollFactor1 = scrollY * 0.3;                                 // 右侧图片滚动系数：0.3（向下移动）
         const scrollFactor2 = scrollY * 0.4;                                 // 左侧图片滚动系数：0.4（向上移动，注意负号）
-        
+
         if (backgroundContainer1) {
             backgroundContainer1.style.transform = `translateY(${scrollFactor1}px)`;  // 右侧图片随滚动向下移动
         }
-        
+
         if (backgroundContainer2) {
             backgroundContainer2.style.transform = `translateY(${-scrollFactor2}px)`; // 左侧图片随滚动向上移动（创建对比效果）
         }
     }
-    
+
     // 监听滚动事件，使用requestAnimationFrame优化性能
     window.addEventListener('scroll', () => {
         scrollY = window.pageYOffset;                                        // 更新滚动位置（兼容旧浏览器）
-        
+
         if (!ticking) {                                                      // 如果没有待处理的动画帧
             requestAnimationFrame(() => {                                    // 在下一帧更新视差效果
                 updateScrollParallax();
@@ -1029,7 +1029,7 @@
             targetY2 = 0;                                                    // 重置左侧图片目标y偏移量
             isHoveringImg1 = false;                                          // 重置右侧图片悬停状态
             isHoveringImg2 = false;                                          // 重置左侧图片悬停状态
-            
+
             // 重置前景图片的变换和滤镜效果
             if (backgroundImg1) {
                 backgroundImg1.style.transform = '';                         // 清除右侧图片的变换
@@ -1040,11 +1040,11 @@
                 backgroundImg2.style.transform = '';                         // 清除左侧图片的变换
                 backgroundImg2.style.filter = '';                            // 清除左侧图片的滤镜
             }
-            
+
             // 可以在这里添加其他响应式逻辑（如重新计算Canvas尺寸等）
         }, 150);                                                             // 延迟150毫秒执行
     });
-    
+
     // ========== 页面可见性API优化 ==========
     /**
      * 当用户切换到其他标签页时暂停动画，节省资源
@@ -1060,7 +1060,7 @@
             animate();
         }
     });
-    
+
     // ========== 页面加载完成事件监听器 ==========
     /**
      * 等待所有资源（特别是图片）加载完成后初始化视差效果
@@ -1068,7 +1068,7 @@
      */
     window.addEventListener('load', () => {
         updateParallax();                                                     // 初始化视差效果（确保正确的初始状态）
-        
+
         // 分阶段显示各个元素
         setTimeout(() => {
             // 首先显示内容（文字）
@@ -1077,7 +1077,7 @@
                 container.classList.add('content-loaded');                   // 添加content-loaded类，触发内容渐入动画
             }
         }, 300);                                                             // 延迟300毫秒，确保背景已渲染
-        
+
         setTimeout(() => {
             // 然后显示右侧前景图片
             const background1 = document.querySelector('#background');
@@ -1085,7 +1085,7 @@
                 background1.classList.add('foreground-loaded');              // 添加foreground-loaded类，触发前景图片渐入动画
             }
         }, 600);                                                             // 延迟600毫秒
-        
+
         setTimeout(() => {
             // 最后显示左侧前景图片
             const background2 = document.querySelector('#background2');
@@ -1103,12 +1103,12 @@
     document.addEventListener('DOMContentLoaded', () => {
         // 背景立即显示，无需等待
         document.body.style.opacity = '1';
-        
+
         // 检查图片加载状态，如果已缓存则提前开始分阶段显示
         const images = document.querySelectorAll('img');
         let loadedImages = 0;
         const totalImages = images.length;
-        
+
         if (totalImages === 0) {
             // 没有图片时，使用较快的时间节点
             setTimeout(() => {
@@ -1117,7 +1117,7 @@
                     container.classList.add('content-loaded');
                 }
             }, 200);
-            
+
             setTimeout(() => {
                 const background1 = document.querySelector('#background');
                 const background2 = document.querySelector('#background2');
@@ -1136,7 +1136,7 @@
                     });
                 }
             });
-            
+
             // 如果所有图片都已加载（缓存），使用较快的时间节点
             if (loadedImages === totalImages) {
                 setTimeout(() => {
@@ -1145,14 +1145,14 @@
                         container.classList.add('content-loaded');
                     }
                 }, 200);
-                
+
                 setTimeout(() => {
                     const background1 = document.querySelector('#background');
                     if (background1) {
                         background1.classList.add('foreground-loaded');
                     }
                 }, 400);
-                
+
                 setTimeout(() => {
                     const background2 = document.querySelector('#background2');
                     if (background2) {

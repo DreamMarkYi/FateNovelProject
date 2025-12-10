@@ -1,0 +1,221 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>永夜 - 章节选择</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 全局设置 --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Serif SC', 'SimSun', serif; /* 使用衬线体 */
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* --- 背景设置 --- */
+        .background-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            /* 【重要】请将此处替换为您自己的背景图片 URL，以达到最佳一致性 */
+            background-image: url('https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+        }
+
+        /* 叠加一个深色半透明遮罩，确保文字可读性，并增加深邃感 */
+        .background-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at 50% 20%, rgba(20, 30, 60, 0.4) 0%, rgba(10, 15, 30, 0.8) 100%);
+        }
+
+        /* --- 主要内容容器 --- */
+        .container {
+            flex: 1;
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 60px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- 头部标题区域 --- */
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .main-title {
+            font-size: 4rem;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            margin-bottom: 10px;
+            /* 文字发光效果，模拟原图 */
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.6), 0 0 30px rgba(100, 200, 255, 0.3);
+        }
+
+        .sub-title {
+            font-size: 1rem;
+            letter-spacing: 0.3em;
+            color: rgba(255, 255, 255, 0.7);
+            text-transform: uppercase;
+        }
+
+        /* --- 卡片网格布局 --- */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            width: 100%;
+        }
+
+        /* --- 卡片样式核心设计 (毛玻璃风格) --- */
+        .card {
+            /* 背景色：深蓝灰色，高度半透明 */
+            background: rgba(30, 40, 60, 0.4);
+            /* 【关键】背景模糊滤镜，创造毛玻璃效果 */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            /* 细微的边框，带有轻微的光泽 */
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 30px;
+            transition: all 0.4s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 卡片标题 */
+        .card h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 15px;
+            color: #fff;
+            /* 标题轻微发光 */
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
+        }
+
+        /* 卡片描述文本 */
+        .card p {
+            font-size: 1rem;
+            line-height: 1.6;
+            /* 使用稍暗的颜色，拉开层次 */
+            color: rgba(220, 230, 255, 0.8);
+        }
+
+        /* --- 卡片悬停交互效果 --- */
+        .card:hover {
+            /* 上浮效果 */
+            transform: translateY(-8px);
+            /* 背景变得稍亮且不透明度增加 */
+            background: rgba(40, 55, 85, 0.5);
+            /* 边框发光增强，变为淡蓝色 */
+            border-color: rgba(130, 200, 255, 0.5);
+            /* 添加柔和的外部辉光阴影 */
+            box-shadow:
+                    0 15px 30px -10px rgba(0, 0, 0, 0.4),
+                    0 0 20px rgba(100, 180, 255, 0.2) inset;
+        }
+
+        /* 悬停时标题辉光增强 */
+        .card:hover h2 {
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+        }
+
+        /* 卡片内部的装饰光束 (可选) */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 60%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+
+        /* --- 底部区域 --- */
+        .footer {
+            text-align: right;
+            padding: 20px 40px;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+            letter-spacing: 0.05em;
+        }
+
+        /* --- 响应式适配 --- */
+        @media (max-width: 768px) {
+            .main-title { font-size: 3rem; }
+            .container { padding: 40px 20px; }
+            .footer { text-align: center; }
+        }
+    </style>
+</head>
+<body>
+<div class="background-layer"></div>
+<div class="background-overlay"></div>
+
+<div class="container">
+    <header class="header">
+        <h1 class="main-title">永夜</h1>
+        <p class="sub-title">— ETERNAL NIGHT —</p>
+    </header>
+
+    <main class="card-grid">
+        <div class="card">
+            <h2>第一章：月隐之刻</h2>
+            <p>当最后一缕月光被云层吞没，世界重归静谧。在这无尽的黑暗中，故事的轮廓开始显现。</p>
+        </div>
+        <div class="card">
+            <h2>第二章：星河彼岸</h2>
+            <p>遥远的星光是夜空中唯一的指引。穿越这片璀璨而冰冷的星河，寻找遗失的誓言。</p>
+        </div>
+        <div class="card">
+            <h2>第三章：长梦未央</h2>
+            <p>在这永恒的夜晚里，时间仿佛失去了意义。究竟是沉浸在美梦中不愿醒来，还是无法醒来？</p>
+        </div>
+        <div class="card">
+            <h2>终章：黎明前的守望</h2>
+            <p>即使身处最深的绝望，心中仍有一丝微光。那是对黎明到来永不磨灭的期盼。</p>
+        </div>
+    </main>
+</div>
+
+<footer class="footer">
+    <p>届かない恋 Valentine Live - 小木曽雪菜</p>
+</footer>
+
+</body>
+</html>

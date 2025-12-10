@@ -1,0 +1,497 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>沉浸式视觉小说 - 完整UI版</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Playfair+Display:ital,wght@0,400;1,400&display=swap');
+
+        :root {
+            --trans-speed: 0.6s;
+            --font-main: 'Noto Serif SC', serif;
+            --font-en: 'Playfair Display', serif;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #000;
+            font-family: var(--font-main); user-select: none;
+        }
+
+        /* === 主题变量 === */
+        .theme-dark {
+            --text-color: #f0f0f0;
+            --accent-color: #a0b0c0;
+            --accent-dim: rgba(160, 176, 192, 0.3);
+            --shadow-color: rgba(0, 0, 0, 0.9);
+            --gradient-bg: linear-gradient(to top, rgba(10, 15, 20, 0.95) 0%, rgba(10, 15, 20, 0.7) 50%, transparent 100%);
+            --menu-bg: rgba(20, 24, 28, 0.9);
+            --card-bg: rgba(255, 255, 255, 0.05);
+        }
+
+        .theme-light {
+            --text-color: #4a4036;
+            --accent-color: #8c8070;
+            --accent-dim: rgba(140, 128, 112, 0.3);
+            --shadow-color: rgba(255, 255, 255, 0.8);
+            --gradient-bg: linear-gradient(to top, rgba(245, 242, 237, 0.95) 0%, rgba(245, 242, 237, 0.7) 50%, transparent 100%);
+            --menu-bg: rgba(245, 242, 237, 0.95);
+            --card-bg: rgba(255, 255, 255, 0.6);
+        }
+
+        /* === 游戏舞台 === */
+        #game-stage {
+            position: relative; width: 100%; height: 100%;
+            background-position: center; background-size: cover;
+            transition: background-image 1s ease;
+            cursor: pointer; z-index: 1;
+        }
+
+        /* === 1. 标题层 === */
+        #title-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            opacity: 0; transition: opacity 1s ease; pointer-events: none; z-index: 20;
+            text-shadow: 0 0 20px var(--shadow-color);
+        }
+        #title-layer.active { opacity: 1; pointer-events: auto; }
+        .main-title { font-size: 4rem; letter-spacing: 1rem; font-weight: 300; color: var(--text-color); margin-bottom: 0.5rem; }
+        .sub-title { font-family: var(--font-en); font-size: 0.9rem; letter-spacing: 0.3rem; text-transform: uppercase; color: var(--accent-color); }
+
+        /* === 2. 对话层 === */
+        #dialogue-layer {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 35vh;
+            background: var(--gradient-bg);
+            padding: 0 10%; box-sizing: border-box;
+            display: flex; flex-direction: column; justify-content: center;
+            opacity: 0; transform: translateY(20px); transition: all 0.8s ease; z-index: 10;
+        }
+        #dialogue-layer.active { opacity: 1; transform: translateY(0); }
+        .speaker-box { display: flex; align-items: center; margin-bottom: 1rem; }
+        .speaker-line { width: 40px; height: 1px; background-color: var(--accent-color); margin-right: 15px; }
+        #speaker-name { font-size: 0.9rem; font-family: var(--font-en); letter-spacing: 0.2rem; color: var(--accent-color); text-transform: uppercase; }
+        #text-content { font-size: 1.25rem; line-height: 1.8; letter-spacing: 0.05rem; color: var(--text-color); font-weight: 500; text-shadow: 0 2px 10px var(--shadow-color); max-width: 800px; }
+
+        /* === 3. 底部工具栏 (Toolbar) === */
+        #toolbar {
+            position: absolute; bottom: 0; right: 0; width: 100%; height: 60px;
+            display: flex; justify-content: flex-end; align-items: center;
+            padding-right: 5%; box-sizing: border-box;
+            z-index: 100;
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        /* 鼠标接近底部时显示 */
+        #dialogue-layer:hover + #toolbar, #toolbar:hover { opacity: 1; }
+
+        .tool-btn {
+            background: transparent; border: none; outline: none;
+            color: var(--accent-color); font-family: var(--font-en);
+            font-size: 0.8rem; letter-spacing: 0.1rem; text-transform: uppercase;
+            cursor: pointer; margin-left: 25px; padding: 5px 10px;
+            transition: all 0.3s ease; opacity: 0.7;
+            position: relative;
+        }
+        .tool-btn:hover { opacity: 1; color: var(--text-color); }
+        .tool-btn::after {
+            content: ''; position: absolute; bottom: 0; left: 50%; width: 0; height: 1px;
+            background: var(--text-color); transition: all 0.3s ease;
+        }
+        .tool-btn:hover::after { width: 100%; left: 0; }
+
+        /* === 4. 选择支界面 (Choices) - 核心修改版 === */
+        #choice-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            /* 背景模糊度加深，让选项更聚焦 */
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 50; opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
+        }
+        #choice-layer.active { opacity: 1; pointer-events: auto; }
+
+        .choice-btn {
+            position: relative;
+            /* 移除实体边框，改用渐变背景 */
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
+            border: none;
+
+            /* 字体设置 */
+            color: var(--accent-color); /* 默认稍微暗一点，显得不刺眼 */
+            font-family: var(--font-main);
+            font-size: 1.4rem;
+            letter-spacing: 0.2rem;
+
+            /* 布局 */
+            padding: 25px 0; /* 上下留宽，左右靠宽度控制 */
+            margin: 15px 0;
+            width: 60%; /* 占据屏幕宽度的60% */
+            max-width: 600px;
+
+            cursor: pointer;
+            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1); /* 更加优雅的缓动曲线 */
+            text-align: center;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        /* === 核心动画：上下线条 === */
+        .choice-btn::before, .choice-btn::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0%; /* 初始宽度为0 */
+            height: 1px;
+            background-color: var(--text-color);
+            transition: width 0.5s ease, opacity 0.5s ease;
+            opacity: 0;
+        }
+        .choice-btn::before { top: 0; }
+        .choice-btn::after { bottom: 0; }
+
+        /* === 悬停效果 === */
+        .choice-btn:hover {
+            color: var(--text-color); /* 文字变亮 */
+            letter-spacing: 0.6rem;   /* 字距拉大，电影感 */
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%); /* 背景微亮 */
+        }
+
+        .choice-btn:hover::before, .choice-btn:hover::after {
+            width: 100%; /* 线条展开 */
+            opacity: 0.8;
+        }
+
+        /* === 亮色模式适配 === */
+        .theme-light .choice-btn {
+            color: var(--accent-color);
+            background: linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.02) 50%, transparent 100%);
+        }
+        .theme-light .choice-btn:hover {
+            color: #000;
+            background: linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.08) 50%, transparent 100%);
+        }
+        .theme-light .choice-btn::before, .theme-light .choice-btn::after {
+            background-color: #000;
+        }
+
+        /* === 5. 系统菜单 (Save/Load/Settings) - 参考图片风格 === */
+        #system-menu {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--menu-bg);
+            backdrop-filter: blur(15px); /* 毛玻璃 */
+            z-index: 200;
+            display: flex; opacity: 0; pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+        #system-menu.active { opacity: 1; pointer-events: auto; }
+
+        /* 左侧/右侧边栏 - 参考图的深色侧边 */
+        .sys-sidebar {
+            width: 25%; height: 100%;
+            background: linear-gradient(135deg, #1a1f25 0%, #0d1013 100%);
+            color: #fff; display: flex; flex-direction: column;
+            justify-content: space-between; padding: 60px 40px; box-sizing: border-box;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.2);
+        }
+
+        .sys-title { font-family: var(--font-en); font-size: 3rem; margin-bottom: 2rem; opacity: 0.9; }
+        .sys-nav-item {
+            font-family: var(--font-main); font-size: 1.2rem; padding: 15px 0;
+            cursor: pointer; opacity: 0.5; transition: opacity 0.3s; border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sys-nav-item:hover, .sys-nav-item.active { opacity: 1; letter-spacing: 2px; }
+
+        .sys-close-btn { cursor: pointer; font-size: 0.9rem; opacity: 0.7; margin-top: auto; }
+        .sys-close-btn:hover { opacity: 1; text-decoration: underline; }
+
+        /* 内容区域 */
+        .sys-content {
+            flex: 1; padding: 60px 80px; box-sizing: border-box;
+            overflow-y: auto; display: none; /* JS控制显示 */
+            animation: fadeIn 0.5s ease forwards;
+        }
+        .sys-content.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 存档卡片网格 */
+        .save-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px;
+            margin-top: 20px;
+        }
+
+        /* 存档卡片 - 竖向设计，参考图片 */
+        .save-card {
+            aspect-ratio: 2/3; /* 竖向比例 */
+            background: var(--card-bg);
+            border: 1px solid var(--accent-color);
+            position: relative; cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex; flex-direction: column;
+            padding: 20px; box-sizing: border-box;
+            align-items: center; justify-content: center;
+        }
+
+        .save-card:hover { transform: translateY(-10px); box-shadow: 0 15px 30px rgba(0,0,0,0.1); }
+
+        /* 卡片内部元素 */
+        .card-num {
+            font-family: var(--font-en); font-size: 2rem; color: var(--accent-color);
+            margin-bottom: 10px; border-bottom: 1px solid var(--accent-color);
+            padding-bottom: 10px; width: 40px; text-align: center;
+        }
+        .card-preview {
+            width: 100%; flex: 1; background: #333; margin: 10px 0;
+            background-size: cover; background-position: center; opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        .save-card:hover .card-preview { opacity: 1; }
+        .card-info { font-size: 0.8rem; color: var(--text-color); text-align: center; }
+        .card-empty { opacity: 0.4; font-style: italic; }
+
+        /* Toast 提示 */
+        #toast {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--text-color); color: #000;
+            padding: 10px 30px; border-radius: 20px;
+            opacity: 0; transition: opacity 0.5s; pointer-events: none; z-index: 300;
+            font-weight: bold; letter-spacing: 1px;
+        }
+        .theme-light #toast { color: #fff; background: var(--text-color); }
+        .theme-dark #toast { color: #000; background: var(--text-color); }
+
+    </style>
+</head>
+<body class="theme-dark">
+
+<div id="game-stage" onclick="handleInput()">
+    <div id="title-layer" class="active">
+        <div class="main-title">幻视</div>
+        <div class="sub-title">Phantom Vision</div>
+    </div>
+
+    <div id="dialogue-layer">
+        <div class="speaker-box">
+            <div class="speaker-line"></div>
+            <div id="speaker-name">Unknown</div>
+        </div>
+        <div id="text-content"></div>
+    </div>
+
+    <nav id="toolbar" onclick="event.stopPropagation()">
+        <button class="tool-btn" onclick="quickSave()">Q.Save</button>
+        <button class="tool-btn" onclick="quickLoad()">Q.Load</button>
+        <button class="tool-btn" onclick="openSystem('save')">Save</button>
+        <button class="tool-btn" onclick="openSystem('load')">Load</button>
+        <button class="tool-btn" onclick="showHistory()">History</button>
+        <button class="tool-btn" onclick="openSystem('settings')">Settings</button>
+    </nav>
+</div>
+
+<div id="choice-layer">
+</div>
+
+<div id="system-menu">
+    <div class="sys-sidebar">
+        <div>
+            <div class="sys-title">SYSTEM</div>
+            <div class="sys-nav-item" id="nav-save" onclick="switchTab('save')">SAVE DATA</div>
+            <div class="sys-nav-item" id="nav-load" onclick="switchTab('load')">LOAD DATA</div>
+            <div class="sys-nav-item" id="nav-settings" onclick="switchTab('settings')">SETTINGS</div>
+        </div>
+        <div class="sys-close-btn" onclick="closeSystem()">← RETURN TO GAME</div>
+    </div>
+
+    <div class="sys-content" id="content-save">
+        <h2 style="color: var(--text-color); font-weight:300; border-bottom:1px solid var(--accent-color); padding-bottom:10px;">Select a slot to SAVE</h2>
+        <div class="save-grid" id="save-grid">
+        </div>
+    </div>
+
+    <div class="sys-content" id="content-load">
+        <h2 style="color: var(--text-color); font-weight:300; border-bottom:1px solid var(--accent-color); padding-bottom:10px;">Select a slot to LOAD</h2>
+        <div class="save-grid" id="load-grid">
+        </div>
+    </div>
+
+    <div class="sys-content" id="content-settings">
+        <h2 style="color: var(--text-color); font-weight:300;">Preferences</h2>
+        <p style="color: var(--text-color);">（设置面板占位符：音量、文字速度等）</p>
+    </div>
+</div>
+
+<div id="toast">Saved Successfully</div>
+
+<script>
+    // === 模拟数据 ===
+    const storyScript = [
+        { type: 'title', title: '幻视', sub: 'Phantom Vision', bgImage: './web-project/public/storyImage/StoryBG/storyBG1.png', theme: 'dark' },
+        { type: 'text', speaker: 'Guide', text: '这是一个UI演示。请尝试将鼠标移至屏幕底部，唤出工具栏。', bgImage: './web-project/public/storyImage/StoryBG/storyBG1.png', theme: 'dark' },
+        { type: 'text', speaker: 'Guide', text: '点击右下角的 "SAVE" 或 "LOAD" 可以打开仿照参考图设计的卡片式界面。', bgImage: './web-project/public/storyImage/StoryBG/storyBG1.png', theme: 'dark' },
+        { type: 'choice', choices: [
+                { text: '进入亮色模式体验', jump: 4 },
+                { text: '留在暗色模式', jump: 6 }
+            ], bgImage: './web-project/public/storyImage/StoryBG/storyBG1.png', theme: 'dark' },
+        // Branch A
+        { type: 'text', speaker: 'System', text: '已切换至亮色主题。注意UI颜色的自适应变化。', bgImage: './web-project/public/storyImage/StoryBG/storyBG2.png', theme: 'light' },
+        { type: 'text', speaker: 'Narrator', text: '文字像呼吸一样自然。', bgImage: './web-project/public/storyImage/StoryBG/storyBG2.png', theme: 'light' },
+        // Branch B (Jump target for end)
+        { type: 'text', speaker: 'Night Watch', text: '演示结束。你可以点击 Q.Save 进行快速存档测试。', bgImage: './web-project/public/storyImage/StoryBG/storyBG2.png', theme: 'dark' }
+    ];
+
+    let currentIndex = 0;
+    let isMenuOpen = false;
+
+    // DOM Elements
+    const body = document.body;
+    const gameStage = document.getElementById('game-stage');
+    const titleLayer = document.getElementById('title-layer');
+    const dialogueLayer = document.getElementById('dialogue-layer');
+    const choiceLayer = document.getElementById('choice-layer');
+    const speakerEl = document.getElementById('speaker-name');
+    const textEl = document.getElementById('text-content');
+    const systemMenu = document.getElementById('system-menu');
+    const toast = document.getElementById('toast');
+
+    // 初始化
+    window.onload = () => { renderScene(storyScript[0]); };
+
+    function handleInput() {
+        if(isMenuOpen) return;
+
+        let currentScene = storyScript[currentIndex];
+
+        // 如果是选择支，禁止点击推进
+        if (currentScene.type === 'choice') return;
+
+        let nextIndex = currentIndex + 1;
+        if (nextIndex >= storyScript.length) nextIndex = 0; // 循环演示
+        currentIndex = nextIndex;
+        renderScene(storyScript[currentIndex]);
+    }
+
+    function renderScene(scene) {
+        body.className = 'theme-' + scene.theme;
+        if (scene.bgImage) gameStage.style.backgroundImage = `url('${scene.bgImage}')`;
+
+        if (scene.type === 'title') {
+            dialogueLayer.classList.remove('active');
+            choiceLayer.classList.remove('active');
+            titleLayer.classList.add('active');
+        }
+        else if (scene.type === 'text') {
+            titleLayer.classList.remove('active');
+            choiceLayer.classList.remove('active');
+            speakerEl.innerText = scene.speaker || '';
+            document.querySelector('.speaker-box').style.opacity = scene.speaker ? '1' : '0';
+            textEl.innerText = scene.text;
+            dialogueLayer.classList.add('active');
+        }
+        else if (scene.type === 'choice') {
+            titleLayer.classList.remove('active');
+            dialogueLayer.classList.remove('active');
+            showChoices(scene.choices);
+        }
+    }
+
+    // === 选择支逻辑 ===
+    function showChoices(choices) {
+        choiceLayer.innerHTML = ''; // 清空
+        choices.forEach(choice => {
+            const btn = document.createElement('button');
+            btn.className = 'choice-btn';
+            btn.innerText = choice.text;
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                if(choice.jump) {
+                    currentIndex = choice.jump;
+                    renderScene(storyScript[currentIndex]);
+                } else {
+                    handleInput(); // 默认下一步
+                }
+            };
+            choiceLayer.appendChild(btn);
+        });
+        choiceLayer.classList.add('active');
+    }
+
+    // === 系统菜单逻辑 (核心修改) ===
+    function openSystem(tab) {
+        isMenuOpen = true;
+        systemMenu.classList.add('active');
+        switchTab(tab);
+    }
+
+    function closeSystem() {
+        isMenuOpen = false;
+        systemMenu.classList.remove('active');
+    }
+
+    function switchTab(tabName) {
+        // 1. 激活左侧导航高亮
+        document.querySelectorAll('.sys-nav-item').forEach(el => el.classList.remove('active'));
+        document.getElementById('nav-' + tabName).classList.add('active');
+
+        // 2. 切换右侧内容显示
+        document.querySelectorAll('.sys-content').forEach(el => el.classList.remove('active'));
+        const contentEl = document.getElementById('content-' + tabName);
+        if(contentEl) contentEl.classList.add('active');
+
+        // 3. 如果是存档/读档，重新渲染网格
+        if(tabName === 'save' || tabName === 'load') {
+            renderSaveGrid(tabName);
+        }
+    }
+
+    // 渲染存档卡片
+    function renderSaveGrid(mode) {
+        const container = document.getElementById(mode + '-grid');
+        container.innerHTML = '';
+
+        // 生成6个槽位示例
+        for(let i=1; i<=6; i++) {
+            const card = document.createElement('div');
+            card.className = 'save-card';
+
+            // 模拟一些数据
+            const hasData = (i === 1 || i === 2); // 假设1,2号有存档
+            const time = new Date().toLocaleString();
+
+            if (hasData) {
+                card.innerHTML = `
+                    <div class="card-num">${i.toString().padStart(2, '0')}</div>
+                    <div class="card-preview" style="background-image: url('${storyScript[i].bgImage}')"></div>
+                    <div class="card-info">
+                        <div>Day ${i} - The Beginning</div>
+                        <div style="font-size:0.7rem; opacity:0.7">${time}</div>
+                    </div>
+                `;
+            } else {
+                card.innerHTML = `
+                    <div class="card-num">${i.toString().padStart(2, '0')}</div>
+                    <div class="card-info card-empty">No Data</div>
+                `;
+            }
+
+            card.onclick = () => {
+                showToast(mode === 'save' ? `Saved to Slot ${i}` : `Loaded Slot ${i}`);
+                if(mode === 'load') closeSystem();
+            };
+            container.appendChild(card);
+        }
+    }
+
+    // === 辅助功能 ===
+    function quickSave() { showToast("Quick Save Complete"); }
+    function quickLoad() { showToast("Quick Load Complete"); }
+    function showHistory() { showToast("History (To be implemented)"); }
+
+    function showToast(msg) {
+        toast.innerText = msg;
+        toast.style.opacity = 1;
+        setTimeout(() => { toast.style.opacity = 0; }, 2000);
+    }
+
+</script>
+</body>
+</html>
