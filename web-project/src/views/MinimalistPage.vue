@@ -1,6 +1,8 @@
 <template>
   <div class="minimalist-page"
-       :class="{
+       @mousemove="onDrag"
+       @mouseup="stopDrag"
+       :class="{ 
          'page-day-mode': isFullLeft,
          'page-night-mode': isFullRight
        }">
@@ -10,51 +12,54 @@
         @toggle-mobile-menu="toggleMobileMenu"
         @scroll-to-section="scrollToSection"
     />
+    <!-- SVG 噪点滤镜定义 -->
     <svg class="noise-filter-svg" style="position: absolute; width: 0; height: 0;">
       <defs>
         <filter id="textNoiseFilter" x="0%" y="0%" width="100%" height="100%">
           <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.9"
-              numOctaves="4"
-              stitchTiles="stitch"
-              result="noise"/>
+            type="fractalNoise"
+            baseFrequency="0.9"
+            numOctaves="4"
+            stitchTiles="stitch"
+            result="noise"/>
           <feColorMatrix
-              in="noise"
-              type="saturate"
-              values="1"
-              result="noise"/>
+            in="noise"
+            type="saturate"
+            values="1"
+            result="noise"/>
           <feComposite
-              in="SourceGraphic"
-              in2="noise"
-              operator="overlay"
-              opacity="1"/>
+            in="SourceGraphic"
+            in2="noise"
+            operator="overlay"
+            opacity="1"/>
         </filter>
         <filter id="textNoiseFilterSubtle" x="0%" y="0%" width="100%" height="100%">
           <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.7"
-              numOctaves="3"
-              stitchTiles="stitch"
-              result="noise"/>
+            type="fractalNoise"
+            baseFrequency="0.7"
+            numOctaves="3"
+            stitchTiles="stitch"
+            result="noise"/>
           <feColorMatrix
-              in="noise"
-              type="saturate"
-              values="1"
-              result="noise"/>
+            in="noise"
+            type="saturate"
+            values="1"
+            result="noise"/>
           <feComposite
-              in="SourceGraphic"
-              in2="noise"
-              operator="overlay"
-              opacity="0.12"/>
+            in="SourceGraphic"
+            in2="noise"
+            operator="overlay"
+            opacity="0.12"/>
         </filter>
       </defs>
     </svg>
 
+    <!-- 中央大标题 -->
     <div class="center-main-title"
          :class="['title-theme-' + currentBg, { 'animate-from-right-title': fromExtremeRight }]"
          :style="{ left: titlePosition + '%' }">
 
+      <!-- 完全拖到左边时显示的内容 - 昼之页面 -->
       <div v-if="isFullLeft" class="extreme-content left-extreme">
         <div class="extreme-page-content">
           <div class="extreme-title-wrapper">
@@ -69,6 +74,7 @@
         </div>
       </div>
 
+      <!-- 完全拖到右边时显示的内容 - 夜之页面 -->
       <div v-else-if="isFullRight" class="extreme-content right-extreme">
         <div class="extreme-page-content">
           <div class="extreme-title-wrapper">
@@ -83,20 +89,25 @@
         </div>
       </div>
 
+      <!-- 正常状态的标题组合 -->
       <div v-else class="title-composition" :class="{ 'animate-from-right-title': fromExtremeRight }">
+        <!-- 第一个字 -->
         <span class="title-kanji">白</span>
 
+        <!-- 竖线装饰 -->
         <div class="side-vertical-line">
           <div class="side-subtitle-vertical">
             <span class="subtitle-letter">MIDNIGHT</span>
           </div>
         </div>
 
+        <!-- 第二个字 -->
         <span class="title-kanji">夜</span>
       </div>
 
     </div>
 
+    <!-- 左侧大图区域 -->
     <div class="left-section"
          :style="{ width: leftWidth + '%' }"
          :class="{
@@ -104,14 +115,16 @@
            'section-solid-bg': leftBgMode === 'solid',
            'animate-from-right-section': fromExtremeRight
          }">
-      <div class="sky-background"
+      <div class="sky-background" 
            :class="{ 'bg-solid': leftBgMode === 'solid' }"
            :style="leftBgMode !== 'solid' ? { backgroundPosition: leftBgPosition + '% 50%' } : {}">
+        <!-- 多层背景叠加 -->
         <div class="bg-layer bg-default" :class="{ active: currentBg === 0 }"></div>
         <div class="bg-layer bg-1" :class="{ active: currentBg === 1 }"></div>
         <div class="bg-layer bg-2" :class="{ active: currentBg === 2 }"></div>
         <div class="bg-layer bg-3" :class="{ active: currentBg === 3 }"></div>
 
+        <!-- 装饰性线条元素 -->
         <div class="deco-lines-left">
           <div class="line-h line-h-1"></div>
           <div class="line-h line-h-2"></div>
@@ -119,6 +132,7 @@
           <div class="line-v line-v-2"></div>
         </div>
 
+        <!-- 几何装饰元素 -->
         <div class="geometric-deco">
           <div class="geo-circle-outline"></div>
           <div class="geo-square-outline"></div>
@@ -126,6 +140,7 @@
         </div>
 
         <div v-if = "leftBgMode !== 'solid'" class="title-vertical" :class="'title-mode-' + currentBg">
+          <!-- 标题装饰框 -->
           <div class="title-frame-lines">
             <span class="frame-line frame-top"></span>
             <span class="frame-line frame-bottom"></span>
@@ -133,59 +148,63 @@
           <p class="subtitle">—Midnight Sun—</p>
         </div>
 
+        <!-- 左侧卡片容器 -->
         <div class="left-card-container"
              v-if="leftBgMode === 'solid'"
              :class="{ 'cards-fading': leftCardsFading }">
           <MinimalCard
-              v-if="leftCards[0].visible"
-              :key="`left-card1-${leftCards[0].key}`"
-              ref="leftCard1Ref"
-              number="L1"
-              title="L E F T 1"
-              text="左　侧　之　一"
-              subtitle="Left Card One"
-              season="春"
-              route="/blue"
-              @mouseenter="currentBg = 1"
-              @mouseleave="currentBg = 0"
-              @destroyed="removeLeftCard(0)"
+            v-if="leftCards[0].visible"
+            :key="`left-card1-${leftCards[0].key}`"
+            ref="leftCard1Ref"
+            number="L1"
+            title="L E F T 1"
+            text="左　侧　之　一"
+            subtitle="Left Card One"
+            season="春"
+            route="/blue"
+            @mouseenter="currentBg = 1"
+            @mouseleave="currentBg = 0"
+            @destroyed="removeLeftCard(0)"
           />
 
           <MinimalCard
-              v-if="leftCards[1].visible"
-              :key="`left-card2-${leftCards[1].key}`"
-              ref="leftCard2Ref"
-              number="L2"
-              title="L E F T 2"
-              text="左　侧　之　二"
-              subtitle="Left Card Two"
-              season="夏"
-              route="/sowaka"
-              @mouseenter="currentBg = 2"
-              @mouseleave="currentBg = 0"
-              @destroyed="removeLeftCard(1)"
+            v-if="leftCards[1].visible"
+            :key="`left-card2-${leftCards[1].key}`"
+            ref="leftCard2Ref"
+            number="L2"
+            title="L E F T 2"
+            text="左　侧　之　二"
+            subtitle="Left Card Two"
+            season="夏"
+            route="/sowaka"
+            @mouseenter="currentBg = 2"
+            @mouseleave="currentBg = 0"
+            @destroyed="removeLeftCard(1)"
           />
 
           <MinimalCard
-              v-if="leftCards[2].visible"
-              :key="`left-card3-${leftCards[2].key}`"
-              ref="leftCard3Ref"
-              number="L3"
-              title="L E F T 3"
-              text="左　侧　之　三"
-              subtitle="Left Card Three"
-              season="秋"
-              route="/chapters"
-              @mouseenter="currentBg = 3"
-              @mouseleave="currentBg = 0"
-              @destroyed="removeLeftCard(2)"
+            v-if="leftCards[2].visible"
+            :key="`left-card3-${leftCards[2].key}`"
+            ref="leftCard3Ref"
+            number="L3"
+            title="L E F T 3"
+            text="左　侧　之　三"
+            subtitle="Left Card Three"
+            season="秋"
+            route="/chapters"
+            @mouseenter="currentBg = 3"
+            @mouseleave="currentBg = 0"
+            @destroyed="removeLeftCard(2)"
           />
         </div>
       </div>
     </div>
 
+    <!-- 可拖拽的分割线 -->
     <div class="divider"
+         @mousedown="startDrag"
          :class="{
+           dragging: isDragging,
            'edge-left': isFullLeft,
            'edge-right': isFullRight,
            transitioning: isTransitioning
@@ -193,42 +212,47 @@
          :style="{ left: leftWidth + '%' }">
       <div class="divider-handle">
         <span class="handle-line"></span>
-
+        
+        <!-- 普通模式：两个按钮 -->
         <div class="button-group" v-if="!isFullLeft && !isFullRight">
-          <button
-              class="nav-button nav-button-left"
-              @mousedown.stop="navigateLeft"
-              title="切换到左侧模式">
+          <!-- 向左按钮 -->
+          <button 
+            class="nav-button nav-button-left"
+            @mousedown.stop="navigateLeft"
+            title="切换到左侧模式">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
-
-          <button
-              class="nav-button nav-button-right"
-              @mousedown.stop="navigateRight"
-              title="切换到右侧模式">
+          
+          <!-- 向右按钮 -->
+          <button 
+            class="nav-button nav-button-right"
+            @mousedown.stop="navigateRight"
+            title="切换到右侧模式">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
         </div>
-
-        <button
-            class="nav-button nav-button-single"
-            @mousedown.stop="navigateRight"
-            v-if="isFullLeft"
-            title="返回">
+        
+        <!-- 极昼模式：只有向右按钮 -->
+        <button 
+          class="nav-button nav-button-single"
+          @mousedown.stop="navigateRight"
+          v-if="isFullLeft"
+          title="返回">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
-
-        <button
-            class="nav-button nav-button-single"
-            @mousedown.stop="navigateLeft"
-            v-if="isFullRight"
-            title="返回">
+        
+        <!-- 极夜模式：只有向左按钮 -->
+        <button 
+          class="nav-button nav-button-single"
+          @mousedown.stop="navigateLeft"
+          v-if="isFullRight"
+          title="返回">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -237,6 +261,7 @@
     </div>
 
 
+    <!-- 右侧卡片区域 -->
     <div class="right-section"
          :style="{ width: (100 - leftWidth) + '%' }"
          :class="{
@@ -246,21 +271,26 @@
            'animate-from-right-section': fromExtremeRight
          }">
 
-      <div class="sky-background"
+      <!-- 使用与左侧相同的背景结构 -->
+      <div class="sky-background" 
            :class="{ 'bg-solid': rightBgMode === 'solid' }"
            :style="rightBgMode !== 'solid' ? { backgroundPosition: rightBgPosition + '% 50%' } : {}">
+        <!-- 多层背景叠加 -->
         <div class="bg-layer bg-default2" :class="{ active: currentBg === 0 }"></div>
         <div class="bg-layer bg-4" :class="{ active: currentBg === 1 }"></div>
         <div class="bg-layer bg-5" :class="{ active: currentBg === 2 }"></div>
         <div class="bg-layer bg-6" :class="{ active: currentBg === 3 }"></div>
 
+        <!-- 右侧装饰线条 -->
         <div class="deco-lines-right">
           <div class="right-line-h right-line-h-1"></div>
           <div class="right-line-h right-line-h-2"></div>
           <div class="right-line-v right-line-v-1"></div>
         </div>
 
+        <!-- 修复：只在非卡片模式时显示标题 -->
         <div v-if="rightBgMode !== 'solid'" class="title-vertical" :class="'title-mode-' + currentBg">
+          <!-- 标题装饰框 -->
           <div class="title-frame-lines">
             <span class="frame-line frame-top"></span>
             <span class="frame-line frame-bottom"></span>
@@ -268,53 +298,56 @@
           <p class="subtitle">—Midnight Sun—</p>
         </div>
 
-
+       
 
         <div class="card-container"  v-if="rightBgMode === 'solid'"
              :class="{ 'cards-fading': rightCardsFading }">
+          <!-- 卡片1 -->
           <MinimalCard
-              v-if="cards[0].visible"
-              :key="`card1-${cards[0].key}`"
-              ref="card1Ref"
-              number="01"
-              title="H O 1"
-              text="人　間　不　信"
-              subtitle="Distrust of Humanity"
-              season="春"
-              route="/"
-              @mouseenter="currentBg = 1"
-              @mouseleave="currentBg = 0"
-              @destroyed="removeCard(0)"
+            v-if="cards[0].visible"
+            :key="`card1-${cards[0].key}`"
+            ref="card1Ref"
+            number="01"
+            title="H O 1"
+            text="人　間　不　信"
+            subtitle="Distrust of Humanity"
+            season="春"
+            route="/"
+            @mouseenter="currentBg = 1"
+            @mouseleave="currentBg = 0"
+            @destroyed="removeCard(0)"
           />
 
+          <!-- 卡片2 -->
           <MinimalCard
-              v-if="cards[1].visible"
-              :key="`card2-${cards[1].key}`"
-              ref="card2Ref"
-              number="02"
-              title="H O 2"
-              text="思　界　者"
-              subtitle="Thinker of Realms"
-              season="夏"
-              route="/cards"
-              @mouseenter="currentBg = 2"
-              @mouseleave="currentBg = 0"
-              @destroyed="removeCard(1)"
+            v-if="cards[1].visible"
+            :key="`card2-${cards[1].key}`"
+            ref="card2Ref"
+            number="02"
+            title="H O 2"
+            text="思　界　者"
+            subtitle="Thinker of Realms"
+            season="夏"
+            route="/cards"
+            @mouseenter="currentBg = 2"
+            @mouseleave="currentBg = 0"
+            @destroyed="removeCard(1)"
           />
 
+          <!-- 卡片3 -->
           <MinimalCard
-              v-if="cards[2].visible"
-              :key="`card3-${cards[2].key}`"
-              ref="card3Ref"
-              number="03"
-              title="H O 3"
-              text="永　遠　回　帰"
-              subtitle="Eternal Recurrence"
-              season="冬"
-              route="/sowaka"
-              @mouseenter="currentBg = 3"
-              @mouseleave="currentBg = 0"
-              @destroyed="removeCard(2)"
+            v-if="cards[2].visible"
+            :key="`card3-${cards[2].key}`"
+            ref="card3Ref"
+            number="03"
+            title="H O 3"
+            text="永　遠　回　帰"
+            subtitle="Eternal Recurrence"
+            season="冬"
+            route="/sowaka"
+            @mouseenter="currentBg = 3"
+            @mouseleave="currentBg = 0"
+            @destroyed="removeCard(2)"
           />
         </div>
       </div>
@@ -328,40 +361,14 @@ import MinimalCard from '@/components/MinimalCard.vue';
 import SowakaNavigation from "@/components/sowaka/SowakaNavigation.vue";
 import {useSowakaPage} from "@/composables/useSowakaPage.js";
 
-// 接收外部参数，控制初始状态
-const props = defineProps({
-  // 'day' = 极昼 (0%), 'night' = 极夜 (100%), 'default' = 默认 (25%)
-  initialState: {
-    type: String,
-    default: 'night' // <--- 默认为极夜
-  }
-});
-
 const currentBg = ref(0);
-
-// 根据 prop 计算初始宽度和模式
-const getInitialState = () => {
-  if (props.initialState === 'day') {
-    return { width: 0, mode: 'extreme-left' };
-  } else if (props.initialState === 'night') {
-    return { width: 100, mode: 'extreme-right' };
-  } else if (props.initialState === 'default') {
-    return { width: 25, mode: 'left' };
-  }
-  // 兜底逻辑
-  return { width: 100, mode: 'extreme-right' };
-};
-
-const initState = getInitialState();
-
-// 初始化状态
-const leftWidth = ref(initState.width);
-const currentMode = ref(initState.mode);
-
-// 移除了 isDragging, dragStartX, dragStartWidth 相关变量
-
+const leftWidth = ref(25); // 左侧区域宽度百分比，初始为左侧模式
+const isDragging = ref(false);
 const isTransitioning = ref(false);
+const dragStartX = ref(0); // 拖拽起始时的鼠标X坐标
+const dragStartWidth = ref(25); // 拖拽起始时的分割线位置
 const {mobileMenuOpen, toggleMobileMenu , scrollToSection} = useSowakaPage();
+const currentMode = ref('left'); // 当前模式：'left' (25%), 'right' (75%), 'center' (50%)
 const fromExtremeRight = ref(false); // 是否从极夜模式返回
 
 // 卡片状态（使用 key 来强制重新生成）
@@ -396,22 +403,34 @@ const rightCardsFading = ref(false);
 const leftCardsFading = ref(false);
 
 // 背景模式控制
-const leftBgMode = ref('gradient');
-const rightBgMode = ref('solid');
+const leftBgMode = ref('gradient'); // 'gradient' 或 'solid'
+const rightBgMode = ref('solid'); // 'gradient' 或 'solid'
 
 // 计算标题位置（跟随分割线）
 const titlePosition = computed(() => leftWidth.value);
 
 // 计算左侧背景图片位置（蒙版效果）
+// 当 leftWidth 从 0% 到 100% 时，背景位置从左侧移动到右侧
+// 由于背景图片固定为 300vw，需要计算合适的显示位置
 const leftBgPosition = computed(() => {
-  const maxPosition = 66.67;
+  // 将 leftWidth (0-100) 映射到背景位置
+  // 背景图片是 300vw 宽，所以可以显示从 0% 到约 66.67% 的范围
+  // 左侧区域变窄时显示图片左侧，变宽时显示图片右侧
+  // 使用线性映射：0% -> 0%, 100% -> 66.67%
+  const maxPosition = 66.67; // 对应图片的右边缘（300vw 的 66.67% = 200vw，正好是视口宽度的2倍）
   const position = (leftWidth.value / 100) * maxPosition;
   return Math.max(0, Math.min(maxPosition, position));
 });
 
-// 计算右侧背景图片位置
+// 计算右侧背景图片位置（图片靠右加载，往左拖动显示被覆盖的部分）
+// 当 leftWidth 从 0% 到 100% 时，右侧区域从 100% 到 0%
+// 图片靠右加载：初始显示图片右侧部分，拖动时显示左侧部分
 const rightBgPosition = computed(() => {
   const maxPosition = 66.67;
+  // 图片靠右加载，所以初始位置应该在右侧（66.67%）
+  // leftWidth 0% -> 右侧宽度 100% -> 显示图片右侧（66.67%位置）
+  // leftWidth 100% -> 右侧宽度 0% -> 显示图片左侧（0%位置）
+  // 使用反向计算：从右侧（66.67%）到左侧（0%）
   const position = (leftWidth.value / 100) * maxPosition;
   return Math.max(0, Math.min(maxPosition, position));
 });
@@ -420,7 +439,86 @@ const rightBgPosition = computed(() => {
 const isFullLeft = computed(() => leftWidth.value <= 2);
 const isFullRight = computed(() => leftWidth.value >= 98);
 
-// 移除了 startDrag, onDrag, stopDrag 函数
+// 判断是否在过渡区域
+
+// 处理拖拽
+const startDrag = (e) => {
+  isDragging.value = true;
+  dragStartX.value = e.clientX; // 记录起始鼠标位置
+  dragStartWidth.value = leftWidth.value; // 记录起始分割线位置
+  document.body.style.cursor = 'ew-resize';
+  document.body.style.userSelect = 'none';
+};
+
+const onDrag = (e) => {
+  if (!isDragging.value) return;
+
+  // 计算鼠标移动的距离（像素）
+  const deltaX = e.clientX - dragStartX.value;
+  // 转换为百分比
+  const deltaPercent = (deltaX / window.innerWidth) * 100;
+  // 新的分割线位置 = 起始位置 + 移动距离
+  const newWidth = dragStartWidth.value + deltaPercent;
+
+  leftWidth.value = Math.max(0, Math.min(100, newWidth));
+};
+
+const stopDrag = () => {
+  isDragging.value = false;
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+
+  const dragDelta = leftWidth.value - dragStartWidth.value;
+  
+  // 判断拖动方向和目标位置
+  if (leftWidth.value <= 10) {
+    // 极昼模式 - 完全拖到左边
+    isTransitioning.value = true;
+    currentMode.value = 'extreme-left';
+    setTimeout(() => {
+      leftWidth.value = 0;
+      setTimeout(() => {
+        isTransitioning.value = false;
+      }, 600);
+    }, 50);
+  } else if (leftWidth.value >= 90) {
+    // 极夜模式 - 完全拖到右边
+    isTransitioning.value = true;
+    currentMode.value = 'extreme-right';
+    setTimeout(() => {
+      leftWidth.value = 100;
+      setTimeout(() => {
+        isTransitioning.value = false;
+      }, 600);
+    }, 50);
+  } else {
+    // 根据拖动方向决定吸附位置
+    isTransitioning.value = true;
+    
+    if (dragDelta > 0) {
+      // 向右拖动 - 切换到左侧模式 (75:25)
+      currentMode.value = 'left';
+      setTimeout(() => {
+        leftWidth.value = 75;
+        setTimeout(() => {
+          isTransitioning.value = false;
+        }, 600);
+      }, 50);
+    } else if (dragDelta < 0) {
+      // 向左拖动 - 切换到右侧模式 (25:75)
+      currentMode.value = 'right';
+      setTimeout(() => {
+        leftWidth.value = 25;
+        setTimeout(() => {
+          isTransitioning.value = false;
+        }, 600);
+      }, 50);
+    } else {
+      // 没有拖动，保持当前位置
+      isTransitioning.value = false;
+    }
+  }
+};
 
 // 移除卡片
 const removeCard = (index) => {
@@ -452,6 +550,85 @@ const burnAllCards = () => {
     }
   });
 };
+
+// 监听分割线位置，处理各种效果
+watch(leftWidth, (newWidth) => {
+  // 使用25%和75%作为分界线
+  if (newWidth >= 50) {
+    // 大于等于50%：左边显示卡牌，右边显示颜色（左侧模式）
+    leftCardsFading.value = false;
+    rightCardsFading.value = true;
+
+    // 左边实色背景显示卡牌，右边渐变背景
+    leftBgMode.value = 'solid';
+    rightBgMode.value = 'gradient';
+
+    // 显示左侧卡片
+    if (!leftCards.value[0].visible) {
+      showLeftCards();
+    }
+
+    // 隐藏右侧卡片
+    hideRightCards();
+  } else {
+    // 小于50%：右边显示卡牌，左边显示颜色（右侧模式）
+    leftCardsFading.value = true;
+    rightCardsFading.value = false;
+
+    // 左边渐变背景，右边实色背景显示卡牌
+    leftBgMode.value = 'gradient';
+    rightBgMode.value = 'solid';
+
+    // 显示右侧卡片
+    if (!cards.value[0].visible) {
+      showRightCards();
+    }
+
+    // 隐藏左侧卡片
+    hideLeftCards();
+  }
+});
+
+// 添加卡片淡入动画
+const addCardFadeInAnimation = () => {
+  nextTick(() => {
+    const cardElements = document.querySelectorAll('.minimal-card');
+    cardElements.forEach((card, index) => {
+      setTimeout(() => {
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+      }, 200 * (index + 1));
+    });
+  });
+};
+
+// 重新生成所有卡片（通过改变 key 强制重新创建组件）
+const regenerateCards = async () => {
+  console.log('开始重新生成卡片');
+  hasBurned.value = false;
+
+  // 先将所有卡片设为可见
+  cards.value.forEach((card) => {
+    card.visible = true;
+  });
+
+  // 等待 DOM 更新
+  await nextTick();
+
+  // 然后更新 key 值来强制重新生成组件
+  cards.value.forEach((card) => {
+    card.key += 1; // 改变 key 会导致 Vue 销毁旧组件并创建新组件
+  });
+
+  console.log('卡片状态:', cards.value);
+
+  // 重置背景
+  currentBg.value = 0;
+
+  // 添加淡入动画
+  addCardFadeInAnimation();
+};
+
 // 显示左侧卡片
 const showLeftCards = async () => {
   leftCards.value.forEach((card) => {
@@ -512,57 +689,10 @@ const showRightCards = async () => {
   }, 50);
 };
 
-// 监听分割线位置，处理各种效果
-watch(leftWidth, (newWidth) => {
-  // 使用25%和75%作为分界线
-  if (newWidth >= 50) {
-    // 大于等于50%：左边显示卡牌，右边显示颜色（左侧模式）
-    leftCardsFading.value = false;
-    rightCardsFading.value = true;
-
-    leftBgMode.value = 'solid';
-    rightBgMode.value = 'gradient';
-
-    if (!leftCards.value[0].visible) {
-      showLeftCards();
-    }
-    hideRightCards();
-  } else {
-    // 小于50%：右边显示卡牌，左边显示颜色（右侧模式）
-    leftCardsFading.value = true;
-    rightCardsFading.value = false;
-
-    leftBgMode.value = 'gradient';
-    rightBgMode.value = 'solid';
-
-    if (!cards.value[0].visible) {
-      showRightCards();
-    }
-    hideLeftCards();
-  }
-}, { immediate: true });
-
-// 添加卡片淡入动画
-const addCardFadeInAnimation = () => {
-  if (isFullLeft.value || isFullRight.value) return;
-
-  nextTick(() => {
-    const selector = leftWidth.value >= 50 ? '.left-card-container .minimal-card' : '.card-container .minimal-card';
-    const cardElements = document.querySelectorAll(selector);
-    cardElements.forEach((card, index) => {
-      setTimeout(() => {
-        card.style.opacity = '1';
-        card.style.transform = 'translateY(0)';
-      }, 200 * (index + 1));
-    });
-  });
-};
-
-
 // 向左导航函数
 const navigateLeft = () => {
   if (isTransitioning.value) return;
-
+  
   isTransitioning.value = true;
   if(leftWidth.value == 75)
   {
@@ -576,7 +706,8 @@ const navigateLeft = () => {
   }
   else if(leftWidth.value == 25)
   {
-    setTimeout(() => {
+      isFullLeft.value = true;
+      setTimeout(() => {
       leftWidth.value = 0;
       setTimeout(() => {
         isTransitioning.value = false;
@@ -586,21 +717,23 @@ const navigateLeft = () => {
   else if(leftWidth.value == 100)
   {
     currentMode.value = 'right';
-    fromExtremeRight.value = true;
+    fromExtremeRight.value = true; // 标记从极夜模式返回
     setTimeout(() => {
       leftWidth.value = 75;
       setTimeout(() => {
         isTransitioning.value = false;
-        fromExtremeRight.value = false;
+        fromExtremeRight.value = false; // 动画结束后重置
       }, 1000);
     }, 50);
   }
+
+
 };
 
 // 向右导航函数
 const navigateRight = () => {
   if (isTransitioning.value) return;
-
+  
   isTransitioning.value = true;
 
   if(leftWidth.value == 25)
@@ -635,15 +768,21 @@ const navigateRight = () => {
 
 };
 
-
+// 确保右侧卡片可见
+const ensureRightCardsVisible = () => {
+  const hasHiddenCard = cards.value.some(card => !card.visible);
+  if (hasHiddenCard) {
+    showRightCards();
+  }
+};
 
 onMounted(() => {
-  // 仅在非极端模式下触发初始动画
-  if (!isFullLeft.value && !isFullRight.value) {
-    addCardFadeInAnimation();
-  }
+  // 添加淡入动画
+  addCardFadeInAnimation();
 
-  // 移除了全局拖拽事件监听 (mousemove, mouseup)
+  // 添加全局鼠标事件监听
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', stopDrag);
 });
 </script>
 
@@ -669,18 +808,18 @@ onMounted(() => {
 
 /* 昼之模式 - 完全拖到左边 */
 .minimalist-page.page-day-mode {
-  background-image: url('/fullNight_BG_HighResolution.png'); /* 请确保图片存在于public目录下 */
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: #f5f3f0;
 }
 
 /* 夜之模式 - 完全拖到右边 */
 .minimalist-page.page-night-mode {
-  background-image: url('/extreme-night.png'); /* 请确保图片存在于public目录下 */
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: linear-gradient(
+    to bottom,
+    #1a2a3a 0%,
+    #2a3a4a 30%,
+    #3a4a5a 70%,
+    #2a3a4a 100%
+  );
 }
 
 /* 夜空背景从左往右扫入 */
@@ -691,12 +830,13 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  /* 这里的图片必须和 page-night-mode 的背景一致 */
-  background-image: url('/fullNight_BG_HighResolution.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-
+  background: linear-gradient(
+    to bottom,
+    #1a2a3a 0%,
+    #2a3a4a 30%,
+    #3a4a5a 70%,
+    #2a3a4a 100%
+  );
   animation: nightSweep 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   z-index: 0;
 }
@@ -719,13 +859,13 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   background-image:
-      radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.8), transparent),
-      radial-gradient(2px 2px at 60% 70%, rgba(255, 255, 255, 0.6), transparent),
-      radial-gradient(1px 1px at 50% 50%, rgba(255, 255, 255, 0.7), transparent),
-      radial-gradient(1px 1px at 80% 10%, rgba(255, 255, 255, 0.5), transparent),
-      radial-gradient(2px 2px at 90% 60%, rgba(255, 255, 255, 0.6), transparent),
-      radial-gradient(1px 1px at 33% 80%, rgba(255, 255, 255, 0.4), transparent),
-      radial-gradient(1px 1px at 15% 60%, rgba(255, 255, 255, 0.5), transparent);
+    radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(2px 2px at 60% 70%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 50% 50%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 80% 10%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(2px 2px at 90% 60%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 33% 80%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 15% 60%, rgba(255, 255, 255, 0.5), transparent);
   background-size: 200% 200%;
   animation: starsFloat 60s ease-in-out infinite, starsFadeIn 1.2s ease 0.4s forwards;
   opacity: 0;
@@ -894,10 +1034,10 @@ onMounted(() => {
 /* 左侧极端状态 - 昼之页面 */
 .left-extreme .extreme-title {
   background: linear-gradient(
-      to bottom,
-      #8b7d6b 0%,
-      #6b5d4b 50%,
-      #8b7d6b 100%
+    to bottom,
+    #8b7d6b 0%,
+    #6b5d4b 50%,
+    #8b7d6b 100%
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -918,25 +1058,25 @@ onMounted(() => {
 /* 右侧极端状态 - 夜之页面 */
 .right-extreme .extreme-title {
   background: linear-gradient(
-      to bottom,
-      #ffffff 0%,
-      #e0f0ff 50%,
-      #ffffff 100%
+    to bottom,
+    #3a4a5a 0%,
+    #5a6a7a 50%,
+    #3a4a5a 100%
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 1);
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 
 .right-extreme .extreme-subtitle {
-  color: rgba(200, 210, 220, 1);
+  color: rgba(200, 210, 220, 0.85);
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }
 
 .right-extreme .extreme-description {
-  color: rgba(200, 210, 220, 1);
+  color: rgba(200, 210, 220, 0.7);
 }
 
 /* 交错排布的标题组合 */
@@ -962,16 +1102,16 @@ onMounted(() => {
 .title-composition .title-kanji:nth-child(1) {
   transform: translateX(-25px);
   background: linear-gradient(
-      to bottom,
-      #4a5a6a 0%,
-      #8b9aaa 50%,
-      #4a5a6a 100%
+    to bottom,
+    #4a5a6a 0%,
+    #8b9aaa 50%,
+    #4a5a6a 100%
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
-  drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
+          drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
 }
 
 /* 为"白"字添加额外的噪点层 - 使用 ::before 创建更明显的效果 */
@@ -983,13 +1123,13 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   background:
-      url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.0' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2b)' opacity='0.4'/%3E%3C/svg%3E"),
-      linear-gradient(
-          to bottom,
-          #4a5a6a 0%,
-          #8b9aaa 50%,
-          #4a5a6a 100%
-      );
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.0' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2b)' opacity='0.4'/%3E%3C/svg%3E"),
+    linear-gradient(
+      to bottom,
+      #4a5a6a 0%,
+      #8b9aaa 50%,
+      #4a5a6a 100%
+    );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -998,7 +1138,7 @@ onMounted(() => {
   pointer-events: none;
   z-index: 0;
   filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
-  drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
+          drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
 }
 
 /* 为"白"字添加噪点纹理叠加层 - 使用 ::after 确保显示在文字上方 */
@@ -1010,13 +1150,13 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   background:
-      url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='6' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0.3 0.7 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2)'/%3E%3C/svg%3E"),
-      linear-gradient(
-          to bottom,
-          #4a5a6a 0%,
-          #8b9aaa 50%,
-          #4a5a6a 100%
-      );
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='6' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0.3 0.7 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2)'/%3E%3C/svg%3E"),
+    linear-gradient(
+      to bottom,
+      #4a5a6a 0%,
+      #8b9aaa 50%,
+      #4a5a6a 100%
+    );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1025,23 +1165,23 @@ onMounted(() => {
   pointer-events: none;
   z-index: 1;
   filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
-  drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
+          drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
 }
 
 /* 第二个字 "夜" - 右偏移 + 暖色调 */
 .title-composition .title-kanji:nth-child(3) {
   transform: translateX(30px);
   background: linear-gradient(
-      to bottom,
-      #4a5a6a 0%,
-      #8b9aaa 50%,
-      #4a5a6a 100%
+    to bottom,
+    #4a5a6a 0%,
+    #8b9aaa 50%,
+    #4a5a6a 100%
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
-  drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
+          drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
 }
 
 /* 为"夜"字添加额外的噪点层 - 使用 ::before 创建更明显的效果 */
@@ -1053,13 +1193,13 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   background:
-      url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.0' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2b)' opacity='0.4'/%3E%3C/svg%3E"),
-      linear-gradient(
-          to bottom,
-          #4a5a6a 0%,
-          #8b9aaa 50%,
-          #4a5a6a 100%
-      );
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.0' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2b)' opacity='0.4'/%3E%3C/svg%3E"),
+    linear-gradient(
+      to bottom,
+      #4a5a6a 0%,
+      #8b9aaa 50%,
+      #4a5a6a 100%
+    );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1068,7 +1208,7 @@ onMounted(() => {
   pointer-events: none;
   z-index: 0;
   filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
-  drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
+          drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
 }
 
 /* 为"夜"字添加噪点纹理叠加层 - 使用 ::after 确保显示在文字上方 */
@@ -1080,13 +1220,13 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   background:
-      url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='6' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0.3 0.7 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2)'/%3E%3C/svg%3E"),
-      linear-gradient(
-          to bottom,
-          #4a5a6a 0%,
-          #8b9aaa 50%,
-          #4a5a6a 100%
-      );
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='6' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0.3 0.7 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise2)'/%3E%3C/svg%3E"),
+    linear-gradient(
+      to bottom,
+      #4a5a6a 0%,
+      #8b9aaa 50%,
+      #4a5a6a 100%
+    );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1095,41 +1235,41 @@ onMounted(() => {
   pointer-events: none;
   z-index: 1;
   filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.8))
-  drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
+          drop-shadow(-2px -2px 0 rgba(212, 165, 165, 0.1));
 }
 
 /* hover 效果 - 第一个字 */
 .title-composition .title-kanji:nth-child(1):hover {
   transform: translateX(30px) scale(1.08);
   filter: drop-shadow(3px 3px 0 rgba(255, 255, 255, 0.9))
-  drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
-  drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
-  drop-shadow(0 0 80px rgba(255, 192, 203, 0.3));
+          drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
+          drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
+          drop-shadow(0 0 80px rgba(255, 192, 203, 0.3));
 }
 
 .title-composition .title-kanji:nth-child(1):hover::after {
   opacity: 1;
   filter: drop-shadow(3px 3px 0 rgba(255, 255, 255, 0.9))
-  drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
-  drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
-  drop-shadow(0 0 80px rgba(255, 192, 203, 0.3));
+          drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
+          drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
+          drop-shadow(0 0 80px rgba(255, 192, 203, 0.3));
 }
 
 /* hover 效果 - 第二个字 */
 .title-composition .title-kanji:nth-child(3):hover {
   transform: translateX(30px) scale(1.08);
   filter: drop-shadow(3px 3px 0 rgba(255, 255, 255, 0.9))
-  drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
-  drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
-  drop-shadow(0 0 80px rgba(255, 192, 203, 0.3));
+          drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
+          drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
+          drop-shadow(0 0 80px rgba(255, 192, 203, 0.3));
 }
 
 .title-composition .title-kanji:nth-child(3):hover::after {
   opacity: 1;
   filter: drop-shadow(3px 3px 0 rgba(255, 255, 255, 0.9))
-  drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
-  drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
-  drop-shadow(0 0 80px rgba(255, 192, 203, 0.3));
+          drop-shadow(-3px -3px 0 rgba(212, 165, 165, 0.15))
+          drop-shadow(0 6px 30px rgba(212, 165, 165, 0.4))
+          drop-shadow(0 0 80px rgba(255, 192, 203, 0.3));
 }
 
 /* 竖线装饰 - 在第一个字和第二个字之间 */
@@ -1137,11 +1277,11 @@ onMounted(() => {
   width: 1px;
   height: 220px;
   background: linear-gradient(
-      to bottom,
-      rgba(122, 143, 163, 0.3) 0%,
-      rgba(122, 143, 163, 0.6) 30%,
-      rgba(212, 165, 165, 0.6) 70%,
-      rgba(212, 165, 165, 0.3) 100%
+    to bottom,
+    rgba(122, 143, 163, 0.3) 0%,
+    rgba(122, 143, 163, 0.6) 30%,
+    rgba(212, 165, 165, 0.6) 70%,
+    rgba(212, 165, 165, 0.3) 100%
   );
   align-self: flex-end;
   margin-right:130px;
@@ -1183,11 +1323,11 @@ onMounted(() => {
 .center-main-title.title-theme-2 .side-vertical-line,
 .center-main-title.title-theme-3 .side-vertical-line {
   background: linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0.3) 0%,
-      rgba(255, 255, 255, 0.6) 30%,
-      rgba(255, 255, 255, 0.6) 70%,
-      rgba(255, 255, 255, 0.3) 100%
+    to bottom,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0.6) 30%,
+    rgba(255, 255, 255, 0.6) 70%,
+    rgba(255, 255, 255, 0.3) 100%
   );
 }
 
@@ -1203,8 +1343,8 @@ onMounted(() => {
 .center-main-title.title-theme-2 .title-kanji,
 .center-main-title.title-theme-3 .title-kanji {
   filter: drop-shadow(2px 2px 0 rgba(255, 255, 255, 0.3))
-  drop-shadow(0 4px 20px rgba(0, 0, 0, 0.4))
-  drop-shadow(0 0 60px rgba(255, 255, 255, 0.3));
+          drop-shadow(0 4px 20px rgba(0, 0, 0, 0.4))
+          drop-shadow(0 0 60px rgba(255, 255, 255, 0.3));
 }
 
 .center-main-title.title-theme-1 .title-kanji::after,
@@ -1221,8 +1361,7 @@ onMounted(() => {
   bottom: 0;
   width: 2px;
   background: transparent;
-  /* 移除了 ew-resize，改为 default */
-  cursor: default;
+  cursor: ew-resize;
   z-index: 200;
   display: flex;
   align-items: center;
@@ -1239,22 +1378,21 @@ onMounted(() => {
   left: 0 !important;
   width: 3px;
   background: linear-gradient(
-      to right,
-      rgba(200, 210, 220, 0.2),
-      rgba(200, 210, 220, 0.1),
-      transparent
+    to right,
+    rgba(200, 210, 220, 0.2),
+    rgba(200, 210, 220, 0.1),
+    transparent
   );
-  /* 边缘状态下依然不需要 resize 光标 */
-  cursor: default;
+  cursor: e-resize;
 }
 
 .divider.edge-left:hover {
   width: 6px;
   background: linear-gradient(
-      to right,
-      rgba(200, 210, 220, 0.4),
-      rgba(200, 210, 220, 0.2),
-      transparent
+    to right,
+    rgba(200, 210, 220, 0.4),
+    rgba(200, 210, 220, 0.2),
+    transparent
   );
   box-shadow: 2px 0 10px rgba(200, 210, 220, 0.3);
 }
@@ -1263,23 +1401,22 @@ onMounted(() => {
   left: calc(100% - 3px) !important;
   width: 3px;
   background: linear-gradient(
-      to left,
-      rgba(200, 190, 180, 0.2),
-      rgba(200, 190, 180, 0.1),
-      transparent
+    to left,
+    rgba(200, 190, 180, 0.2),
+    rgba(200, 190, 180, 0.1),
+    transparent
   );
-  /* 边缘状态下依然不需要 resize 光标 */
-  cursor: default;
+  cursor: w-resize;
 }
 
 .divider.edge-right:hover {
   width: 6px;
   left: calc(100% - 6px) !important;
   background: linear-gradient(
-      to left,
-      rgba(200, 190, 180, 0.4),
-      rgba(200, 190, 180, 0.2),
-      transparent
+    to left,
+    rgba(200, 190, 180, 0.4),
+    rgba(200, 190, 180, 0.2),
+    transparent
   );
   box-shadow: -2px 0 10px rgba(200, 190, 180, 0.3);
 }
@@ -1298,20 +1435,20 @@ onMounted(() => {
 .divider:hover {
   width: 3px;
   background: linear-gradient(
-      to right,
-      rgba(200, 190, 180, 0.15),
-      rgba(200, 190, 180, 0.25),
-      rgba(200, 190, 180, 0.15)
+    to right,
+    rgba(200, 190, 180, 0.15),
+    rgba(200, 190, 180, 0.25),
+    rgba(200, 190, 180, 0.15)
   );
 }
 
 .divider.dragging {
   width: 4px;
   background: linear-gradient(
-      to right,
-      rgba(139, 125, 107, 0.2),
-      rgba(139, 125, 107, 0.35),
-      rgba(139, 125, 107, 0.2)
+    to right,
+    rgba(139, 125, 107, 0.2),
+    rgba(139, 125, 107, 0.35),
+    rgba(139, 125, 107, 0.2)
   );
 }
 
@@ -1346,10 +1483,10 @@ onMounted(() => {
   width: 1px;
   height: 40px;
   background: linear-gradient(
-      to bottom,
-      transparent,
-      rgba(139, 125, 107, 0.5),
-      transparent
+    to bottom,
+    transparent,
+    rgba(139, 125, 107, 0.5),
+    transparent
   );
   transition: all 0.3s ease;
 }
@@ -1358,10 +1495,10 @@ onMounted(() => {
 .divider.dragging .handle-line {
   height: 50px;
   background: linear-gradient(
-      to bottom,
-      transparent,
-      rgba(139, 125, 107, 0.7),
-      transparent
+    to bottom,
+    transparent,
+    rgba(139, 125, 107, 0.7),
+    transparent
   );
 }
 
@@ -1637,39 +1774,39 @@ onMounted(() => {
 /* 默认背景 - 白夜·黎明 (原始天空) */
 .bg-layer.bg-default {
   background: linear-gradient(
-      to bottom,
-      #f7ddd7 0%,      /* 上: 空色 (天蓝) */ #bad6ea 50%,     /* 中: 灰櫻 (暖粉灰) */
-      #f7ddd7 100%     /* 下: 水色 (淡蓝) */
+    to bottom,
+    #f7ddd7 0%,      /* 上: 空色 (天蓝) */ #bad6ea 50%,     /* 中: 灰櫻 (暖粉灰) */
+    #f7ddd7 100%     /* 下: 水色 (淡蓝) */
   );
 }
 
 /* 卡片1背景 - 人間不信·春 (樱花季) */
 .bg-layer.bg-1 {
   background: linear-gradient(
-      to bottom,
-      #dae7f0 0%,      /* 上: 暖色 - 淡樱灰粉 (低饱和) */
-      #f7d3d2 50%,     /* 中: 暖色 - 灰樱色 (温柔的灰粉) */
-      #dae7f0 100%     /* 下: 冷色 - 淡蓝灰 (春日薄雾天空) */
+    to bottom,
+    #dae7f0 0%,      /* 上: 暖色 - 淡樱灰粉 (低饱和) */
+    #f7d3d2 50%,     /* 中: 暖色 - 灰樱色 (温柔的灰粉) */
+    #dae7f0 100%     /* 下: 冷色 - 淡蓝灰 (春日薄雾天空) */
   );
 }
 
 /* 卡片2背景 - 思界者·夏 (夏日天空) */
 .bg-layer.bg-2 {
   background: linear-gradient(
-      to bottom,
-      #e8d5b7 0%,      /* 上: 空色 (夏日蓝天) */
-      #7db9de 50%,     /* 中: 勿忘草色 (明亮蓝) */
-      #e8d5b7 100%     /* 下: 砂色 (夏日沙滩) */
+    to bottom,
+    #e8d5b7 0%,      /* 上: 空色 (夏日蓝天) */
+    #7db9de 50%,     /* 中: 勿忘草色 (明亮蓝) */
+    #e8d5b7 100%     /* 下: 砂色 (夏日沙滩) */
   );
 }
 
 /* 卡片3背景 - 永遠回帰·冬 (雪夜) */
 .bg-layer.bg-3 {
   background: linear-gradient(
-      to bottom,
-      #4a5a6a 0%,      /* 上: 藍鼠 (冬夜深蓝) */
-      #8b9aaa 50%,     /* 中: 銀鼠 (银灰雪色) */
-      #4a5a6a 100%     /* 下: 鼠色 (冬日灰蓝) */
+    to bottom,
+    #4a5a6a 0%,      /* 上: 藍鼠 (冬夜深蓝) */
+    #8b9aaa 50%,     /* 中: 銀鼠 (银灰雪色) */
+    #4a5a6a 100%     /* 下: 鼠色 (冬日灰蓝) */
   );
 }
 .bg-layer.bg-default2 {
@@ -1772,10 +1909,10 @@ onMounted(() => {
   position: absolute;
   height: 1px;
   background: linear-gradient(
-      to right,
-      transparent,
-      rgba(255, 255, 255, 0.3),
-      transparent
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
   );
   animation: lineSlideH 8s ease-in-out infinite;
 }
@@ -1797,10 +1934,10 @@ onMounted(() => {
   position: absolute;
   width: 1px;
   background: linear-gradient(
-      to bottom,
-      transparent,
-      rgba(255, 255, 255, 0.3),
-      transparent
+    to bottom,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
   );
   animation: lineSlideV 8s ease-in-out infinite;
 }
@@ -1958,10 +2095,10 @@ onMounted(() => {
   width: 60px;
   height: 1px;
   background: linear-gradient(
-      to right,
-      transparent,
-      rgba(255, 255, 255, 0.4),
-      transparent
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
   );
   transition: all 0.8s ease;
 }
@@ -1979,10 +2116,10 @@ onMounted(() => {
 .title-vertical.title-mode-3 .frame-line {
   width: 80px;
   background: linear-gradient(
-      to right,
-      transparent,
-      rgba(255, 255, 255, 0.6),
-      transparent
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.6),
+    transparent
   );
 }
 
@@ -2063,10 +2200,10 @@ onMounted(() => {
   position: absolute;
   height: 1px;
   background: linear-gradient(
-      to right,
-      transparent,
-      rgba(200, 190, 180, 0.3),
-      transparent
+    to right,
+    transparent,
+    rgba(200, 190, 180, 0.3),
+    transparent
   );
   animation: rightLineFloat 10s ease-in-out infinite;
 }
@@ -2088,10 +2225,10 @@ onMounted(() => {
   position: absolute;
   width: 1px;
   background: linear-gradient(
-      to bottom,
-      transparent,
-      rgba(200, 190, 180, 0.3),
-      transparent
+    to bottom,
+    transparent,
+    rgba(200, 190, 180, 0.3),
+    transparent
   );
   animation: rightLineFloat 10s ease-in-out infinite;
 }
@@ -2284,11 +2421,11 @@ onMounted(() => {
 @keyframes slideInFromRightTitle {
   0% {
     opacity: 0;
-
+ 
   }
   100% {
     opacity: 1;
-
+ 
   }
 }
 
