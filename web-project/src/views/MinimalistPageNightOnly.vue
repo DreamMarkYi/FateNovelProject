@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="eternal-night-page">
 
     <SowakaNavigation
@@ -392,4 +392,5 @@ const goBack = () => {
   }
 }
 </style>
+
 

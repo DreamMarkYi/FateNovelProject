@@ -1,0 +1,492 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter Selection - Vintage Sketch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Gloria+Hallelujah&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+    <style>
+        /* --- 基础变量 --- */
+        :root {
+            /* 修改：背景改为更黄、更旧的羊皮纸色 */
+            --bg-paper: #e6e2d6;
+            /* 修改：笔触改为暖炭黑色，不像纯黑那么生硬 */
+            --pencil-stroke: #362f2d;
+            --pencil-light: #7a6e66;
+            /* 修改：高亮色稍微暗一点，模拟旧墨水 */
+            --highlight-red: #c92a2a;
+            --font-body: 'Architects Daughter', cursive;
+            --font-title: 'Gloria Hallelujah', cursive;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-paper);
+            color: var(--pencil-stroke);
+            font-family: var(--font-body);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+
+            /* 新增：模拟旧纸张的细微横向纹理 (Laid paper lines) */
+            background-image: repeating-linear-gradient(
+                    to bottom,
+                    transparent,
+                    transparent 3px,
+                    rgba(60, 40, 20, 0.03) 4px
+            );
+
+            /* 新增：四周很重的内阴影，模拟纸张边缘氧化变脏 */
+            box-shadow: inset 0 0 180px rgba(70, 50, 30, 0.25);
+        }
+
+        /* 纸张噪点 (增强版) */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.5'/%3E%3C/svg%3E");
+            /* 修改：混合模式改为 overlay 且透明度提高，增加颗粒感 */
+            opacity: 0.15;
+            mix-blend-mode: overlay;
+            pointer-events: none;
+            z-index: -2;
+        }
+
+        /* 纸张光影与污渍 (做旧版) */
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            /* 修改：径向渐变模拟中间亮、四周暗黄的效果 */
+            background: radial-gradient(
+                    circle at 50% 50%,
+                    rgba(255, 255, 255, 0.2) 20%,
+                    transparent 60%,
+                    rgba(255, 255, 255, 0.15) 100%
+            );
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* --- 角落魔法阵装饰 --- */
+        .corner-magic {
+            position: absolute;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.15; /* 稍微加深一点 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* 混合模式让线条像画在纸纹理里 */
+            mix-blend-mode: multiply;
+        }
+
+        .corner-bottom-right {
+            bottom: -120px;
+            right: -120px;
+            width: 400px;
+            height: 400px;
+        }
+
+        .corner-top-left {
+            top: -80px;
+            left: -80px;
+            width: 250px;
+            height: 250px;
+        }
+
+        .magic-svg { width: 100%; height: 100%; }
+        .magic-line {
+            fill: none;
+            stroke: var(--pencil-stroke);
+            stroke-width: 2;
+            stroke-linecap: round;
+        }
+        .line-dashed { stroke-dasharray: 10 5; }
+        .line-rough { stroke-dasharray: 80 20; opacity: 0.8; }
+
+        /* --- 顶部 UI --- */
+        .header {
+            position: absolute;
+            top: 0; left: 0; width: 100%;
+            padding: 30px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 10;
+        }
+
+        .back-btn {
+            font-size: 22px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 5px 10px;
+            font-family: var(--font-title);
+            color: var(--pencil-stroke);
+            text-decoration: underline;
+            text-decoration-style: wavy;
+            text-decoration-color: rgba(60, 47, 45, 0.3);
+            text-underline-offset: 4px;
+            transition: transform 0.2s, color 0.2s;
+        }
+
+        .back-btn:hover {
+            transform: scale(1.1) rotate(-3deg);
+            color: var(--highlight-red);
+            text-decoration-color: var(--highlight-red);
+        }
+
+        .chapter-info { text-align: right; }
+
+        .chapter-num {
+            font-family: var(--font-title);
+            font-size: 60px;
+            position: absolute;
+            right: 50px;
+            top: 15px;
+            opacity: 0.1; /* 稍微加深 */
+            transform: rotate(10deg);
+            pointer-events: none;
+            color: #5c4a3d; /* 深棕色水印 */
+        }
+
+        .chapter-title {
+            font-family: var(--font-title);
+            font-size: 28px;
+            margin-bottom: 5px;
+            text-decoration: underline;
+            text-decoration-style: wavy;
+            text-decoration-color: var(--pencil-light);
+        }
+
+        .progress-container {
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .progress-box {
+            width: 120px;
+            height: 12px;
+            border: 2px solid var(--pencil-stroke);
+            border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+            position: relative;
+            padding: 2px;
+            background: rgba(255,255,255,0.3); /* 增加一点透白 */
+        }
+        .progress-fill {
+            width: 9%;
+            height: 100%;
+            background: var(--pencil-stroke);
+            border-radius: 2px 50px 2px 10px;
+            opacity: 0.8;
+        }
+
+        /* --- 地图区域 --- */
+        .map-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+        }
+
+        /* --- 背景手写涂鸦 --- */
+        .handwritten-note {
+            position: absolute;
+            top: 25%;
+            left: 68%;
+            color: var(--pencil-light);
+            font-family: var(--font-title);
+            font-size: 30px;
+            transform: rotate(12deg) scale(1.1);
+            pointer-events: none;
+            z-index: 1;
+            border-bottom: 2px solid rgba(80, 60, 40, 0.15);
+            border-radius: 50% 20% / 10% 40%;
+            padding: 10px;
+            mix-blend-mode: multiply; /* 融入纸张 */
+        }
+
+        .connections {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .node {
+            position: absolute;
+            width: 160px;
+            height: 200px;
+            /* 修改：节点背景不是纯白，而是米色，模拟贴在上面的纸片 */
+            background: #f4efe1;
+            border: 2px solid var(--pencil-stroke);
+            border-radius: 2% 4% 3% 5% / 95% 4% 92% 5%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            padding: 15px;
+            z-index: 2;
+            transition: transform 0.3s ease;
+            box-shadow: 3px 4px 10px rgba(0,0,0,0.1); /* 增加一点阴影让纸片浮起来 */
+        }
+
+        .node::after {
+            content: '';
+            position: absolute;
+            top: 6px; left: 6px;
+            width: 100%; height: 100%;
+            border-radius: 2% 4% 3% 5% / 95% 4% 92% 5%;
+            z-index: -1;
+            background: repeating-linear-gradient(
+                    -45deg,
+                    var(--pencil-stroke),
+                    var(--pencil-stroke) 1px,
+                    transparent 1px,
+                    transparent 4px
+            );
+            opacity: 0.1;
+        }
+
+        .node:hover { transform: translate(-3px, -3px) rotate(-1deg); }
+        .node:hover::after { transform: translate(2px, 2px); opacity: 0.2; }
+
+        .node-img {
+            width: 80px; height: 60px;
+            border: 2px dashed var(--pencil-light);
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.03);
+        }
+        .node-img::before {
+            content: 'IMG';
+            font-size: 12px;
+            opacity: 0.5;
+            transform: rotate(-10deg);
+        }
+
+        .node-name {
+            font-family: var(--font-title);
+            font-size: 18px;
+            text-align: center;
+            line-height: 1.2;
+            margin-bottom: 8px;
+        }
+
+        .node-id {
+            position: absolute;
+            top: -10px; left: -10px;
+            background: #eaddcf; /* 稍微深一点的米色 */
+            border: 2px solid var(--pencil-stroke);
+            border-radius: 50% 40% 60% 45% / 40% 55% 45% 60%;
+            width: 35px; height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+        }
+
+        .stars { display: flex; gap: 5px; }
+        .star-shape { font-size: 16px; line-height: 1; }
+        .star-shape.active {
+            color: var(--highlight-red);
+            text-shadow: 0 0 1px var(--highlight-red);
+            opacity: 0.9;
+        }
+
+        .node.locked { opacity: 0.7; background: #e8e0d0; }
+        .node.locked .node-name { text-decoration: line-through; opacity: 0.6; }
+
+        .node-1 { top: 40%; left: 20%; transform: rotate(-2deg); }
+        .node-2 { top: 60%; left: 50%; transform: rotate(1deg); }
+
+        .footer {
+            position: absolute;
+            bottom: 30px; left: 50px; z-index: 10;
+        }
+
+        .collection-box {
+            border: none;
+            background: transparent;
+            border-radius: 0;
+            box-shadow: none;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--pencil-light);
+            font-size: 16px;
+            transform: rotate(-1deg);
+        }
+
+        .collection-icon {
+            font-size: 24px;
+            color: var(--pencil-stroke);
+            border: 2px dashed rgba(60, 40, 20, 0.2);
+            border-radius: 50%;
+            width: 32px; height: 32px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .collection-box strong {
+            color: var(--highlight-red);
+            font-family: var(--font-title);
+            font-size: 18px;
+        }
+
+        .sketch-arrow {
+            position: absolute;
+            pointer-events: none;
+            z-index: 4;
+            color: var(--pencil-light);
+            font-family: var(--font-title);
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <button class="back-btn" onclick="alert('Go back')">
+        ← BACK
+    </button>
+    <div class="chapter-info">
+        <div class="chapter-num">01</div>
+        <div class="chapter-title">Graffiti Art</div>
+        <div class="progress-container">
+            <span>Normal</span>
+            <div class="progress-box">
+                <div class="progress-fill"></div>
+            </div>
+            <span>9%</span>
+        </div>
+    </div>
+</header>
+
+<div class="handwritten-note">keep going！！！</div>
+
+<div class="corner-magic corner-top-left">
+    <svg class="magic-svg" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="90" class="magic-line line-rough" />
+        <circle cx="100" cy="100" r="70" class="magic-line line-dashed" />
+        <polygon points="100,20 170,140 30,140" class="magic-line" opacity="0.5"/>
+    </svg>
+</div>
+
+<div class="corner-magic corner-bottom-right">
+    <svg class="magic-svg" viewBox="0 0 300 300">
+        <circle cx="150" cy="150" r="140" class="magic-line" stroke-dasharray="120 40" opacity="0.6" />
+        <circle cx="150" cy="150" r="130" class="magic-line line-dashed" />
+        <rect x="75" y="75" width="150" height="150" class="magic-line" transform="rotate(45 150 150)" />
+        <rect x="75" y="75" width="150" height="150" class="magic-line" transform="rotate(20 150 150)" opacity="0.5"/>
+        <circle cx="150" cy="150" r="40" class="magic-line" />
+    </svg>
+</div>
+
+<div class="map-container">
+
+    <svg class="connections">
+        <line x1="0" y1="0" x2="0" y2="0"
+              stroke="#362f2d"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-dasharray="2000"
+              style="filter: url(#rough-line); opacity: 0.8;"/> </svg>
+
+    <div class="node node-1" onclick="alert('Go to 1-1')">
+        <div class="node-id">1-1</div>
+        <div class="node-img"></div>
+        <div class="node-name">Conflict<br>Zone</div>
+        <div class="stars">
+            <span class="star-shape active">★</span>
+            <span class="star-shape active">★</span>
+            <span class="star-shape active">★</span>
+        </div>
+        <div style="position:absolute; right:-12px; bottom:-8px; border:3px solid var(--highlight-red); border-radius:55% 45% 60% 40% / 40% 60% 50% 50%; width:35px; height:25px; transform:rotate(-15deg); opacity:0.8; mix-blend-mode: multiply;"></div>
+    </div>
+
+    <div class="sketch-arrow" style="top: 50%; left: 32%; transform: rotate(8deg);">
+        Keep going! ->
+    </div>
+
+    <div class="node node-2 locked" onclick="alert('Locked')">
+        <div class="node-id">1-2</div>
+        <div class="node-img"></div>
+        <div class="node-name">Silent<br>Area</div>
+        <div class="stars">
+            <span class="star-shape">☆</span>
+            <span class="star-shape">☆</span>
+            <span class="star-shape">☆</span>
+        </div>
+    </div>
+
+</div>
+
+<footer class="footer">
+    <div class="collection-box">
+        <span class="collection-icon">♦</span>
+        <span>Collection: <strong>3</strong> / 36</span>
+    </div>
+</footer>
+
+<script>
+    function connectNodes() {
+        const node1 = document.querySelector('.node-1');
+        const node2 = document.querySelector('.node-2');
+        const svg = document.querySelector('.connections');
+        const line = svg.querySelector('line');
+
+        if(!node1 || !node2) return;
+
+        const getCenter = (element) => {
+            const rect = element.getBoundingClientRect();
+            return {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            };
+        };
+
+        const p1 = getCenter(node1);
+        const p2 = getCenter(node2);
+
+        line.setAttribute('x1', p1.x);
+        line.setAttribute('y1', p1.y);
+        line.setAttribute('x2', p2.x);
+        line.setAttribute('y2', p2.y);
+    }
+
+    window.addEventListener('resize', connectNodes);
+    window.addEventListener('load', () => {
+        setTimeout(connectNodes, 100);
+    });
+</script>
+
+</body>
+</html>

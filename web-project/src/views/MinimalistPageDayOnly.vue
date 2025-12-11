@@ -59,7 +59,7 @@ defineComponent({
   position: relative;
   /* 对应原代码中 page-day-mode 的背景设置 */
   /* 注意：原代码中此处使用了 fullNight_BG_HighResolution.png 作为白昼背景，保留原逻辑 */
-  background-image: url('/fullNight_BG_HighResolution.png');
+  background-image: url('/fullDay_BG_HighResolution.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -78,7 +78,7 @@ defineComponent({
 .center-main-title {
   position: fixed;
   left: 50%;
-  top: 50%;
+  top: 45%;
   transform: translate(-50%, -50%);
   z-index: 150;
   display: flex;
@@ -138,14 +138,14 @@ defineComponent({
   /* 白昼特定的金棕色渐变 */
   background: linear-gradient(
       to bottom,
-      #8b7d6b 0%,
-      #6b5d4b 50%,
-      #8b7d6b 100%
+      #8c8781 0%,
+      #65605a 50%,
+      #88847f 100%
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-shadow: 0 2px 10px rgba(255, 255, 255, 0.5);
+  text-shadow: 0 2px 10px rgba(255, 255, 255, 0.7);
 
   animation: extremePulse 4s ease-in-out infinite;
 }

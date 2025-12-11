@@ -22,6 +22,39 @@ const novelScriptSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // 剧本简介（用于章节选择页面显示）
+  summary: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  // 剧本缩略图地址
+  thumbnailImage: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  // 解锁条件：需要完成的剧本ID列表
+  unlockConditions: {
+    type: [String],
+    default: []
+  },
+  // 连接的节点ID列表
+  connectNode: {
+    type: [String],
+    default: []
+  },
+  // 世界坐标位置
+  position: {
+    x: {
+      type: Number,
+      default: 0
+    },
+    y: {
+      type: Number,
+      default: 0
+    }
+  },
   // 场景列表
   scenes: [{
     // 场景序号（用于跳转和存档）

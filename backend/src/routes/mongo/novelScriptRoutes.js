@@ -2,6 +2,15 @@ const express = require('express');
 const router = express.Router();
 const NovelScriptController = require('../../controllers/mongo/novelScriptController');
 
+// 标记剧本完成
+router.post('/mark-completed', NovelScriptController.markScriptCompleted);
+
+// 检查剧本完成状态
+router.get('/check-completion', NovelScriptController.checkScriptCompletion);
+
+// 获取章节选择页面的剧本节点列表（带解锁状态判断）
+router.get('/chapter-nodes', NovelScriptController.getChapterNodes);
+
 // 获取所有剧本（支持分页和过滤）
 router.get('/', NovelScriptController.getAllScripts);
 
@@ -37,5 +46,8 @@ router.delete('/:scriptId', NovelScriptController.deleteScript);
 
 // 切换剧本激活状态
 router.patch('/:scriptId/toggle', NovelScriptController.toggleScriptStatus);
+
+// 批量更新节点位置
+router.put('/batch/update-positions', NovelScriptController.updateNodePositions);
 
 module.exports = router;

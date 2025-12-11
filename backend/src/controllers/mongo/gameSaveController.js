@@ -196,10 +196,9 @@ class GameSaveController {
         timestamp: new Date()
       };
       
-      // 计算进度百分比
-      const currentScenePosition = script.scenes.findIndex(s => s.index === saveData.currentSceneIndex);
-      const progressPercentage = currentScenePosition >= 0 && script.metadata.totalScenes > 0
-        ? Math.min(100, Math.floor(((currentScenePosition + 1) / script.metadata.totalScenes) * 100))
+      // 使用前端传来的进度百分比
+      const progressPercentage = saveData.progressPercentage !== undefined 
+        ? Math.min(100, Math.max(0, saveData.progressPercentage))
         : 0;
       
       // 查找或创建用户存档记录
@@ -296,10 +295,9 @@ class GameSaveController {
         timestamp: new Date()
       };
       
-      // 计算进度
-      const currentScenePosition = script.scenes.findIndex(s => s.index === saveData.currentSceneIndex);
-      const progressPercentage = currentScenePosition >= 0 && script.metadata.totalScenes > 0
-        ? Math.min(100, Math.floor(((currentScenePosition + 1) / script.metadata.totalScenes) * 100))
+      // 使用前端传来的进度百分比
+      const progressPercentage = saveData.progressPercentage !== undefined 
+        ? Math.min(100, Math.max(0, saveData.progressPercentage))
         : 0;
       
       // 查找或创建用户存档记录
@@ -393,10 +391,9 @@ class GameSaveController {
         timestamp: new Date()
       };
       
-      // 计算进度
-      const currentScenePosition = script.scenes.findIndex(s => s.index === saveData.currentSceneIndex);
-      const progressPercentage = currentScenePosition >= 0 && script.metadata.totalScenes > 0
-        ? Math.min(100, Math.floor(((currentScenePosition + 1) / script.metadata.totalScenes) * 100))
+      // 使用前端传来的进度百分比
+      const progressPercentage = saveData.progressPercentage !== undefined 
+        ? Math.min(100, Math.max(0, saveData.progressPercentage))
         : 0;
       
       // 查找或创建用户存档记录

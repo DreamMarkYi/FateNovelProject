@@ -133,6 +133,18 @@ async function importNovelScript(filePath, scriptId, scriptName, description = '
       existingScript.scriptName = scriptName;
       existingScript.description = description;
       existingScript.scenes = scenes;
+      // 如果 unlockConditions 不存在，设置为空数组（默认值）
+      if (existingScript.unlockConditions === undefined) {
+        existingScript.unlockConditions = [];
+      }
+      // 如果 connectNode 不存在，设置为空数组（默认值）
+      if (existingScript.connectNode === undefined) {
+        existingScript.connectNode = [];
+      }
+      // 如果 position 不存在，设置为默认位置
+      if (existingScript.position === undefined) {
+        existingScript.position = { x: 0, y: 0 };
+      }
       existingScript.metadata.totalScenes = scenes.length;
       existingScript.metadata.estimatedPlayTime = Math.ceil(scenes.length * 0.5);
       // 不设置 lastUpdated，让 schema 的默认值处理（与 initNovelScript.js 一致）
@@ -155,6 +167,9 @@ async function importNovelScript(filePath, scriptId, scriptName, description = '
         scriptId,
         scriptName,
         description,
+        unlockConditions: [], // 解锁条件，默认为空数组（无解锁条件，默认解锁）
+        connectNode: [], // 连接的节点，默认为空数组
+        position: { x: 0, y: 0 }, // 世界坐标位置，默认为 (0, 0)
         scenes,
         isActive: true,
         displayOrder: 0, // 默认值，与初始化脚本保持一致（初始化脚本使用 1 或 2，但默认是 0）

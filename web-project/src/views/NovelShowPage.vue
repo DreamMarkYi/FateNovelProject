@@ -93,6 +93,7 @@ import GameToolbar from '@/components/visualNovel/GameToolbar.vue';
 import SystemMenu from '@/components/visualNovel/SystemMenu.vue';
 import { useUserSession } from '@/composables/useUserSession';
 import { gameSaveApi } from '@/api/gameSaveApi';
+import { novelScriptApi } from '@/api/novelScriptApi';
 
 // 路由
 const route = useRoute();
@@ -134,6 +135,10 @@ const gameVariables = ref({});
 // 玩家信息 - 使用用户会话中的 userId
 const playerId = computed(() => userSession.userId.value || 'player_' + Date.now());
 
+// 进度相关
+const progressPercentage = ref(0);
+const isScriptCompleted = ref(false); // 防止重复触发完成
+
 // 菜单状态
 const showSystemMenu = ref(false);
 const systemMenuTab = ref('save');
@@ -171,6 +176,65 @@ const progress = computed(() => {
   return Math.floor((currentIndex.value / storyScript.value.length) * 100);
 });
 
+// 计算当前进度百分比
+const calculateProgress = () => {
+  if (!storyScript.value || storyScript.value.length === 0) {
+    return 0;
+  }
+  
+  const totalScenes = storyScript.value.length;
+  const currentPosition = currentIndex.value + 1; // +1 因为索引从0开始
+  
+  const percentage = Math.min(100, Math.floor((currentPosition / totalScenes) * 100));
+  
+  console.log(`📊 进度计算: ${currentPosition}/${totalScenes} = ${percentage}%`);
+  
+  return percentage;
+};
+
+// 检查并处理剧本完成
+const checkScriptCompletion = async () => {
+  const progress = calculateProgress();
+  progressPercentage.value = progress;
+  
+  // 当进度达到100%且尚未标记完成时
+  if (progress === 100 && !isScriptCompleted.value) {
+    isScriptCompleted.value = true;
+    console.log('🎉 剧本完成！');
+    
+    try {
+      // 调用后端API标记剧本完成
+      const response = await novelScriptApi.markScriptCompleted(
+        playerId.value,
+        scriptId.value
+      );
+      
+      if (response.success) {
+        console.log('✅ 剧本完成状态已更新');
+        console.log('🔓 新解锁的剧本:', response.data.newlyUnlocked);
+        
+        // 显示完成提示
+        if (response.data.isNewCompletion) {
+          showCompletionNotification(response.data);
+        }
+      }
+    } catch (error) {
+      console.error('❌ 更新剧本完成状态失败:', error);
+    }
+  }
+};
+
+// 显示完成提示
+const showCompletionNotification = (data) => {
+  // 显示完成祝贺
+  alert(`🎉 恭喜完成《${scriptName.value}》！`);
+  
+  // 如果有新解锁的章节，显示提示
+  if (data.newlyUnlocked && data.newlyUnlocked.length > 0) {
+    alert(`🔓 解锁了新章节: ${data.newlyUnlocked.join(', ')}`);
+  }
+};
+
 // 处理点击事件
 const handleInput = () => {
   const currentScene = storyScript.value[currentIndex.value];
@@ -183,6 +247,10 @@ const handleInput = () => {
   }
   currentIndex.value = nextIndex;
   renderScene(storyScript.value[currentIndex.value]);
+  
+  // 每次切换场景后检查进度
+  checkScriptCompletion();
+  
   if (nextIndex % 5 === 0) {
     autoSaveGame();
   }
@@ -192,7 +260,13 @@ const handleInput = () => {
 const renderScene = (scene) => {
   if (!scene) return;
   currentTheme.value = scene.theme || 'dark';
-  if (scene.bgImage) currentBgImage.value = scene.bgImage;
+  
+  // 只在背景图片不为空且与当前图片不同时才切换
+  if (scene.bgImage && scene.bgImage !== currentBgImage.value) {
+    currentBgImage.value = scene.bgImage;
+  }
+  // 如果 bgImage 为空或未定义，保持当前背景不变
+  
   currentCharacterLeft.value = scene.characterImageLeft || '';
   currentCharacterRight.value = scene.characterImageRight || '';
 
@@ -255,23 +329,70 @@ const loadScript = async () => {
       const scenes = scriptData.scenes.sort((a, b) => a.index - b.index);
       storyScript.value = scenes;
 
-      const priorityCount = Math.min(5, scenes.length);
-      const priorityImages = [];
-      for (let i = 0; i < priorityCount; i++) {
-        if (scenes[i]?.bgImage) priorityImages.push(scenes[i].bgImage);
+      // 收集所有唯一的背景图片 URL（去重）
+      const uniqueImages = new Set();
+      scenes.forEach(scene => {
+        if (scene.bgImage && scene.bgImage.trim()) {
+          uniqueImages.add(scene.bgImage.trim());
+        }
+      });
+      const allUniqueImages = Array.from(uniqueImages);
+      
+      // 优先加载前5张不同的背景图片
+      // 遍历场景，直到收集满5张唯一图片为止
+      const priorityImages = new Set();
+      const maxPriorityImages = 5;
+      
+      for (let i = 0; i < scenes.length && priorityImages.size < maxPriorityImages; i++) {
+        if (scenes[i]?.bgImage && scenes[i].bgImage.trim()) {
+          priorityImages.add(scenes[i].bgImage.trim());
+        }
       }
-      preloadProgress.value = { loaded: 0, total: scenes.length };
+      const priorityImageArray = Array.from(priorityImages);
+      
+      // 设置加载进度，基于实际图片数量
+      preloadProgress.value = { loaded: 0, total: allUniqueImages.length };
+      
+      console.log(`📸 共发现 ${allUniqueImages.length} 张唯一背景图片`);
+      console.log(`🎯 优先加载前 ${priorityImageArray.length} 张图片`);
+      
       try {
-        await preloadImagesInBatch(priorityImages);
+        await preloadImagesInBatch(priorityImageArray);
       } catch (error) { console.warn(error); }
 
       if (scenes.length > 0) {
         currentIndex.value = 0;
         renderScene(scenes[0]);
       }
+      
+      // 重置并计算初始进度
+      isScriptCompleted.value = false;
+      progressPercentage.value = calculateProgress();
+      
+      // 检查该剧本是否已经完成过
+      try {
+        const completionStatus = await novelScriptApi.checkScriptCompletion(
+          playerId.value,
+          scriptId.value
+        );
+        
+        if (completionStatus.data.isCompleted) {
+          isScriptCompleted.value = true;
+          console.log('📚 该剧本已完成过');
+        }
+      } catch (error) {
+        console.warn('检查剧本完成状态失败:', error);
+      }
+      
       isLoading.value = false;
-      if (scenes.length > priorityCount) {
-        preloadRemainingImages(scenes, priorityCount);
+      
+      // 延迟加载剩余图片
+      const remainingImages = allUniqueImages.filter(
+        img => !priorityImages.has(img)
+      );
+      if (remainingImages.length > 0) {
+        console.log(`⏳ 准备延迟加载剩余 ${remainingImages.length} 张图片`);
+        preloadRemainingImagesOptimized(remainingImages);
       }
     } else {
       throw new Error('剧本数据格式错误');
@@ -298,20 +419,37 @@ const preloadImagesInBatch = async (urls) => {
   await Promise.all(validUrls.map(url => preloadImage(url)));
 };
 
-const preloadRemainingImages = async (scenes, startIndex) => {
+/**
+ * 优化后的延迟加载函数 - 直接加载唯一图片数组
+ * @param {Array<string>} imageUrls - 需要加载的唯一图片 URL 数组
+ */
+const preloadRemainingImagesOptimized = async (imageUrls) => {
+  // 延迟1秒后开始加载，避免影响初始渲染
   await new Promise(resolve => setTimeout(resolve, 1000));
-  const remainingUrls = [];
-  for (let i = startIndex; i < scenes.length; i++) {
-    if (scenes[i]?.bgImage && !preloadedImages.value.has(scenes[i].bgImage)) {
-      remainingUrls.push(scenes[i].bgImage);
+  
+  // 过滤掉已经加载的图片
+  const urlsToLoad = imageUrls.filter(url => !preloadedImages.value.has(url));
+  
+  if (urlsToLoad.length === 0) {
+    console.log('✅ 所有图片已预加载完成');
+    return;
+  }
+  
+  console.log(`🔄 开始延迟加载 ${urlsToLoad.length} 张图片`);
+  
+  // 分批加载，每批3张
+  const batchSize = 3;
+  for (let i = 0; i < urlsToLoad.length; i += batchSize) {
+    const batch = urlsToLoad.slice(i, i + batchSize);
+    await preloadImagesInBatch(batch);
+    
+    // 每批之间延迟500ms，避免过度占用带宽
+    if (i + batchSize < urlsToLoad.length) {
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
-  const batchSize = 3;
-  for (let i = 0; i < remainingUrls.length; i += batchSize) {
-    const batch = remainingUrls.slice(i, i + batchSize);
-    await preloadImagesInBatch(batch);
-    if (i + batchSize < remainingUrls.length) await new Promise(resolve => setTimeout(resolve, 500));
-  }
+  
+  console.log('✅ 所有背景图片预加载完成');
 };
 
 const openSystemMenu = (tab) => {
@@ -471,6 +609,7 @@ const createSaveData = () => {
     scriptId: scriptId.value,
     scriptName: scriptName.value,
     currentSceneIndex: currentScene?.index || 0,
+    progressPercentage: progressPercentage.value, // 使用前端计算的进度
     playTime: Math.floor((Date.now() - new Date().getTime()) / 1000), // 游戏时长（秒）
     choiceHistory: choiceHistory.value,
     gameVariables: gameVariables.value,

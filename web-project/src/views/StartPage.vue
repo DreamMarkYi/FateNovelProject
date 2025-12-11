@@ -98,7 +98,8 @@ const gameState = reactive({
   mode: 'gate',
   introFinished: false,
   playerId: '', // 后端生成的玩家ID
-  startTime: 0  // 游戏开始时间
+  startTime: 0,  // 游戏开始时间
+  endingType: '' // 结局类型：'day' 或 'night'
 })
 
 // === 剧本管理 ===
@@ -203,12 +204,17 @@ async function calculateAndShowEnding() {
     console.log('结局计算结果:', response)
     console.log(`最终结果: ${response.endingType === 'day' ? '白昼' : '永夜'}`)
     
+    // 保存结局类型到 gameState，用于后续跳转
+    gameState.endingType = response.endingType
+    
     // 跳转到结局场景
     setTimeout(() => jumpToId(response.sceneId), 500)
   } catch (error) {
     console.error('计算结局失败:', error)
     // 如果后端计算失败，使用本地逻辑作为后备
     const fallbackEndingId = gameState.score > 0 ? 100 : 200
+    const fallbackEndingType = gameState.score > 0 ? 'day' : 'night'
+    gameState.endingType = fallbackEndingType
     console.log('使用后备逻辑，跳转到场景:', fallbackEndingId)
     setTimeout(() => jumpToId(fallbackEndingId), 500)
   }
@@ -340,9 +346,15 @@ function handleInput() {
   const scene = storyScript.value[currentIndex.value]
   if (!scene) return
 
-  // 检查是否是结局场景（游戏结束，不再继续）
+  // 检查是否是结局场景（游戏结束，点击后跳转到对应结局页面）
   if (scene.id === 100 || scene.id === 200) {
-    console.log('游戏已结束，不再继续播放')
+    console.log('游戏已结束，跳转到结局页面')
+    const finalResult = gameState.endingType
+    if (finalResult === 'day') {
+      router.push('/exDay')
+    } else {
+      router.push('/exNight')
+    }
     return
   }
 

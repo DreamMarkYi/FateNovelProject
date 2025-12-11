@@ -9,6 +9,10 @@ import NovelShowPage from '../views/NovelShowPage.vue'
 import exNight  from  '../views/MinimalistPageNightOnly.vue'
 import normalNight  from  '../views/MinimalistPageNormalNighty.vue'
 import StartPage from '../views/StartPage.vue'
+import exDay from '../views/MinimalistPageDayOnly.vue'
+import ChapterSelectPage from '../views/ChapterSelectPage.vue'
+import ChapterNodeEditor from '../views/ChapterNodeEditor.vue'
+
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -62,6 +66,21 @@ const router = createRouter({
           path: '/start',
           name: 'start',
           component: StartPage
+      },
+      {
+          path: '/exDay',
+          name: 'exDay',
+          component: exDay
+      },
+      {
+          path: '/chapter-select',
+          name: 'chapter-select',
+          component: ChapterSelectPage
+      },
+      {
+          path: '/chapter-editor',
+          name: 'chapter-editor',
+          component: ChapterNodeEditor
       }
 
   ]

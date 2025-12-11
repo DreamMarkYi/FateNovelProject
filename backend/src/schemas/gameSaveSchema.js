@@ -124,6 +124,18 @@ const gameSaveSchema = new mongoose.Schema({
     type: [Number],
     default: []
   },
+  // 已完成的剧本列表
+  completedScripts: {
+    type: [String],
+    default: [],
+    index: true
+  },
+  // 已解锁的剧本列表（缓存字段）
+  unlockedScripts: {
+    type: [String],
+    default: [],
+    index: true
+  },
   // 全局解锁内容（跨存档）
   globalUnlockedContent: {
     cg: [String],
@@ -260,6 +272,63 @@ gameSaveSchema.methods.unlockGlobalContent = function(type, contentId) {
   if (!this.globalUnlockedContent[type].includes(contentId)) {
     this.globalUnlockedContent[type].push(contentId);
   }
+};
+
+/**
+ * 标记剧本为已完成
+ */
+gameSaveSchema.methods.markScriptCompleted = function(scriptId) {
+  if (!this.completedScripts.includes(scriptId)) {
+    this.completedScripts.push(scriptId);
+    console.log(`✅ 标记剧本完成: ${scriptId}`);
+    return true; // 新完成
+  }
+  return false; // 已经完成过
+};
+
+/**
+ * 检查剧本是否已完成
+ */
+gameSaveSchema.methods.isScriptCompleted = function(scriptId) {
+  return this.completedScripts.includes(scriptId);
+};
+
+/**
+ * 计算并更新已解锁的剧本列表
+ */
+gameSaveSchema.methods.updateUnlockedScripts = async function(allScripts) {
+  const previouslyUnlocked = new Set(this.unlockedScripts || []);
+  const currentlyUnlocked = [];
+  
+  // 根据解锁条件判断哪些剧本已解锁
+  for (const script of allScripts) {
+    let isUnlocked = true;
+    
+    // 如果有解锁条件，检查是否都满足
+    if (script.unlockConditions && script.unlockConditions.length > 0) {
+      isUnlocked = script.unlockConditions.every(requiredScriptId => 
+        this.completedScripts.includes(requiredScriptId)
+      );
+    }
+    
+    // 如果解锁，添加到列表中
+    if (isUnlocked) {
+      currentlyUnlocked.push(script.scriptId);
+    }
+  }
+  
+  // 更新缓存字段
+  this.unlockedScripts = currentlyUnlocked;
+  
+  // 找出新解锁的剧本
+  const newlyUnlocked = currentlyUnlocked.filter(id => !previouslyUnlocked.has(id));
+  
+  console.log(`🔓 已解锁剧本: ${currentlyUnlocked.length}个`);
+  if (newlyUnlocked.length > 0) {
+    console.log(`🆕 新解锁: ${newlyUnlocked.join(', ')}`);
+  }
+  
+  return newlyUnlocked;
 };
 
 // ============= 静态方法 =============
