@@ -58,6 +58,34 @@
       </div>
     </div>
 
+    <div class="game-menu-bar">
+      <div class="menu-item" @click="handleGameStart">
+        <span class="menu-en">Start Game</span>
+        <span class="menu-cn">开始游戏</span>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item" @click="handleLoadGame">
+        <span class="menu-en">Load Game</span>
+        <span class="menu-cn">加载存档</span>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item" @click="handleChapterSelect">
+        <span class="menu-en">Chapters</span>
+        <span class="menu-cn">章节选择</span>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item" @click="handleExtras">
+        <span class="menu-en">Archives</span>
+        <span class="menu-cn">已解锁信息</span>
+      </div>
+    </div>
+
     <div class="navigation-controls">
       <button class="nav-button" @click="goBack" title="返回">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -83,6 +111,27 @@ const goBack = () => {
   } else {
     router.push('/');
   }
+};
+
+// [新增] 菜单点击处理逻辑
+const handleGameStart = () => {
+  console.log("Start Game Clicked");
+  // router.push('/game/start');
+};
+
+const handleLoadGame = () => {
+  console.log("Load Game Clicked");
+  // router.push('/game/load');
+};
+
+const handleChapterSelect = () => {
+  console.log("Chapter Select Clicked");
+  // router.push('/game/chapters');
+};
+
+const handleExtras = () => {
+  console.log("Extras Clicked");
+  // router.push('/game/extras');
 };
 </script>
 
@@ -143,7 +192,6 @@ const goBack = () => {
   animation: blinkSequenceBottom 7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* 眨眼关键帧保持不变，与曝光同步 */
 @keyframes blinkSequenceTop {
   0%, 15% { transform: translateY(0); }         /* 闭 */
   25%     { transform: translateY(-40%); }      /* 睁1 */
@@ -162,9 +210,7 @@ const goBack = () => {
   85%, 100% { transform: translateY(100%); }
 }
 
-/* 2. 背景层：实现真实过曝 (Brightness + Contrast)
-   注意：我们将动画直接应用在背景容器上
-*/
+/* 2. 背景层：实现真实过曝 */
 .visual-wrapper {
   position: absolute;
   top: 0;
@@ -172,32 +218,16 @@ const goBack = () => {
   width: 100%;
   height: 100%;
   z-index: 5;
-
-  /* 修改点：
-     1. forwards: 动画结束后停留在最终状态
-     2. cubic-bezier(0.1, 0.5, 0.1, 1):
-        这是一个精心调教的指数衰减曲线。
-        它不随眨眼波动，而是一直在“往清晰的方向走”。
-        开始时变化很快（适应强光），后面变化很慢（微调对焦），
-        确保了最后一次眨眼时依然有朦胧感。
-  */
   animation: imgExposureFocus 8s cubic-bezier(0.1, 0.5, 0.1, 1) forwards;
   will-change: filter, transform;
 }
 
-/* 核心修改：
-   移除所有中间百分比（如 30%, 60%）。
-   创建一个绝对平滑、不间断的从“极度过曝”到“正常”的过渡。
-*/
 @keyframes imgExposureFocus {
   0% {
-    /* 初始状态：致盲的亮度和模糊 */
     filter: blur(50px) brightness(6.0) contrast(4.0);
     transform: scale(1.35);
   }
-
   100% {
-    /* 最终状态：一切归于平静 */
     filter: blur(0px) brightness(1.0) contrast(1.0);
     transform: scale(1.0);
   }
@@ -233,7 +263,6 @@ const goBack = () => {
   opacity: 0;
   pointer-events: none;
   z-index: 1;
-  /* 星星延迟出现 */
   animation: starsFloat 60s ease-in-out infinite, starsFadeIn 3s ease 7.5s forwards;
 }
 
@@ -256,7 +285,6 @@ const goBack = () => {
   align-items: center;
   gap: 30px;
   opacity: 0;
-  /* 文字在完全适应光线后才浮现 */
   animation: moonRise 2s cubic-bezier(0.2, 0.8, 0.2, 1) 6.5s forwards;
 }
 
@@ -297,7 +325,7 @@ const goBack = () => {
   100% { opacity: 1; }
 }
 
-/* 字体与排版样式 (保持不变) */
+/* 字体与排版样式 */
 .extreme-title-wrapper {
   display: flex;
   flex-direction: column;
@@ -380,6 +408,85 @@ const goBack = () => {
   color: rgba(255, 255, 255, 0.8);
 }
 
+/* =========================================
+   === [新增] 底部游戏菜单样式 ===
+   ========================================= */
+
+.game-menu-bar {
+  position: absolute;
+  bottom: 8%; /* 距离底部的位置 */
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 40px; /* 按钮之间的间距 */
+  z-index: 30; /* 确保在背景之上 */
+  opacity: 0;
+  /* 动画：延迟 8.5s 开始，持续 1.5s 淡入 */
+  animation: menuFadeIn 1.5s ease 8.5s forwards;
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  position: relative;
+}
+
+/* 英文小标题 */
+.menu-en {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 4px;
+  transition: color 0.3s ease;
+  text-transform: uppercase;
+}
+
+/* 中文标题 */
+.menu-cn {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 16px;
+  font-weight: 300;
+  letter-spacing: 2px;
+  color: rgba(220, 220, 220, 0.8);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  transition: all 0.3s ease;
+}
+
+/* 悬停效果 */
+.menu-item:hover .menu-cn {
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.6), 0 0 20px rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.menu-item:hover .menu-en {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 分割线 */
+.menu-divider {
+  width: 1px;
+  height: 25px;
+  background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.3), transparent);
+}
+
+/* 移动端适配 */
 @media (max-width: 768px) {
   .extreme-title {
     font-size: 80px;
@@ -389,8 +496,25 @@ const goBack = () => {
     bottom: 40px;
     left: 50%;
     transform: translateX(-50%);
+    opacity: 0; /* 保持原有的fadeIn动画 */
+  }
+
+  /* 移动端菜单调整 */
+  .game-menu-bar {
+    width: 90%;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    bottom: 15%; /* 稍微抬高，给返回按钮留空间 */
+  }
+
+  .menu-divider {
+    display: none;
+  }
+
+  .menu-item {
+    width: 40%;
+    margin-bottom: 10px;
   }
 }
 </style>
-
-

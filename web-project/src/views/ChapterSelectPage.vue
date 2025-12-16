@@ -111,6 +111,16 @@
         <span>Collection: <strong>{{ collectionCurrent }}</strong> / {{ collectionTotal }}</span>
       </div>
     </footer>
+
+    <!-- 解锁提示框 -->
+    <MysticAlert
+      v-model="showUnlockAlert"
+      notice-title="SYSTEM NOTICE"
+      :message="unlockAlertMessage"
+      :highlight-text="unlockAlertHighlight"
+      confirm-text="确认"
+      @confirm="handleUnlockConfirm"
+    />
   </div>
 </template>
 
@@ -119,6 +129,7 @@ import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import ChapterNode from '@/components/ChapterNode.vue'
 import HandwrittenNote from '@/components/HandwrittenNote.vue'
+import MysticAlert from '@/components/MysticAlert.vue'
 import { novelScriptApi } from '@/api/novelScriptApi'
 
 const router = useRouter()
@@ -143,6 +154,11 @@ const handwrittenNotes = ref([
 // 收藏信息
 const collectionCurrent = ref(3)
 const collectionTotal = ref(36)
+
+// 解锁提示框状态
+const showUnlockAlert = ref(false)
+const unlockAlertMessage = ref('需要完成以下剧本')
+const unlockAlertHighlight = ref('')
 
 // 章节节点数据
 const nodes = ref([])
@@ -252,10 +268,14 @@ const calculateConnections = () => {
 const handleNodeClick = (node) => {
   if (node.locked) {
     // 显示解锁条件提示
-    const conditionsText = node.unlockConditions.length > 0
-      ? `需要完成以下剧本：${node.unlockConditions.join(', ')}`
-      : '该剧本已锁定'
-    alert(conditionsText)
+    if (node.unlockConditions && node.unlockConditions.length > 0) {
+      unlockAlertMessage.value = '需要完成以下剧本'
+      unlockAlertHighlight.value = `「 ${node.unlockConditions.join('、')} 」`
+    } else {
+      unlockAlertMessage.value = '该剧本已锁定'
+      unlockAlertHighlight.value = ''
+    }
+    showUnlockAlert.value = true
   } else {
     // 跳转到剧本页面
     router.push({
@@ -263,6 +283,11 @@ const handleNodeClick = (node) => {
       query: { scriptId: node.id }
     })
   }
+}
+
+// 解锁提示确认处理
+const handleUnlockConfirm = () => {
+  // 可以在这里添加额外的逻辑
 }
 
 // 返回按钮处理

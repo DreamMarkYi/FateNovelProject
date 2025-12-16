@@ -52,6 +52,11 @@ const router = createRouter({
       name: 'novel-show',
       component: NovelShowPage
     },
+    {
+      path: '/visual-novel',
+      name: 'visual-novel',
+      component: NovelShowPage
+    },
       {
           path: '/exNight',
           name: 'exNight',
