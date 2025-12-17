@@ -29,6 +29,14 @@
             <p>在永恒的光明中</p>
             <p>万物生长繁盛</p>
           </div>
+
+          <div class="game-menu-container">
+            <button class="menu-btn" @click="startGame">开始游戏</button>
+            <button class="menu-btn" @click="continueGame">继续游戏</button>
+            <button class="menu-btn" @click="selectChapter">章节选择</button>
+            <button class="menu-btn special-btn" @click="enterDarkSide">日之暗处</button>
+          </div>
+
         </div>
       </div>
     </div>
@@ -47,6 +55,25 @@ const { mobileMenuOpen, toggleMobileMenu, scrollToSection } = useSowakaPage();
 defineComponent({
   name: 'ExtremeDayPage'
 });
+
+// 新增：按钮点击处理逻辑
+const startGame = () => {
+  console.log('开始游戏');
+  // 路由跳转逻辑...
+};
+
+const continueGame = () => {
+  console.log('继续游戏');
+};
+
+const selectChapter = () => {
+  console.log('章节选择');
+};
+
+const enterDarkSide = () => {
+  console.log('进入日之暗处');
+  // 可以添加特殊转场效果
+};
 </script>
 
 <style scoped>
@@ -57,8 +84,6 @@ defineComponent({
   height: 100vh;
   overflow: hidden;
   position: relative;
-  /* 对应原代码中 page-day-mode 的背景设置 */
-  /* 注意：原代码中此处使用了 fullNight_BG_HighResolution.png 作为白昼背景，保留原逻辑 */
   background-image: url('/fullDay_BG_HighResolution.png');
   background-size: cover;
   background-position: center;
@@ -74,11 +99,11 @@ defineComponent({
   pointer-events: none;
 }
 
-/* 中央容器定位 */
+/* 中央容器定位 - 稍微上调 top 值以容纳下方按钮 */
 .center-main-title {
   position: fixed;
   left: 50%;
-  top: 45%;
+  top: 48%; /* 原为 45%，稍微下移或保持居中，视视觉重心而定 */
   transform: translate(-50%, -50%);
   z-index: 150;
   display: flex;
@@ -131,11 +156,9 @@ defineComponent({
 .extreme-title {
   font-size: 120px;
   font-weight: 300;
-  font-family: 'Noto Serif JP', serif; /* 需确保 index.html 引入了该字体 */
+  font-family: 'Noto Serif JP', serif;
   display: block;
   position: relative;
-
-  /* 白昼特定的金棕色渐变 */
   background: linear-gradient(
       to bottom,
       #8c8781 0%,
@@ -146,17 +169,12 @@ defineComponent({
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-shadow: 0 2px 10px rgba(255, 255, 255, 0.7);
-
   animation: extremePulse 4s ease-in-out infinite;
 }
 
 @keyframes extremePulse {
-  0%, 100% {
-    opacity: 0.95;
-  }
-  50% {
-    opacity: 1;
-  }
+  0%, 100% { opacity: 0.95; }
+  50% { opacity: 1; }
 }
 
 /* 副标题样式 */
@@ -164,7 +182,7 @@ defineComponent({
   font-size: 14px;
   letter-spacing: 8px;
   margin-top: 20px;
-  font-family: 'Cinzel', serif; /* 需确保 index.html 引入了该字体 */
+  font-family: 'Cinzel', serif;
   font-weight: 300;
   text-transform: uppercase;
   color: rgba(107, 93, 75, 0.85);
@@ -173,19 +191,13 @@ defineComponent({
 }
 
 @keyframes extremeSubtitleFloat {
-  0%, 100% {
-    transform: translateY(0);
-    opacity: 0.8;
-  }
-  50% {
-    transform: translateY(-8px);
-    opacity: 1;
-  }
+  0%, 100% { transform: translateY(0); opacity: 0.8; }
+  50% { transform: translateY(-8px); opacity: 1; }
 }
 
 /* 描述文字样式 */
 .extreme-description {
-  margin-top: 40px;
+  margin-top: 20px; /* 原为 40px，稍微减小与标题的距离 */
   display: flex;
   flex-direction: column;
   gap: 15px;
@@ -200,5 +212,71 @@ defineComponent({
 
 .extreme-description p {
   margin: 0;
+}
+
+/* -------------------------------------- */
+/* 新增：菜单按钮样式 */
+/* -------------------------------------- */
+.game-menu-container {
+  margin-top: 50px; /* 与上方描述文字拉开距离 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  /* 稍微延迟出现，让标题先展示 */
+  animation: menuFadeIn 1.5s ease-out 0.5s forwards;
+  opacity: 0;
+}
+
+@keyframes menuFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.menu-btn {
+  position: relative;
+  background: transparent;
+  /* 使用与主题一致的金棕色，带低透明度边框 */
+  border: 1px solid rgba(107, 93, 75, 0.3);
+  color: #65605a;
+  font-family: 'Noto Serif JP', serif;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 4px;
+  padding: 12px 0;
+  width: 220px; /* 固定宽度保证整齐 */
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  overflow: hidden;
+  text-align: center;
+}
+
+/* 按钮悬停效果 */
+.menu-btn:hover {
+  border-color: rgba(107, 93, 75, 0.8);
+  background-color: rgba(107, 93, 75, 0.05); /* 极淡的背景填充 */
+  color: #4a4540;
+  letter-spacing: 6px; /* 字体间距微张 */
+  box-shadow: 0 4px 15px rgba(107, 93, 75, 0.15);
+}
+
+/* 点击时的微缩放反馈 */
+.menu-btn:active {
+  transform: scale(0.98);
+}
+
+/* "日之暗处" 特殊样式 */
+.special-btn {
+  margin-top: 10px; /* 与上方常规选项稍微区隔 */
+  border-color: rgba(80, 70, 60, 0.15);
+  color: rgba(100, 90, 80, 0.6);
+  font-size: 14px;
+}
+
+.special-btn:hover {
+  border-color: rgba(60, 60, 60, 0.6);
+  background-color: rgba(0, 0, 0, 0.03); /* 稍微偏暗的背景 */
+  color: #2c2c2c;
 }
 </style>

@@ -54,6 +54,13 @@
             <p>星辰指引着方向</p>
           </div>
 
+          <div class="game-menu-container">
+            <button class="menu-btn" @click="startGame">开始游戏</button>
+            <button class="menu-btn" @click="continueGame">继续游戏</button>
+            <button class="menu-btn" @click="selectChapter">章节选择</button>
+            <button class="menu-btn special-btn" @click="enterDaySide">日之暗处</button>
+          </div>
+
         </div>
       </div>
     </div>
@@ -83,6 +90,23 @@ const goBack = () => {
   } else {
     router.push('/');
   }
+};
+
+// 新增：按钮点击处理逻辑
+const startGame = () => {
+  console.log('开始游戏');
+};
+
+const continueGame = () => {
+  console.log('继续游戏');
+};
+
+const selectChapter = () => {
+  console.log('章节选择');
+};
+
+const enterDaySide = () => {
+  console.log('进入日之暗处');
 };
 </script>
 
@@ -114,7 +138,7 @@ const goBack = () => {
 .blink-layer {
   position: fixed;
   top: 0;
-  left: 0;
+  left: -200px;
   width: 300%;
   height: 100%;
   z-index: 200;
@@ -132,7 +156,7 @@ const goBack = () => {
 }
 
 .blink-top {
-  top: 0;
+  top: -20px;
   transform-origin: top;
   animation: blinkSequenceTop 7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
@@ -143,14 +167,13 @@ const goBack = () => {
   animation: blinkSequenceBottom 7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* 眨眼关键帧保持不变，与曝光同步 */
 @keyframes blinkSequenceTop {
-  0%, 15% { transform: translateY(0); }         /* 闭 */
-  25%     { transform: translateY(-40%); }      /* 睁1 */
-  35%     { transform: translateY(0); }         /* 闭 */
-  50%     { transform: translateY(-70%); }      /* 睁2 */
-  60%     { transform: translateY(0); }         /* 闭 */
-  85%, 100% { transform: translateY(-100%); }   /* 睁3(定格) */
+  0%, 15% { transform: translateY(0); }
+  25%     { transform: translateY(-40%); }
+  35%     { transform: translateY(0); }
+  50%     { transform: translateY(-70%); }
+  60%     { transform: translateY(0); }
+  85%, 100% { transform: translateY(-100%); }
 }
 
 @keyframes blinkSequenceBottom {
@@ -162,9 +185,7 @@ const goBack = () => {
   85%, 100% { transform: translateY(100%); }
 }
 
-/* 2. 背景层：实现真实过曝 (Brightness + Contrast)
-   注意：我们将动画直接应用在背景容器上
-*/
+/* 2. 背景层 */
 .visual-wrapper {
   position: absolute;
   top: 0;
@@ -172,32 +193,16 @@ const goBack = () => {
   width: 100%;
   height: 100%;
   z-index: 5;
-
-  /* 修改点：
-     1. forwards: 动画结束后停留在最终状态
-     2. cubic-bezier(0.1, 0.5, 0.1, 1):
-        这是一个精心调教的指数衰减曲线。
-        它不随眨眼波动，而是一直在“往清晰的方向走”。
-        开始时变化很快（适应强光），后面变化很慢（微调对焦），
-        确保了最后一次眨眼时依然有朦胧感。
-  */
   animation: imgExposureFocus 8s cubic-bezier(0.1, 0.5, 0.1, 1) forwards;
   will-change: filter, transform;
 }
 
-/* 核心修改：
-   移除所有中间百分比（如 30%, 60%）。
-   创建一个绝对平滑、不间断的从“极度过曝”到“正常”的过渡。
-*/
 @keyframes imgExposureFocus {
   0% {
-    /* 初始状态：致盲的亮度和模糊 */
     filter: blur(50px) brightness(6.0) contrast(4.0);
     transform: scale(1.35);
   }
-
   100% {
-    /* 最终状态：一切归于平静 */
     filter: blur(0px) brightness(1.0) contrast(1.0);
     transform: scale(1.0);
   }
@@ -233,14 +238,13 @@ const goBack = () => {
   opacity: 0;
   pointer-events: none;
   z-index: 1;
-  /* 星星延迟出现 */
   animation: starsFloat 60s ease-in-out infinite, starsFadeIn 3s ease 7.5s forwards;
 }
 
 .center-content {
   position: fixed;
   left: 50%;
-  top: 50%;
+  top: 48%; /* 微调：稍微上移以容纳按钮 */
   transform: translate(-50%, -50%);
   z-index: 10;
   display: flex;
@@ -256,7 +260,6 @@ const goBack = () => {
   align-items: center;
   gap: 30px;
   opacity: 0;
-  /* 文字在完全适应光线后才浮现 */
   animation: moonRise 2s cubic-bezier(0.2, 0.8, 0.2, 1) 6.5s forwards;
 }
 
@@ -297,7 +300,7 @@ const goBack = () => {
   100% { opacity: 1; }
 }
 
-/* 字体与排版样式 (保持不变) */
+/* 字体与排版样式 */
 .extreme-title-wrapper {
   display: flex;
   flex-direction: column;
@@ -311,11 +314,11 @@ const goBack = () => {
   font-family: 'Noto Serif JP', serif;
   display: block;
   position: relative;
-  background: linear-gradient(to bottom, #ffffff 0%, #e0f0ff 50%, #ffffff 100%);
+  background: linear-gradient(to bottom, #465a6a 0%, #486071 50%, #4b7ea3 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 1);
+  text-shadow: 0 -3px 1px rgb(238, 248, 255);
   animation: extremePulse 4s ease-in-out infinite;
 }
 
@@ -336,7 +339,7 @@ const goBack = () => {
 }
 
 .extreme-description {
-  margin-top: 40px;
+  margin-top: 20px; /* 调整间距 */
   display: flex;
   flex-direction: column;
   gap: 15px;
@@ -354,6 +357,108 @@ const goBack = () => {
   margin: 0;
 }
 
+/* -------------------------------------- */
+/* 新增：夜间模式菜单按钮样式 */
+/* -------------------------------------- */
+.game-menu-container {
+  margin-top: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  opacity: 0;
+  /* 关键：设置 7.5s 延迟，让它在文字浮现后才慢慢出现 */
+  animation: menuFadeIn 1.5s ease-out 7.5s forwards;
+}
+
+@keyframes menuFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.menu-btn {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  /* 夜间特有的冷色调边框，低透明度 */
+  border: 1px solid rgba(200, 210, 220, 0.25);
+  color: rgba(200, 210, 220, 0.8);
+  font-family: 'Noto Serif JP', serif;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 4px;
+  padding: 12px 0;
+  width: 220px;
+  cursor: pointer;
+  transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: hidden;
+  text-align: center;
+  /* 增加一点磨砂感 */
+  backdrop-filter: blur(2px);
+}
+
+
+
+/* 按钮悬停：类似星光被点亮 */
+.menu-btn:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  letter-spacing: 6px;
+  /* 幽灵般的白色辉光 */
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.menu-btn:active {
+  transform: scale(0.98);
+}
+
+/* 定义底部流光伪元素 */
+.menu-btn::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0%;
+  height: 2px;
+  /* 永夜主题流光：两头透明，中间是明亮的银白色 */
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
+  /* 添加冷色调的发光效果 */
+  box-shadow: 0 1px 8px rgba(255, 255, 255, 0.6);
+  opacity: 0;
+  /* 配合夜间模式较慢的过渡节奏 */
+  transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 1;
+}
+
+/* 鼠标悬停时的状态 */
+.menu-btn:hover::after {
+  width: 100%;
+  opacity: 1;
+}
+
+/* "日之暗处" 特殊按钮 */
+.special-btn {
+  margin-top: 10px;
+  border-color: rgba(100, 110, 120, 0.2);
+  color: rgba(150, 160, 170, 0.5);
+}
+
+.special-btn:hover {
+  border-color: rgba(150, 160, 170, 0.6);
+  background-color: rgba(0, 0, 0, 0.2); /* 稍微深沉的背景 */
+  color: #e0e0e0;
+}
+.special-btn::after {
+  background: linear-gradient(90deg, transparent, rgba(150, 160, 170, 0.6), transparent);
+  box-shadow: 0 1px 5px rgba(150, 160, 170, 0.3);
+}
+/* -------------------------------------- */
+/* 返回按钮样式 (保持不变) */
+/* -------------------------------------- */
 .nav-button {
   width: 44px;
   height: 44px;
@@ -392,5 +497,3 @@ const goBack = () => {
   }
 }
 </style>
-
-
