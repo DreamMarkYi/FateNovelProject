@@ -58,6 +58,21 @@
         <button class="confirm-btn" @click.stop="submitName">确 定</button>
       </div>
 
+      <!-- Name Confirm Modal -->
+      <div v-if="showNameConfirmModal" class="modal-overlay" @click.stop>
+        <div class="modal-content">
+          <div class="modal-title">名讳已存在</div>
+          <div class="modal-text">
+            「{{ existingPlayerInfo?.playerName }}」这个名字已被刻下<br>
+            你是那位曾经在此驻足的旅人吗？
+          </div>
+          <div class="modal-buttons">
+            <button class="modal-btn confirm" @click.stop="confirmSamePerson">是的，那就是我</button>
+            <button class="modal-btn cancel" @click.stop="useNewIdentity">不，我是新的旅人</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Dialogue Layer -->
       <div 
         id="dialogue-layer" 
@@ -132,6 +147,10 @@ const textAnimClass = ref('')
 const currentChoices = ref([])
 const nameInput = ref('')
 const nameInputRef = ref(null)
+
+// 名称确认相关
+const showNameConfirmModal = ref(false)
+const existingPlayerInfo = ref(null)
 
 // === 渲染场景 ===
 async function renderScene(scene) {
@@ -240,6 +259,11 @@ async function handleGameComplete(endingId) {
     
     console.log('游戏完成:', response)
     console.log(`最终结果: ${response.finalResult === 'day' ? '白昼' : '永夜'}`)
+    
+    // 设置用户身份到全局状态（用于UI显示优化，实际权限验证由后端控制）
+    if (response.finalResult === 'day' || response.finalResult === 'night') {
+      userSession.setUserIdentity(response.finalResult)
+    }
   } catch (error) {
     console.error('记录游戏完成失败:', error)
   }
@@ -351,9 +375,9 @@ function handleInput() {
     console.log('游戏已结束，跳转到结局页面')
     const finalResult = gameState.endingType
     if (finalResult === 'day') {
-      router.push('/exDay')
+      router.push('/exDay?firstTime=true')
     } else {
-      router.push('/exNight')
+      router.push('/exNight?firstTime=true')
     }
     return
   }
@@ -421,35 +445,128 @@ async function chooseIdentity(type) {
 
 async function submitName() {
   const val = nameInput.value.trim()
-  if (val) {
-    gameState.name = val
-    const globalUserId = userSession.userId.value
+  if (!val) return
+  
+  try {
+    // 先检查名称是否已存在
+    const checkResult = await startChoiceApi.checkNameExists(val)
+    console.log('🔍 名称检查结果:', checkResult)
     
-    try {
-      // 使用统一的API，传入用户输入的名字
-      const response = await startChoiceApi.completeStartPage(
-        globalUserId,
-        val,
-        'named'
-      )
-      
-      gameState.playerId = response.data.playerId
-      userSession.setUserName(val)
-      
-      // 保存 JWT Token
-      if (response.data.token) {
-        localStorage.setItem('fate_novel_token', response.data.token)
-        console.log('✅ JWT Token 已保存')
-      }
-      
-      console.log('✅ 用户输入了名字:', val)
-    } catch (error) {
-      console.error('❌ 完成StartPage失败:', error)
+    if (checkResult.data?.exists && checkResult.data?.playerInfo) {
+      // 名称已存在，显示确认对话框
+      existingPlayerInfo.value = checkResult.data.playerInfo
+      showNameConfirmModal.value = true
+      return
     }
     
-    currentLayer.value = ''
-    setTimeout(() => jumpToId(21), 600)
+    // 名称不存在，直接创建新用户
+    await createNewPlayer(val)
+  } catch (error) {
+    console.error('❌ 检查名称失败:', error)
+    // 如果检查失败，仍然尝试创建新用户
+    await createNewPlayer(val)
   }
+}
+
+// 创建新玩家
+async function createNewPlayer(playerName) {
+  gameState.name = playerName
+  const globalUserId = userSession.userId.value
+  
+  try {
+    const response = await startChoiceApi.completeStartPage(
+      globalUserId,
+      playerName,
+      'named'
+    )
+    
+    gameState.playerId = response.data.playerId
+    userSession.setUserName(playerName)
+    
+    // 保存 JWT Token
+    if (response.data.token) {
+      localStorage.setItem('fate_novel_token', response.data.token)
+      console.log('✅ JWT Token 已保存')
+    }
+    
+    console.log('✅ 用户输入了名字:', playerName)
+  } catch (error) {
+    console.error('❌ 完成StartPage失败:', error)
+  }
+  
+  currentLayer.value = ''
+  setTimeout(() => jumpToId(21), 600)
+}
+
+// 确认是同一个人，使用已存在的身份登录
+async function confirmSamePerson() {
+  showNameConfirmModal.value = false
+  
+  const existingPlayer = existingPlayerInfo.value
+  const globalUserId = userSession.userId.value
+  
+  try {
+    const response = await startChoiceApi.loginAsExistingPlayer(
+      existingPlayer.playerId,
+      globalUserId
+    )
+    
+    gameState.playerId = response.data.playerId
+    gameState.name = response.data.playerName
+    
+    // 更新本地用户ID为已存在用户的ID（重要！）
+    localStorage.setItem('fate_novel_user_id', response.data.playerId)
+    userSession.userId.value = response.data.playerId
+    userSession.setUserName(response.data.playerName)
+    
+    // 设置用户身份
+    if (response.data.finalResult === 'day' || response.data.finalResult === 'night') {
+      userSession.setUserIdentity(response.data.finalResult)
+    }
+    
+    // 保存 JWT Token
+    if (response.data.token) {
+      localStorage.setItem('fate_novel_token', response.data.token)
+      console.log('✅ JWT Token 已保存（已存在用户）')
+    }
+    
+    console.log('✅ 使用已存在的身份登录:', existingPlayer.playerName)
+    console.log('✅ 用户身份:', response.data.finalResult)
+    
+    // 根据用户身份跳转到对应的首页
+    const finalResult = response.data.finalResult
+    if (finalResult === 'day') {
+      router.push('/exDay')
+    } else if (finalResult === 'night') {
+      router.push('/exNight')
+    } else {
+      // 如果身份未确定，跳转到章节选择页
+      router.push('/chapter-select')
+    }
+  } catch (error) {
+    console.error('❌ 使用已存在身份登录失败:', error)
+    // 如果登录失败，提示用户并允许重新选择
+    alert('登录失败，请重试或选择"新的旅人"')
+    showNameConfirmModal.value = true
+  }
+}
+
+// 用户确认不是同一个人，使用新身份
+async function useNewIdentity() {
+  showNameConfirmModal.value = false
+  existingPlayerInfo.value = null
+  
+  // 提示用户换一个名字
+  const val = nameInput.value.trim()
+  alert(`「${val}」这个名字已被他人使用，请换一个名字。`)
+  
+  // 清空输入框并聚焦
+  nameInput.value = ''
+  nextTick(() => {
+    if (nameInputRef.value) {
+      nameInputRef.value.focus()
+    }
+  })
 }
 
 async function selectChoice(choice) {
@@ -522,10 +639,21 @@ onMounted(async () => {
     const checkResult = await startChoiceApi.checkFirstTimeVisitor(userSession.userId.value)
     console.log('🔍 首次访问检查:', checkResult)
     
-    // 如果用户已经完成StartPage，直接跳转到小说展示页面
+    // 如果用户已经完成StartPage，根据结局跳转到对应页面
     if (!checkResult.data.shouldShowStartPage) {
-      console.log('✅ 用户已完成StartPage，跳转到NovelShowPage')
-      router.push('/novel-show')
+      const existingUser = checkResult.data.existingUser
+      const finalResult = existingUser?.finalResult
+      
+      console.log('✅ 用户已完成StartPage，结局类型:', finalResult)
+      
+      // 根据结局类型跳转到对应的首页
+      if (finalResult === 'day') {
+        console.log('🌅 跳转到白昼页面')
+        router.push('/exDay')
+      } else if (finalResult === 'night') {
+        console.log('🌙 跳转到永夜页面')
+        router.push('/exNight')
+      }
       return // 终止后续流程
     }
     
@@ -1077,6 +1205,112 @@ body, html {
   color: #fff;
   border-color: #aaa;
   letter-spacing: 0.2rem;
+}
+
+/* 名称确认模态框 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 10002;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: modalFadeIn 0.4s ease;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+  border: 1px solid #333;
+  padding: 3rem 4rem;
+  max-width: 500px;
+  text-align: center;
+  animation: modalSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-title {
+  font-size: 1.3rem;
+  color: #d4af37;
+  letter-spacing: 0.3rem;
+  margin-bottom: 2rem;
+  font-family: 'Noto Serif JP', serif;
+}
+
+.modal-text {
+  font-size: 1rem;
+  color: #aaa;
+  line-height: 2;
+  margin-bottom: 2.5rem;
+  letter-spacing: 0.05rem;
+}
+
+.modal-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.modal-btn {
+  padding: 14px 0;
+  width: 220px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #333;
+  color: #666;
+  font-family: 'Noto Serif JP', serif;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  font-size: 0.95rem;
+}
+
+.modal-btn:hover {
+  color: #ddd;
+  border-color: #888;
+  letter-spacing: 0.15rem;
+}
+
+.modal-btn.confirm {
+  color: #888;
+  border-color: #444;
+}
+
+.modal-btn.confirm:hover {
+  color: #d4af37;
+  border-color: #d4af37;
+}
+
+.modal-btn.cancel {
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+
+.modal-btn.cancel:hover {
+  opacity: 1;
+  color: #999;
 }
 </style>
 

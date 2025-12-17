@@ -98,6 +98,11 @@ const startChoiceRecordSchema = new mongoose.Schema({
   userAgent: {
     type: String,
     trim: true
+  },
+  // 最后登录时间
+  lastLoginAt: {
+    type: Date,
+    required: false
   }
 }, {
   timestamps: true,
@@ -111,6 +116,7 @@ startChoiceRecordSchema.index({ ipAddress: 1, hasSeenStartPage: 1 });
 startChoiceRecordSchema.index({ finalResult: 1 });
 startChoiceRecordSchema.index({ createdAt: -1 });
 startChoiceRecordSchema.index({ completedAt: -1 });
+startChoiceRecordSchema.index({ playerName: 1, hasCustomName: 1 }); // 用于检查名称是否存在
 
 // 虚拟字段：选择数量
 startChoiceRecordSchema.virtual('choiceCount').get(function() {

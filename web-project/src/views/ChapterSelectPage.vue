@@ -131,8 +131,10 @@ import ChapterNode from '@/components/ChapterNode.vue'
 import HandwrittenNote from '@/components/HandwrittenNote.vue'
 import MysticAlert from '@/components/MysticAlert.vue'
 import { novelScriptApi } from '@/api/novelScriptApi'
+import { useUserSession } from '@/composables/useUserSession'
 
 const router = useRouter()
+const userSession = useUserSession()
 
 // 顶部章节信息
 const chapterNumber = ref('01')
@@ -368,24 +370,15 @@ const updateWorldBounds = () => {
   // cameraY.value = -(minY + (maxY - minY) / 2 - window.innerHeight / 2)
 }
 
-// 获取玩家ID（从 localStorage 或其他地方获取）
-const getPlayerId = () => {
-  // 尝试从 localStorage 获取玩家ID
-  let playerId = localStorage.getItem('fate_novel_player_id')
-  
-  // 如果没有玩家ID，生成一个临时ID
-  if (!playerId) {
-    playerId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    localStorage.setItem('fate_novel_player_id', playerId)
-  }
-  
-  return playerId
-}
-
 // 加载章节节点数据
 const loadChapterNodes = async () => {
   try {
-    const playerId = getPlayerId()
+    // 确保用户会话已初始化
+    if (!userSession.userId.value) {
+      await userSession.initSession('ChapterSelectPage')
+    }
+    
+    const playerId = userSession.userId.value
     const response = await novelScriptApi.getChapterNodes(playerId)
     
     if (response.success && response.data) {

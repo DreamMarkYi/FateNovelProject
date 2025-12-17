@@ -7,11 +7,20 @@ const { authenticateToken, optionalAuth } = require('../../middleware/auth');
 // 检查是否首次访问
 router.get('/check-first-visit', StartChoiceController.checkFirstTimeVisitor);
 
+// 获取用户身份（安全版本，用于路由验证）
+router.get('/user-identity', StartChoiceController.getUserIdentity);
+
+// 检查名称是否已存在
+router.get('/check-name', StartChoiceController.checkNameExists);
+
 // 初始化访客会话
 router.post('/init-session', StartChoiceController.initVisitorSession);
 
 // 统一的完成StartPage接口（两种行为都用这个）
 router.post('/complete-start-page', StartChoiceController.completeStartPage);
+
+// 使用已存在的玩家身份登录
+router.post('/login-existing', StartChoiceController.loginAsExistingPlayer);
 
 // 创建新玩家（保留兼容性）
 router.post('/create-player', StartChoiceController.createPlayer);

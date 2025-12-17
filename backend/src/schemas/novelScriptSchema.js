@@ -39,6 +39,14 @@ const novelScriptSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  // 可见性：控制哪些身份的用户可以看到此章节
+  // 'all' = 所有人可见, 'day' = 仅昼用户, 'night' = 仅夜用户
+  visibility: {
+    type: String,
+    enum: ['all', 'day', 'night'],
+    default: 'all',
+    index: true
+  },
   // 连接的节点ID列表
   connectNode: {
     type: [String],

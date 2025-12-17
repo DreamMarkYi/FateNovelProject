@@ -71,7 +71,7 @@
         :visible="showSystemMenu"
         :initialTab="systemMenuTab"
         :saves="localSaves"
-        @close="showSystemMenu = false"
+        @close="handleMenuClose"
         @save-slot="saveToSlot"
         @load-slot="loadFromSlot"
     />
@@ -86,7 +86,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import GameChoices from '@/components/visualNovel/GameChoices.vue';
 import GameToolbar from '@/components/visualNovel/GameToolbar.vue';
@@ -97,6 +97,7 @@ import { novelScriptApi } from '@/api/novelScriptApi';
 
 // 路由
 const route = useRoute();
+const router = useRouter();
 
 // 用户会话
 const userSession = useUserSession();
@@ -147,6 +148,9 @@ const localSaves = ref({});
 // 图片预加载状态
 const preloadedImages = ref(new Set());
 const preloadProgress = ref({ loaded: 0, total: 0 });
+
+// 继续游戏模式标记
+const isContinueMode = ref(false);
 
 // 显示控制
 const showTitle = computed(() => {
@@ -468,6 +472,22 @@ const showHistory = () => {
   console.log('=== 选择历史记录 ===', choiceHistory.value);
 };
 
+// 处理菜单关闭
+const handleMenuClose = () => {
+  // 如果是"继续游戏"模式且还没有加载剧本，返回上一页
+  if (isContinueMode.value && !scriptId.value) {
+    console.log('📂 继续游戏模式 - 返回初始界面');
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/start');
+    }
+  } else {
+    // 正常模式，只关闭菜单
+    showSystemMenu.value = false;
+  }
+};
+
 // === 存档相关函数 ===
 
 /**
@@ -550,9 +570,28 @@ const loadFromSlot = async (slot) => {
     const response = await gameSaveApi.getSaveBySlot(playerId.value, slot);
     
     if (response.success && response.data) {
-      loadSaveData(response.data);
-      console.log(`✅ 从槽位 ${slot} 读档成功`);
-      showSystemMenu.value = false; // 关闭菜单
+      const saveData = response.data;
+      
+      // 如果当前没有加载剧本，或者存档的剧本与当前不同，需要先加载剧本
+      if (!scriptId.value || saveData.scriptId !== scriptId.value) {
+        console.log(`📚 需要加载存档对应的剧本: ${saveData.scriptId}`);
+        scriptId.value = saveData.scriptId;
+        isLoading.value = true;
+        showSystemMenu.value = false; // 先关闭菜单
+        isContinueMode.value = false; // 清除继续游戏模式标记
+        
+        await loadScript();
+        
+        // 剧本加载完成后，恢复存档状态
+        loadSaveData(saveData);
+        console.log(`✅ 从槽位 ${slot} 读档成功（含剧本加载）`);
+      } else {
+        // 剧本已加载，直接恢复状态
+        loadSaveData(saveData);
+        console.log(`✅ 从槽位 ${slot} 读档成功`);
+        showSystemMenu.value = false; // 关闭菜单
+        isContinueMode.value = false; // 清除继续游戏模式标记
+      }
     }
   } catch (error) {
     console.error(`❌ 从槽位 ${slot} 读档失败:`, error);
@@ -656,7 +695,22 @@ const initializePage = async () => {
   await userSession.initSession('NovelShowPage');
   console.log('📌 NovelShowPage - 当前用户ID:', playerId.value);
   console.log("剧本ID" ,scriptId.value)
-  // 2. 处理路由参数 - scriptId 是必需的
+  
+  // 2. 检查是否是"继续游戏"模式（直接打开存档菜单）
+  const openMenuMode = route.query.openMenu;
+  if (openMenuMode === 'load') {
+    console.log('📂 继续游戏模式 - 打开存档菜单');
+    isContinueMode.value = true; // 标记为继续游戏模式
+    isLoading.value = false;
+    // 先加载存档列表
+    await loadSavesList();
+    // 直接打开存档菜单（load 标签）
+    systemMenuTab.value = 'load';
+    showSystemMenu.value = true;
+    return;
+  }
+  
+  // 3. 处理路由参数 - scriptId 是必需的
   if (route.query.scriptId) {
     scriptId.value = route.query.scriptId;
     console.log('📖 从路由参数获取 scriptId:', scriptId.value);
@@ -671,7 +725,7 @@ const initializePage = async () => {
   if (route.query.debug === 'true') showDebugInfo.value = true;
   if (route.query.startScene) currentIndex.value = parseInt(route.query.startScene) || 0;
   
-  // 3. 加载剧本和存档
+  // 4. 加载剧本和存档
   await loadScript();
   await loadSavesList();
 };

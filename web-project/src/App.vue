@@ -1,9 +1,18 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
+import DebugPanel from '@/components/DebugPanel.vue'
+
+// 是否显示调试面板（开发环境或 URL 带 debug 参数时显示）
+const showDebug = ref(false)
 
 onMounted(() => {
   // 页面加载完成后添加loaded类
   document.body.classList.add('loaded')
+  
+  // 检查是否需要显示调试面板
+  const isDev = import.meta.env.DEV
+  const hasDebugParam = new URLSearchParams(window.location.search).has('debug')
+  showDebug.value = isDev || hasDebugParam
 })
 </script>
 
@@ -14,6 +23,9 @@ onMounted(() => {
         <component :is="Component" />
       </transition>
     </router-view>
+    
+    <!-- 调试面板（开发环境或 URL 带 ?debug 参数时显示） -->
+    <DebugPanel v-if="showDebug" />
   </div>
 </template>
 

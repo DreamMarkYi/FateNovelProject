@@ -30,12 +30,12 @@
       </defs>
     </svg>
 
-    <div class="blink-layer">
+    <div class="blink-layer" v-if="playBlinkAnimation">
       <div class="blink-shutter blink-top"></div>
       <div class="blink-shutter blink-bottom"></div>
     </div>
 
-    <div class="visual-wrapper">
+    <div class="visual-wrapper" :class="{ 'no-animation': !playBlinkAnimation }">
       <div class="bg-overlay"></div>
       <div class="stars-layer"></div>
 
@@ -65,7 +65,7 @@
       </div>
     </div>
 
-    <div class="navigation-controls">
+    <div class="navigation-controls" :class="{ 'no-animation': !playBlinkAnimation }">
       <button class="nav-button" @click="goBack" title="返回">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -77,12 +77,32 @@
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import SowakaNavigation from "@/components/sowaka/SowakaNavigation.vue";
 import { useSowakaPage } from "@/composables/useSowakaPage.js";
 
 const router = useRouter();
+const route = useRoute();
 const { mobileMenuOpen, toggleMobileMenu, scrollToSection } = useSowakaPage();
+
+// 控制眨眼动画是否播放
+const playBlinkAnimation = ref(false);
+
+onMounted(() => {
+  // 只有从 StartPage 首次完成身份注册后跳转过来才播放眨眼动画
+  if (route.query.firstTime === 'true') {
+    playBlinkAnimation.value = true;
+    console.log('🌙 首次进入永夜页面，播放眨眼动画');
+    
+    // 动画播放完毕后清除 URL 参数，避免刷新时再次播放
+    setTimeout(() => {
+      router.replace({ path: route.path, query: {} });
+    }, 8000); // 眨眼动画约 7-8 秒
+  } else {
+    console.log('🌙 非首次进入，跳过眨眼动画');
+  }
+});
 
 const goBack = () => {
   if (window.history.length > 1) {
@@ -99,10 +119,12 @@ const startGame = () => {
 
 const continueGame = () => {
   console.log('继续游戏');
+  router.push('/novel-show?openMenu=load');
 };
 
 const selectChapter = () => {
   console.log('章节选择');
+  router.push('/chapter-select');
 };
 
 const enterDaySide = () => {
@@ -210,6 +232,7 @@ const enterDaySide = () => {
 
 /* =========================================
    === 内容部分 ===
+     background-image: url('/fullNight_BG_HighResolution.png');
    ========================================= */
 
 .bg-overlay {
@@ -218,7 +241,7 @@ const enterDaySide = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: url('/fullNight_BG_HighResolution.png');
+  background-image: url('https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/fullNight_BG_HighResolution.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -495,5 +518,37 @@ const enterDaySide = () => {
     left: 50%;
     transform: translateX(-50%);
   }
+}
+
+/* =========================================
+   === 无动画模式（非首次进入时） ===
+   ========================================= */
+.visual-wrapper.no-animation {
+  animation: none;
+  filter: none;
+  transform: none;
+}
+
+.visual-wrapper.no-animation .stars-layer {
+  opacity: 1;
+  animation: starsFloat 60s ease-in-out infinite; /* 保留星星浮动，去掉淡入延迟 */
+}
+
+.visual-wrapper.no-animation .extreme-page-content {
+  opacity: 1;
+  animation: none;
+  transform: none;
+  filter: none;
+}
+
+.visual-wrapper.no-animation .game-menu-container {
+  opacity: 1;
+  animation: none;
+  transform: none;
+}
+
+.navigation-controls.no-animation {
+  opacity: 1;
+  animation: none;
 }
 </style>

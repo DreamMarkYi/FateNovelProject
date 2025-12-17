@@ -5,6 +5,8 @@ import { startChoiceApi } from '../api/startChoiceApi'
 const userId = ref(null)
 const userName = ref(null)
 const userStatus = ref('visitor')
+const userIdentity = ref(null)        // 'day' | 'night' | 'incomplete' | null
+const identityVerified = ref(false)   // 标记身份是否已从后端验证
 const sessionLoaded = ref(false)
 
 // LocalStorage 键名
@@ -31,9 +33,14 @@ export function useUserSession() {
   const hasUserName = computed(() => !!userName.value)
   const isVisitor = computed(() => userStatus.value === 'visitor')
   const isRegistered = computed(() => userStatus.value === 'registered')
+  
+  // 身份相关计算属性
+  const isDay = computed(() => userIdentity.value === 'day')
+  const isNight = computed(() => userIdentity.value === 'night')
+  const hasIdentity = computed(() => userIdentity.value === 'day' || userIdentity.value === 'night')
 
   /**
-   * 初始化用户会话
+   * 初始化用户会话（仅初始化 userId，不验证身份）
    * 页面加载时调用
    */
   const initSession = async (sourcePage = 'Other') => {
@@ -82,10 +89,54 @@ export function useUserSession() {
         userName: userName.value,
         sourcePage
       })
+      
+      return storedUserId
     } catch (error) {
       console.error('❌ 初始化用户会话失败:', error)
       sessionLoaded.value = true
+      return null
     }
+  }
+
+  /**
+   * 从后端验证并获取用户身份（安全方法）
+   * @returns {Promise<{identity: string|null, hasCompletedStartPage: boolean}>}
+   */
+  const verifyIdentity = async () => {
+    // 确保 userId 已初始化
+    if (!userId.value) {
+      await initSession('verifyIdentity')
+    }
+    
+    try {
+      console.log('🔍 正在从后端验证用户身份...')
+      const response = await startChoiceApi.getUserIdentity(userId.value)
+      
+      if (response.success && response.data) {
+        userIdentity.value = response.data.identity
+        identityVerified.value = true
+        
+        // 同步用户名
+        if (response.data.playerName) {
+          userName.value = response.data.playerName
+          localStorage.setItem(STORAGE_KEY_USER_NAME, response.data.playerName)
+        }
+        
+        console.log('✅ 身份验证完成:', {
+          identity: response.data.identity,
+          hasCompletedStartPage: response.data.hasCompletedStartPage
+        })
+        
+        return {
+          identity: response.data.identity,
+          hasCompletedStartPage: response.data.hasCompletedStartPage
+        }
+      }
+    } catch (error) {
+      console.error('❌ 验证身份失败:', error)
+    }
+    
+    return { identity: null, hasCompletedStartPage: false }
   }
 
   /**
@@ -99,12 +150,39 @@ export function useUserSession() {
   }
 
   /**
+   * 设置用户身份（仅在完成 StartPage 后由系统内部调用）
+   * 注意：这只是更新本地状态，实际权限验证仍需后端
+   */
+  const setUserIdentity = (identity) => {
+    if (identity === 'day' || identity === 'night') {
+      userIdentity.value = identity
+      identityVerified.value = true
+      console.log('✅ 用户身份已设置:', identity)
+    }
+  }
+
+  /**
+   * 获取用户应该跳转的首页路由
+   * @returns {string} 路由路径
+   */
+  const getHomeRoute = () => {
+    if (userIdentity.value === 'day') {
+      return '/exDay'
+    } else if (userIdentity.value === 'night') {
+      return '/exNight'
+    }
+    return '/start' // 未确定身份则去StartPage
+  }
+
+  /**
    * 清除用户会话（登出）
    */
   const clearSession = () => {
     userId.value = null
     userName.value = null
     userStatus.value = 'visitor'
+    userIdentity.value = null
+    identityVerified.value = false
     localStorage.removeItem(STORAGE_KEY_TOKEN)
     localStorage.removeItem(STORAGE_KEY_USER_ID)
     localStorage.removeItem(STORAGE_KEY_USER_NAME)
@@ -127,17 +205,26 @@ export function useUserSession() {
     userId,
     userName,
     userStatus,
+    userIdentity,
+    identityVerified,
     sessionLoaded,
     isLoggedIn,
     hasUserName,
     isVisitor,
     isRegistered,
     
+    // 身份相关
+    isDay,
+    isNight,
+    hasIdentity,
+    
     // 方法
     initSession,
+    verifyIdentity,
     setUserName,
+    setUserIdentity,
+    getHomeRoute,
     clearSession,
     regenerateUserId
   }
 }
-

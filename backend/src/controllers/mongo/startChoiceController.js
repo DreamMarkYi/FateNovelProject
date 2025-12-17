@@ -57,7 +57,8 @@ class StartChoiceController {
             playerId: existingUser.playerId,
             playerName: existingUser.playerName,
             hasCustomName: existingUser.hasCustomName,
-            hasSeenStartPage: existingUser.hasSeenStartPage
+            hasSeenStartPage: existingUser.hasSeenStartPage,
+            finalResult: existingUser.finalResult  // 添加结局信息
           } : null
         }
       });
@@ -486,6 +487,178 @@ class StartChoiceController {
       res.status(500).json({
         success: false,
         message: error.message
+      });
+    }
+  }
+  
+  // 检查名称是否已存在
+  static async checkNameExists(req, res) {
+    try {
+      const { playerName } = req.query;
+      
+      if (!playerName) {
+        return res.status(400).json({
+          success: false,
+          message: '缺少玩家名称参数'
+        });
+      }
+      
+      console.log('🔍 检查名称是否存在:', playerName);
+      
+      // 查找是否有相同名称的玩家（只查找有自定义名称的用户）
+      const existingPlayer = await StartChoiceRecord.findOne({ 
+        playerName: playerName,
+        hasCustomName: true
+      });
+      
+      if (existingPlayer) {
+        console.log('✅ 找到已存在的玩家:', {
+          playerId: existingPlayer.playerId,
+          playerName: existingPlayer.playerName,
+          createdAt: existingPlayer.createdAt
+        });
+        
+        res.json({
+          success: true,
+          data: {
+            exists: true,
+            playerInfo: {
+              playerId: existingPlayer.playerId,
+              playerName: existingPlayer.playerName,
+              hasSeenStartPage: existingPlayer.hasSeenStartPage,
+              finalResult: existingPlayer.finalResult,
+              createdAt: existingPlayer.createdAt
+            }
+          }
+        });
+      } else {
+        console.log('📝 名称不存在，可以使用');
+        res.json({
+          success: true,
+          data: {
+            exists: false,
+            playerInfo: null
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Check name exists error:', error);
+      res.status(500).json({
+        success: false,
+        message: '检查名称失败',
+        error: error.message
+      });
+    }
+  }
+  
+  // 使用已存在的玩家身份登录
+  static async loginAsExistingPlayer(req, res) {
+    try {
+      const { existingPlayerId, currentUserId } = req.body;
+      
+      if (!existingPlayerId) {
+        return res.status(400).json({
+          success: false,
+          message: '缺少已存在的玩家ID'
+        });
+      }
+      
+      console.log('🔐 尝试使用已存在身份登录:', { existingPlayerId, currentUserId });
+      
+      // 查找已存在的玩家记录
+      const existingPlayer = await StartChoiceRecord.findOne({ playerId: existingPlayerId });
+      
+      if (!existingPlayer) {
+        return res.status(404).json({
+          success: false,
+          message: '玩家记录不存在'
+        });
+      }
+      
+      // 如果当前用户ID与已存在的不同，可以选择合并或关联
+      // 这里我们直接返回已存在用户的信息，让前端使用该身份
+      
+      // 更新最后登录时间
+      existingPlayer.lastLoginAt = new Date();
+      await existingPlayer.save();
+      
+      // 生成新的 JWT Token
+      const token = generateToken({
+        playerId: existingPlayer.playerId,
+        playerName: existingPlayer.playerName,
+        hasCustomName: existingPlayer.hasCustomName,
+        type: existingPlayer.identityChoice || 'named'
+      });
+      
+      console.log('✅ 使用已存在身份登录成功:', existingPlayer.playerName);
+      
+      res.json({
+        success: true,
+        message: '使用已存在身份登录成功',
+        data: {
+          playerId: existingPlayer.playerId,
+          playerName: existingPlayer.playerName,
+          hasCustomName: existingPlayer.hasCustomName,
+          hasSeenStartPage: existingPlayer.hasSeenStartPage,
+          finalResult: existingPlayer.finalResult,
+          recordId: existingPlayer._id.toString(),
+          token
+        }
+      });
+    } catch (error) {
+      console.error('Login as existing player error:', error);
+      res.status(500).json({
+        success: false,
+        message: '使用已存在身份登录失败',
+        error: error.message
+      });
+    }
+  }
+
+  // 获取用户身份（安全版本，用于路由验证）
+  static async getUserIdentity(req, res) {
+    try {
+      const { playerId } = req.query;
+      
+      if (!playerId) {
+        return res.json({
+          success: true,
+          data: {
+            identity: null,
+            hasCompletedStartPage: false,
+            playerName: null
+          }
+        });
+      }
+      
+      const record = await StartChoiceRecord.findOne({ playerId });
+      
+      if (!record) {
+        return res.json({
+          success: true,
+          data: {
+            identity: null,
+            hasCompletedStartPage: false,
+            playerName: null
+          }
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: {
+          identity: record.finalResult,  // 'day' | 'night' | 'incomplete'
+          hasCompletedStartPage: record.hasSeenStartPage,
+          playerName: record.playerName,
+          hasCustomName: record.hasCustomName
+        }
+      });
+    } catch (error) {
+      console.error('Get user identity error:', error);
+      res.status(500).json({
+        success: false,
+        message: '获取用户身份失败',
+        error: error.message
       });
     }
   }

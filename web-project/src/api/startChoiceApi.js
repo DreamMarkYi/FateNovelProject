@@ -178,6 +178,44 @@ export const startChoiceApi = {
       score
     })
     return response.data
+  },
+
+  /**
+   * 检查名称是否已存在
+   * @param {string} playerName - 玩家名称
+   * @returns {Promise<{exists: boolean, playerInfo?: Object}>}
+   */
+  async checkNameExists(playerName) {
+    const response = await api.get(`${API_PREFIX}/check-name`, {
+      params: { playerName }
+    })
+    return response
+  },
+
+  /**
+   * 使用已存在的玩家身份登录
+   * @param {string} existingPlayerId - 已存在的玩家ID
+   * @param {string} currentUserId - 当前会话的用户ID
+   * @returns {Promise<Object>}
+   */
+  async loginAsExistingPlayer(existingPlayerId, currentUserId) {
+    const response = await api.post(`${API_PREFIX}/login-existing`, {
+      existingPlayerId,
+      currentUserId
+    })
+    return response
+  },
+
+  /**
+   * 获取用户身份（安全版本，用于路由验证）
+   * @param {string} playerId - 玩家ID
+   * @returns {Promise<{identity: string|null, hasCompletedStartPage: boolean, playerName: string|null}>}
+   */
+  async getUserIdentity(playerId) {
+    const response = await api.get(`${API_PREFIX}/user-identity`, {
+      params: { playerId }
+    })
+    return response
   }
 }
 

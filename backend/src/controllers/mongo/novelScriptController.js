@@ -1,5 +1,6 @@
 const NovelScript = require('../../schemas/novelScriptSchema');
 const GameSave = require('../../schemas/gameSaveSchema');
+const StartChoiceRecord = require('../../schemas/startChoiceRecordSchema');
 
 class NovelScriptController {
   // 标记剧本完成并更新解锁状态
@@ -98,7 +99,7 @@ class NovelScriptController {
     }
   }
 
-  // 获取章节选择页面的剧本节点列表（带解锁状态判断）
+  // 获取章节选择页面的剧本节点列表（带解锁状态判断和身份过滤）
   static async getChapterNodes(req, res) {
     try {
       const { playerId } = req.query;
@@ -110,9 +111,28 @@ class NovelScriptController {
         });
       }
       
-      // 获取所有激活的剧本，只选择需要的字段
-      const scripts = await NovelScript.find({ isActive: true })
-        .select('scriptId scriptName summary thumbnailImage unlockConditions connectNode position displayOrder')
+      // 【安全】从数据库查询用户的真实身份，不信任前端传参
+      const userRecord = await StartChoiceRecord.findOne({ playerId });
+      const userIdentity = userRecord?.finalResult;  // 'day' | 'night' | 'incomplete' | null
+      
+      // 构建查询条件：只获取激活的剧本
+      const query = { isActive: true };
+      
+      // 【安全】根据用户身份过滤可见的章节
+      if (userIdentity === 'day') {
+        // 昼用户：可以看到 'all' 和 'day' 的章节
+        query.visibility = { $in: ['all', 'day'] };
+      } else if (userIdentity === 'night') {
+        // 夜用户：可以看到 'all' 和 'night' 的章节
+        query.visibility = { $in: ['all', 'night'] };
+      } else {
+        // 未确定身份：只能看到 'all' 的章节
+        query.visibility = 'all';
+      }
+      
+      // 获取符合条件的剧本
+      const scripts = await NovelScript.find(query)
+        .select('scriptId scriptName summary thumbnailImage unlockConditions connectNode position displayOrder visibility')
         .sort({ displayOrder: 1, createdAt: -1 });
       
       // 获取玩家的存档数据
@@ -158,13 +178,18 @@ class NovelScriptController {
           unlockConditions: unlockConditions,
           connectNode: script.connectNode || [],
           position: script.position || { x: 0, y: 0 },
+          visibility: script.visibility || 'all',
           locked: isLocked
         };
       });
       
       res.json({
         success: true,
-        data: nodes
+        data: nodes,
+        meta: {
+          userIdentity: userIdentity || 'unknown',
+          totalNodes: nodes.length
+        }
       });
     } catch (error) {
       res.status(500).json({
@@ -606,7 +631,7 @@ class NovelScriptController {
       // 批量更新每个节点的位置
       for (const node of nodes) {
         try {
-          const { id, worldPosition, name, locked, connectNode } = node;
+          const { id, worldPosition, name, locked, connectNode, visibility } = node;
           
           if (!id) {
             results.errorCount++;
@@ -637,6 +662,11 @@ class NovelScriptController {
           
           if (connectNode !== undefined && Array.isArray(connectNode)) {
             updateData.connectNode = connectNode;
+          }
+          
+          // 更新可见性
+          if (visibility !== undefined && ['all', 'day', 'night'].includes(visibility)) {
+            updateData.visibility = visibility;
           }
           
           // 更新数据库

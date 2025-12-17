@@ -81,6 +81,14 @@
           <label>锁定状态:</label>
           <input type="checkbox" v-model="selectedNode.locked" />
         </div>
+        <div class="detail-item">
+          <label>可见性:</label>
+          <select v-model="selectedNode.visibility" class="visibility-select">
+            <option value="all">所有人可见</option>
+            <option value="day">仅昼用户可见</option>
+            <option value="night">仅夜用户可见</option>
+          </select>
+        </div>
       </div>
     </aside>
 
@@ -429,7 +437,8 @@ const savePositions = async () => {
       name: node.name,
       worldPosition: node.worldPosition,
       locked: node.locked,
-      connectNode: node.connectNode
+      connectNode: node.connectNode,
+      visibility: node.visibility || 'all'
     }))
 
     console.log('保存节点位置到数据库:', nodesToSave)
@@ -481,7 +490,8 @@ const exportConfig = () => {
       worldPosition: node.worldPosition,
       locked: node.locked,
       connectNode: node.connectNode,
-      unlockConditions: node.unlockConditions
+      unlockConditions: node.unlockConditions,
+      visibility: node.visibility || 'all'
     })),
     handwrittenNotes: handwrittenNotes.value,
     worldSize: {
@@ -508,7 +518,7 @@ const goBack = () => {
 // 加载节点数据
 const loadChapterNodes = async () => {
   try {
-    const playerId = localStorage.getItem('fate_novel_player_id') || 'editor'
+    const playerId = localStorage.getItem('fate_novel_user_id') || 'editor'
     const response = await novelScriptApi.getChapterNodes(playerId)
     
     if (response.success && response.data) {
@@ -521,7 +531,8 @@ const loadChapterNodes = async () => {
           locked: script.locked,
           worldPosition: worldPosition,
           unlockConditions: script.unlockConditions || [],
-          connectNode: script.connectNode || []
+          connectNode: script.connectNode || [],
+          visibility: script.visibility || 'all'
         }
       })
       
@@ -841,6 +852,29 @@ onUnmounted(() => {
 
 .detail-item input[type="checkbox"] {
   width: auto;
+}
+
+.detail-item select,
+.visibility-select {
+  width: 100%;
+  padding: 6px 10px;
+  background: #3c3c3c;
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  color: #d4d4d4;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.detail-item select:hover,
+.visibility-select:hover {
+  border-color: #505053;
+}
+
+.detail-item select:focus,
+.visibility-select:focus {
+  outline: none;
+  border-color: #0e639c;
 }
 
 /* 画布容器 */

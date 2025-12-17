@@ -46,8 +46,11 @@
 
 <script setup>
 import { defineComponent } from 'vue';
+import { useRouter } from 'vue-router';
 import SowakaNavigation from "@/components/sowaka/SowakaNavigation.vue";
 import { useSowakaPage } from "@/composables/useSowakaPage.js";
+
+const router = useRouter();
 
 // 使用原有的导航逻辑
 const { mobileMenuOpen, toggleMobileMenu, scrollToSection } = useSowakaPage();
@@ -64,10 +67,12 @@ const startGame = () => {
 
 const continueGame = () => {
   console.log('继续游戏');
+  router.push('/novel-show?openMenu=load');
 };
 
 const selectChapter = () => {
   console.log('章节选择');
+  router.push('/chapter-select');
 };
 
 const enterDarkSide = () => {
