@@ -81,6 +81,11 @@ const router = createRouter({
           path: '/chapter-editor',
           name: 'chapter-editor',
           component: ChapterNodeEditor
+      },
+      {
+        path: '/doodle-story',
+        name: 'DoodleStory',
+        component: () => import('@/views/DoodleStoryPage.vue')
       }
 
   ]
