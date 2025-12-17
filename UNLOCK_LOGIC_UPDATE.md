@@ -122,3 +122,6 @@ if (script.unlockConditions && script.unlockConditions.length > 0) {
 ✅ **API 兼容**：返回的数据结构不变
 ✅ **前端兼容**：前端无需修改，直接使用 `locked` 字段
 
+
+
+

@@ -85,7 +85,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 import GameChoices from '@/components/visualNovel/GameChoices.vue';
@@ -106,7 +106,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/
 
 // 剧本数据
 const storyScript = ref([]);
-const scriptId = ref('chapter1-1'); // 默认剧本ID
+const scriptId = ref(''); // 从路由参数获取
 const scriptName = ref('');
 const scriptMetadata = ref(null);
 
@@ -318,9 +318,16 @@ const handleChoice = (choice) => {
 
 // 加载剧本
 const loadScript = async () => {
+  if (!scriptId.value) {
+    loadError.value = '剧本ID不能为空';
+    isLoading.value = false;
+    return;
+  }
+  
   isLoading.value = true;
   loadError.value = '';
   try {
+    console.log('📚 正在加载剧本:', scriptId.value);
     const response = await axios.get(`${API_BASE_URL}/novel-scripts/${scriptId.value}`);
     if (response.data.success && response.data.data) {
       const scriptData = response.data.data;
@@ -643,19 +650,50 @@ const loadSaveData = (saveData) => {
   }
 };
 
-onMounted(async () => {
+// 初始化函数
+const initializePage = async () => {
   // 1. 初始化用户会话
   await userSession.initSession('NovelShowPage');
   console.log('📌 NovelShowPage - 当前用户ID:', playerId.value);
+  console.log("剧本ID" ,scriptId.value)
+  // 2. 处理路由参数 - scriptId 是必需的
+  if (route.query.scriptId) {
+    scriptId.value = route.query.scriptId;
+    console.log('📖 从路由参数获取 scriptId:', scriptId.value);
+  } else {
+    // 如果没有提供 scriptId，显示错误
+    isLoading.value = false;
+    loadError.value = '未指定剧本ID，请从章节选择页面选择剧本';
+    console.error('❌ 缺少必需的 scriptId 参数');
+    return;
+  }
   
-  // 2. 处理路由参数
-  if (route.query.scriptId) scriptId.value = route.query.scriptId;
   if (route.query.debug === 'true') showDebugInfo.value = true;
   if (route.query.startScene) currentIndex.value = parseInt(route.query.startScene) || 0;
   
   // 3. 加载剧本和存档
   await loadScript();
   await loadSavesList();
+};
+
+// 监听路由参数变化
+watch(() => route.query.scriptId, async (newScriptId) => {
+  if (newScriptId && newScriptId !== scriptId.value) {
+    console.log('🔄 路由参数变化，重新加载剧本:', newScriptId);
+    scriptId.value = newScriptId;
+    // 重置状态
+    isScriptCompleted.value = false;
+    currentIndex.value = 0;
+    choiceHistory.value = [];
+    gameVariables.value = {};
+    // 重新加载剧本
+    await loadScript();
+    await loadSavesList();
+  }
+});
+
+onMounted(async () => {
+  await initializePage();
 });
 </script>
 

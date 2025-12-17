@@ -1,0 +1,190 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mystic UI Alert</title>
+    <style>
+        /* 引入优雅的衬线字体，如果没有则回退到系统宋体 */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500&display=swap');
+
+        :root {
+            --bg-color: #fcfcfc;
+            --card-bg: #f9f9f7; /* 略微发黄的纸张感 */
+            --text-main: #5a5a5a;
+            --text-sub: #a0a0a0;
+            --border-color: #e0e0e0;
+            --accent-color: #8c8c8c;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: "Noto Serif SC", "Songti SC", serif;
+            /* 背景增加一点噪点或纹理模拟图1的质感（可选） */
+            background-image: radial-gradient(circle at center, #ffffff 0%, #f0f0f0 100%);
+        }
+
+        /* 模态框遮罩 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(4px); /* 毛玻璃效果 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        /* 主卡片容器 */
+        .mystic-card {
+            position: relative;
+            width: 380px;
+            padding: 60px 40px;
+            background-color: var(--card-bg);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+            text-align: center;
+            /* 双重边框效果：外实线 */
+            border: 1px solid #eaeaea;
+            animation: floatUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        /* 内部装饰线框 (模拟图1中的内框) */
+        .mystic-card::before {
+            content: '';
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+            border: 1px solid var(--border-color);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* 角落装饰 (L形标记) */
+        .corner {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-color: var(--accent-color);
+            border-style: solid;
+            z-index: 2;
+            opacity: 0.6;
+        }
+        .tl { top: 8px; left: 8px; border-width: 1px 0 0 1px; }
+        .tr { top: 8px; right: 8px; border-width: 1px 1px 0 0; }
+        .bl { bottom: 8px; left: 8px; border-width: 0 0 1px 1px; }
+        .br { bottom: 8px; right: 8px; border-width: 0 1px 1px 0; }
+
+        /* 几何装饰背景 (模拟图1背景的菱形) */
+        .deco-diamond {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 200px;
+            height: 200px;
+            border: 1px solid rgba(0,0,0,0.03);
+            transform: translate(-50%, -50%) rotate(45deg);
+            pointer-events: none;
+        }
+
+        /* 标题部分 - 模仿 localhost:5173 显示 */
+        .system-notice {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .system-notice::before, .system-notice::after {
+            content: '';
+            display: block;
+            width: 20px;
+            height: 1px;
+            background-color: var(--border-color);
+        }
+
+        /* 主要内容 */
+        .message-content {
+            font-size: 1.1rem;
+            color: var(--text-main);
+            line-height: 1.8;
+            margin-bottom: 40px;
+            font-weight: 500;
+        }
+
+        .highlight-text {
+            display: block;
+            margin-top: 10px;
+            font-size: 1.25rem;
+            color: #333;
+            letter-spacing: 1px;
+        }
+
+        /* 按钮设计 */
+        .btn-confirm {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 12px 40px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            letter-spacing: 3px;
+            transition: all 0.4s ease;
+            position: relative;
+            z-index: 10;
+        }
+
+        .btn-confirm:hover {
+            border-color: var(--accent-color);
+            background-color: rgba(255, 255, 255, 0.8);
+            letter-spacing: 5px; /* 悬停时字间距变宽，增加动感 */
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        /* 动画 */
+        @keyframes floatUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="modal-overlay">
+    <div class="mystic-card">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="deco-diamond"></div>
+
+        <div class="system-notice">SYSTEM NOTICE</div>
+
+        <div class="message-content">
+            需要完成以下剧本
+            <span class="highlight-text">「 第一章 · 第一幕 」</span>
+        </div>
+
+        <button class="btn-confirm" onclick="this.closest('.modal-overlay').remove()">确认</button>
+    </div>
+</div>
+
+</body>
+</html>
