@@ -143,21 +143,17 @@
         <div class="msg-header">BUFFER_STREAM ({{ messageType || 'SMS' }})</div>
 
         <div class="msg-container">
-            <div 
-              v-for="message in messages" 
+            <!-- 根据消息类型动态渲染不同的组件 -->
+            <component
+              v-for="message in messages"
               :key="message.id"
-              class="msg-item"
-              :class="{ 'unread': !message.isRead }"
-              :style="{ opacity: message.isRead ? 0.7 : 1 }"
-            >
-                <div class="msg-meta">
-                    <span class="msg-sender">FROM: {{ message.sender }}</span>
-                    <span>{{ message.dateDisplay }}</span>
-                </div>
-                <div class="msg-content">
-                    {{ formatMessageContent(message.content) }}
-                </div>
-            </div>
+              :is="getMessageComponent(message.messageType)"
+              :sender="message.sender"
+              :content="message.content"
+              :date-display="message.dateDisplay"
+              :direction="message.direction"
+              :is-read="message.isRead"
+            />
             
             <!-- 如果没有消息，显示空状态 -->
             <div v-if="messages.length === 0" class="msg-item" style="opacity: 0.4;">
@@ -190,6 +186,9 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import MysticAlert from '@/components/MysticAlert.vue'
+import SMSMessage from '@/components/messages/SMSMessage.vue'
+import PhoneMessage from '@/components/messages/PhoneMessage.vue'
+import QQMessage from '@/components/messages/QQMessage.vue'
 import { novelScriptApi } from '@/api/novelScriptApi'
 import { miscMessageApi } from '@/api/miscMessageApi'
 import { useUserSession } from '@/composables/useUserSession'
@@ -204,14 +203,37 @@ const chapterNodes = ref([])
 const messages = ref([])
 const messageType = computed(() => {
   if (messages.value.length === 0) return 'SMS'
-  // 获取最常见的消息类型
-  const types = messages.value.map(m => m.messageType)
+  // 获取最常见的消息类型，映射到显示类型
+  const types = messages.value.map(m => {
+    // 将数据库中的消息类型映射到显示类型
+    if (m.messageType === 'PHONE' || m.messageType === 'SYSTEM') return 'PHONE'
+    if (m.messageType === 'QQ' || m.messageType === 'EMAIL' || m.messageType === 'USER') return 'QQ'
+    return 'SMS' // SMS, NETWORK, ADMIN, OTHER 等都显示为 SMS
+  })
   const typeCounts = types.reduce((acc, type) => {
     acc[type] = (acc[type] || 0) + 1
     return acc
   }, {})
   return Object.keys(typeCounts).reduce((a, b) => typeCounts[a] > typeCounts[b] ? a : b, 'SMS')
 })
+
+// 消息类型到组件的映射
+const messageComponentMap = {
+  'PHONE': PhoneMessage,
+  'SYSTEM': PhoneMessage,
+  'QQ': QQMessage,
+  'EMAIL': QQMessage,
+  'USER': QQMessage,
+  'SMS': SMSMessage,
+  'NETWORK': SMSMessage,
+  'ADMIN': SMSMessage,
+  'OTHER': SMSMessage
+}
+
+// 根据消息类型返回对应的组件
+const getMessageComponent = (messageType) => {
+  return messageComponentMap[messageType] || SMSMessage
+}
 
 // 解锁提示框状态
 const showUnlockAlert = ref(false)
@@ -595,6 +617,7 @@ const startTypingEffect = () => {
 }
 
 // 格式化消息内容（将换行符转换为多行显示）
+// 注意：现在由各个组件自己处理内容格式，这个函数保留用于兼容
 const formatMessageContent = (content) => {
   if (!content) return ''
   // 如果内容包含换行符，每行前面添加 >
@@ -983,9 +1006,11 @@ onUnmounted(() => {
 .terminal-chapter-select .msg-container { 
     display: flex; 
     flex-direction: column; 
-    gap: 30px; 
+    gap: 20px; 
     width: 100%; 
 }
+
+/* 保留原有的 msg-item 样式用于空状态 */
 .terminal-chapter-select .msg-item { 
     display: flex; 
     flex-direction: column; 

@@ -31,16 +31,52 @@ async function initMiscMessages() {
         visibility: 'all'
       },
       {
-        date: new Date(Date.now() - 60 * 60000), // 1小时前
-        sender: 'SYS_ADMIN',
-        messageType: 'SYSTEM',
+        date: new Date(Date.now() - 10 * 60000), // 10分钟前
+        sender: 'SARAH',
+        messageType: 'PHONE',
         direction: 'received',
-        content: 'Scheduled maintenance postponed. I\'m trying to re-route the power to the main cluster but the visual cortex keeps failing.',
+        content: 'Missed call. Please call back when available. Urgent matter regarding the old drive.',
         unlockConditions: [],
         displayOrder: 2,
         isActive: true,
+        isRead: false,
+        visibility: 'all'
+      },
+      {
+        date: new Date(Date.now() - 30 * 60000), // 30分钟前
+        sender: 'ADMIN',
+        messageType: 'QQ',
+        direction: 'received',
+        content: 'Hey, I found something interesting in the logs. Can we discuss this?',
+        unlockConditions: [],
+        displayOrder: 3,
+        isActive: true,
         isRead: true,
         visibility: 'all'
+      },
+      {
+        date: new Date(Date.now() - 60 * 60000), // 1小时前
+        sender: 'SYS_ADMIN',
+        messageType: 'PHONE',
+        direction: 'received',
+        content: 'Scheduled maintenance postponed. I\'m trying to re-route the power to the main cluster but the visual cortex keeps failing.',
+        unlockConditions: [],
+        displayOrder: 4,
+        isActive: true,
+        isRead: true,
+        visibility: 'all'
+      },
+      {
+        date: new Date(Date.now() - 2 * 60 * 60000), // 2小时前
+        sender: 'USER',
+        messageType: 'QQ',
+        direction: 'sent',
+        content: 'Requesting access to chapter database. Authorization code: ********',
+        unlockConditions: [],
+        displayOrder: 5,
+        isActive: true,
+        isRead: true,
+        visibility: 'day'
       },
       {
         date: new Date(Date.now() - 24 * 60 * 60000), // 1天前
@@ -49,7 +85,7 @@ async function initMiscMessages() {
         direction: 'received',
         content: 'I found the old drive. It\'s covered in rust but might be readable if we use the legacy decryption protocol.',
         unlockConditions: [],
-        displayOrder: 3,
+        displayOrder: 6,
         isActive: true,
         isRead: true,
         visibility: 'all'
@@ -57,11 +93,11 @@ async function initMiscMessages() {
       {
         date: new Date(Date.now() - 7 * 24 * 60 * 60000), // 7天前
         sender: 'NETWORK',
-        messageType: 'NETWORK',
+        messageType: 'SMS',
         direction: 'received',
         content: 'Connection established...\nHandshake failed.\nPacket loss: 98%\nRetrying...',
         unlockConditions: [],
-        displayOrder: 4,
+        displayOrder: 7,
         isActive: true,
         isRead: true,
         visibility: 'all'

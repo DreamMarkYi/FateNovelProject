@@ -16,12 +16,12 @@ const miscMessageSchema = new mongoose.Schema({
     trim: true,
     default: 'UNKNOWN'
   },
-  // 消息类型（如：SMS, EMAIL, SYSTEM, NETWORK等）
+  // 消息类型（如：SMS, PHONE, QQ, EMAIL, SYSTEM, NETWORK等）
   messageType: {
     type: String,
     required: true,
     trim: true,
-    enum: ['SMS', 'EMAIL', 'SYSTEM', 'NETWORK', 'ADMIN', 'USER', 'OTHER'],
+    enum: ['SMS', 'PHONE', 'QQ', 'EMAIL', 'SYSTEM', 'NETWORK', 'ADMIN', 'USER', 'OTHER'],
     default: 'SMS',
     index: true
   },
