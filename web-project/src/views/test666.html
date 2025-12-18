@@ -1,0 +1,382 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>秋山痕 - SYSTEM_INTERFACE_VERBOSE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050505;
+            --text-main: #d0d0d0;
+            --text-dim: #555555;
+            --text-msg: #888888;
+            --prompt-user: #40e0d0;
+            --prompt-path: #5070ff;
+            --cmd-input: #ffffff;
+            --accent-err: #ff3333;
+            --accent-warn: #ffcc00;
+            --sender-color: #bd93f9;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Share Tech Mono', monospace;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .crt-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+            linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 3px, 3px 100%;
+            z-index: 999;
+            opacity: 0.4;
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px; /* 右侧稍微加宽一点 */
+            height: 100vh;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 20px 40px;
+            gap: 40px;
+        }
+
+        @media (max-width: 900px) {
+            .layout-grid { grid-template-columns: 1fr; padding: 20px; }
+            .sidebar-area { display: none; }
+        }
+
+        /* === 左侧：主终端区域 === */
+        .main-terminal {
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .main-terminal::-webkit-scrollbar, .sidebar-area::-webkit-scrollbar { display: none; }
+
+        /* ASCII ART LOGO */
+        .ascii-logo {
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            line-height: 1.1;
+            white-space: pre;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        /* 历史记录块 */
+        .history-block {
+            margin-bottom: 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        /* 命令行 */
+        .cmd-line { display: flex; align-items: flex-start; flex-wrap: wrap; width: 100%; margin-bottom: 6px; margin-top: 10px; line-height: 1.5; }
+        .prompt { margin-right: 10px; white-space: nowrap; }
+        .prompt .user { color: var(--prompt-user); }
+        .prompt .path { color: var(--prompt-path); }
+        .command-text { color: var(--cmd-input); text-shadow: 0 0 2px rgba(255,255,255,0.4); word-break: break-all; }
+
+        /* 普通文本输出 (Syslog 风格) */
+        .std-out {
+            color: var(--text-main);
+            opacity: 0.85;
+            white-space: pre-wrap;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            width: 100%;
+            /* 关键：允许内容横向撑开 */
+        }
+
+        /* 表格样式的数据展示 */
+        .data-table {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin: 10px 0;
+        }
+        .data-table .row { display: table-row; }
+        .data-table .cell { display: table-cell; padding: 2px 10px 2px 0; }
+        .data-table .hl { color: var(--prompt-user); }
+        .data-table .err { color: var(--accent-err); }
+
+        /* Hex Dump 样式 (填充屏幕神器) */
+        .hex-dump {
+            font-family: 'Share Tech Mono', monospace;
+            color: #444;
+            font-size: 0.85rem;
+            width: 100%;
+            overflow-x: hidden;
+            white-space: pre; /* 保持格式 */
+        }
+        .hex-addr { color: var(--prompt-path); margin-right: 10px; }
+        .hex-data { color: var(--text-msg); margin-right: 10px; }
+        .hex-ascii { color: var(--text-main); opacity: 0.6; }
+
+        /* 结果/章节入口 */
+        .cmd-result {
+            margin-top: 10px;
+            margin-bottom: 10px;
+            padding-left: 15px;
+            border-left: 1px solid var(--text-dim);
+            transition: all 0.2s;
+            cursor: pointer;
+            width: 100%;
+            /* 关键修改：取消宽度限制，填满中间 */
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        .cmd-result:hover { border-left-color: var(--prompt-user); background: rgba(255, 255, 255, 0.02); }
+        .result-content { padding: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+        .res-title { font-size: 1.2rem; color: #fff; font-weight: bold; letter-spacing: 1px; }
+        .res-meta { color: var(--text-dim); font-size: 0.85rem; }
+
+        .cmd-result.error { border-left-color: var(--accent-err); }
+        .cmd-result.error .res-title { color: var(--accent-err); text-decoration: line-through; opacity: 0.7; }
+        .cmd-result.locked { border-left-color: var(--accent-warn); opacity: 0.5; cursor: not-allowed; }
+
+        /* 输入行 */
+        .active-input-line {
+            margin-top: 10px;
+            padding-top: 0;
+            display: flex;
+            align-items: flex-start;
+            padding-bottom: 50px;
+        }
+        .typing-cursor { width: 10px; height: 1.2em; background-color: #fff; margin-left: 5px; animation: blink 1s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+
+        /* === 右侧：消息侧边栏 === */
+        .sidebar-area {
+            display: flex;
+            flex-direction: column;
+            overflow-y: hidden;
+            font-size: 0.85rem;
+            padding-top: 80px;
+            align-items: flex-start;
+            border-left: 1px solid #111; /* 极淡的分割线 */
+            padding-left: 30px;
+        }
+
+        .msg-header {
+            color: var(--text-dim);
+            border-bottom: 1px dashed #333;
+            width: 100%;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            text-align: right;
+        }
+
+        .msg-container { display: flex; flex-direction: column; gap: 30px; width: 100%; }
+        .msg-item { display: flex; flex-direction: column; opacity: 0.7; transition: opacity 0.3s; }
+        .msg-item:hover { opacity: 1; }
+        .msg-meta { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .msg-sender { color: var(--sender-color); font-weight: bold; }
+        .msg-content { color: var(--text-msg); line-height: 1.5; border-left: 2px solid transparent; padding-left: 10px; }
+        .msg-item.unread .msg-content { color: #fff; border-left-color: var(--prompt-user); }
+        .msg-item.unread .msg-sender { text-shadow: 0 0 5px var(--sender-color); }
+
+    </style>
+</head>
+<body>
+
+<div class="crt-overlay"></div>
+
+<div class="layout-grid">
+
+    <main class="main-terminal">
+        <div class="ascii-logo">
+            __    __   __  ____  __  __  __  __   __
+            /  \  |  | /  /|    ||  |/  ||  |/  | /  \
+            /    \ |  |/  /  |  |  \    / |     / /    \
+            \__\/__/\____/    |__|   |__|  |___/  \__\/__/
+            A K I Y A M A _ O S   //  KERNEL_V.5.14
+        </div>
+
+        <div class="welcome-msg">
+            [SYS_BOOT]: Integrity Verification Complete.
+            [SYS_BOOT]: Mounting memory partitions /dev/sda1 ... OK
+            -----------------------------------------------------------------------
+        </div>
+
+        <div class="history-block">
+            <div class="cmd-line">
+                <span class="prompt"><span class="user">root</span><span class="path">~</span>></span>
+                <span class="command-text">system_diagnostic --verbose --deep-scan --target=/core/memory_banks</span>
+            </div>
+
+            <div class="std-out">
+                <div class="data-table">
+                    <div class="row" style="border-bottom: 1px solid #333; color: #fff;">
+                        <span class="cell" style="width: 15%">PID</span>
+                        <span class="cell" style="width: 25%">MODULE</span>
+                        <span class="cell" style="width: 20%">ADDRESS</span>
+                        <span class="cell" style="width: 20%">STATUS</span>
+                        <span class="cell">LATENCY</span>
+                    </div>
+                    <div class="row"><span class="cell">0x01A</span><span class="cell">Logic_Gate</span><span class="cell">0x0000FFFF</span><span class="cell hl">ACTIVE</span><span class="cell">0.02ms</span></div>
+                    <div class="row"><span class="cell">0x02B</span><span class="cell">Emotion_Eng</span><span class="cell">0x00010000</span><span class="cell hl">STANDBY</span><span class="cell">1.40ms</span></div>
+                    <div class="row"><span class="cell">0x04F</span><span class="cell">Visual_Cortex</span><span class="cell">0x00045A2C</span><span class="cell err">CORRUPT</span><span class="cell">999ms</span></div>
+                    <div class="row"><span class="cell">0x09C</span><span class="cell">Audio_Synth</span><span class="cell">0x00088B11</span><span class="cell hl">ACTIVE</span><span class="cell">0.05ms</span></div>
+                </div>
+            </div>
+
+            <div class="cmd-line">
+                <span class="prompt"><span class="user">root</span><span class="path">~</span>></span>
+                <span class="command-text">./init_chapter_00.sh --override-safety-checks</span>
+            </div>
+            <div class="cmd-result" onclick="alert('进入 Chapter 0')">
+                <div class="result-content">
+                    <div class="res-meta">EXEC_TIME: 0.04s | THREADS: 4 | OVERRIDE: TRUE</div>
+                    <div class="res-title">CHAPTER 00: INITIALIZATION</div>
+                    <div class="res-meta">>> "The beginning of the end. System clock synchronized."</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="history-block">
+            <div class="cmd-line">
+                <span class="prompt"><span class="user">root</span><span class="path">~/memories</span>></span>
+                <span class="command-text">cat ./old_sector/chapter_01_rust.log | hexdump -C -n 256</span>
+            </div>
+
+            <div class="std-out hex-dump">
+                <span class="hex-addr">00000000</span>  <span class="hex-data">53 59 53 5f 45 52 52 3a</span>  <span class="hex-data">44 41 54 41 5f 4c 4f 53</span>  <span class="hex-ascii">|SYS_ERR:DATA_LOS|</span>
+                <span class="hex-addr">00000010</span>  <span class="hex-data">53 20 44 45 54 45 43 54</span>  <span class="hex-data">45 44 2e 20 52 55 53 54</span>  <span class="hex-ascii">|S DETECTED. RUST|</span>
+                <span class="hex-addr">00000020</span>  <span class="hex-data">49 4e 47 20 4f 56 45 52</span>  <span class="hex-data">20 54 48 45 20 44 52 49</span>  <span class="hex-ascii">|ING OVER THE DRI|</span>
+                <span class="hex-addr">00000030</span>  <span class="hex-data">56 45 2e 20 00 00 00 00</span>  <span class="hex-data">ff ff ff ff 42 41 44 21</span>  <span class="hex-ascii">|VE. ....ÿÿÿÿBAD!|</span>
+                <span class="hex-addr">00000040</span>  <span class="hex-data">0a 23 21 2f 62 69 6e 2f</span>  <span class="hex-data">6e 75 6c 6c 00 00 00 00</span>  <span class="hex-ascii">|.#|/bin/null....|</span>
+            </div>
+
+            <div class="cmd-result error">
+                <div class="result-content">
+                    <div class="res-meta">ERR_CODE: 0xBAD_SECTOR_77A | OFFSET: 0x004F</div>
+                    <div class="res-title">CHAPTER 01: RUST / 锈</div>
+                    <div class="res-meta">CRITICAL FAILURE: Cannot reconstruct memory fragment.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="history-block">
+            <div class="cmd-line">
+                <span class="prompt"><span class="user">root</span><span class="path">~/memories</span>></span>
+                <span class="command-text">sudo python3 decrypt_tool.py --target=chapter_02_phantom --key-file=/etc/shadow_keys</span>
+            </div>
+            <div class="std-out" style="color: var(--text-dim); font-size: 0.8rem;">
+                Traceback (most recent call last):
+                File "/usr/local/bin/decrypt_tool.py", line 402, in <module>
+                main(sys.argv[1:])
+                File "/usr/local/bin/decrypt_tool.py", line 88, in unlock_sector
+                key = load_quantum_key(opts.key_file)
+                File "/lib/security/quantum_crypto.py", line 22, in load_quantum_key
+                raise PermissionError("User 'root' is not in the phantom_users group.")
+                PermissionError: Access denied for file: /etc/shadow_keys/phantom_02.enc
+            </div>
+
+            <div class="cmd-result locked">
+                <div class="result-content">
+                    <div class="res-meta">PERMISSION DENIED | SECURITY LEVEL: MAX</div>
+                    <div class="res-title">CHAPTER 02: PHANTOM</div>
+                    <div class="res-meta">Decryption key missing. Contact System Admin (Sarah).</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="active-input-line">
+            <span class="prompt"><span class="user">root</span><span class="path">~/memories</span>></span>
+            <span id="typing-text" class="command-text"></span><span class="typing-cursor"></span>
+        </div>
+    </main>
+
+    <aside class="sidebar-area">
+        <div class="msg-header">BUFFER_STREAM (SMS)</div>
+
+        <div class="msg-container">
+            <div class="msg-item unread">
+                <div class="msg-meta">
+                    <span class="msg-sender">FROM: UNKNOWN</span>
+                    <span>14:02:55</span>
+                </div>
+                <div class="msg-content">
+                    > Are you seeing this? The system is behaving erratically. I see large hex dumps in the log files. Don't trust the logs.
+                </div>
+            </div>
+
+            <div class="msg-item">
+                <div class="msg-meta">
+                    <span class="msg-sender">FROM: SYS_ADMIN</span>
+                    <span>13:45:10</span>
+                </div>
+                <div class="msg-content">
+                    > Scheduled maintenance postponed. I'm trying to re-route the power to the main cluster but the visual cortex keeps failing.
+                </div>
+            </div>
+
+            <div class="msg-item">
+                <div class="msg-meta">
+                    <span class="msg-sender">FROM: SARAH</span>
+                    <span>YESTERDAY</span>
+                </div>
+                <div class="msg-content">
+                    > I found the old drive. It's covered in rust but might be readable if we use the legacy decryption protocol.
+                </div>
+            </div>
+
+            <div class="msg-item" style="opacity: 0.4">
+                <div class="msg-meta">
+                    <span class="msg-sender">FROM: NETWORK</span>
+                    <span>---</span>
+                </div>
+                <div class="msg-content">
+                    > Connection established...
+                    > Handshake failed.
+                    > Packet loss: 98%
+                    > Retrying...
+                </div>
+            </div>
+        </div>
+    </aside>
+
+</div>
+
+<script>
+    const textToType = "run_analysis.sh --force --ignore-errors";
+    const typingElement = document.getElementById('typing-text');
+    let charIndex = 0;
+
+    function typeWriter() {
+        if (charIndex < textToType.length) {
+            typingElement.innerHTML += textToType.charAt(charIndex);
+            charIndex++;
+            setTimeout(typeWriter, 120); // 稍微快一点的打字速度
+        } else {
+            setTimeout(() => {
+                typingElement.innerHTML = "";
+                charIndex = 0;
+                typeWriter();
+            }, 5000);
+        }
+    }
+    setTimeout(typeWriter, 1000);
+</script>
+
+</body>
+</html>

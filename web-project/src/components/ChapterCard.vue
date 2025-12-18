@@ -29,22 +29,22 @@
           <div class="decorative-line"></div>
         </div>
       <div class="cover-overlay"></div>
-      
+
       <!-- 顶部小标签 -->
       <div class="chapter-label">{{ chapter.number }}</div>
-      
+
       <!-- 左侧副标题信息 -->
       <div class="side-info" v-html="chapter.leftSidebar"></div>
-      
+
       <!-- 作者标识 -->
       <div class="author-mark">R18</div>
       </router-link>
     </div>
-    
+
     <!-- 右侧内容页 -->
     <div class="content-page">
       <div class="content-overlay"></div>
-      
+
       <!-- 随机散布的标题装饰文字（底层） -->
       <div class="scattered-titles">
         <div class="scattered-text scattered-1">{{ chapter.englishTitle }}</div>
@@ -54,20 +54,20 @@
         <div class="scattered-text scattered-5">{{ chapter.bottomTitle }}</div>
         <div class="scattered-text scattered-6">{{ chapter.englishTitle }}</div>
       </div>
-      
+
       <!-- 顶部装饰线 -->
       <div class="top-accent-line"></div>
-      
+
       <!-- 英文主标题 -->
       <div class="english-title">{{ chapter.englishTitle }}</div>
-      
+
       <!-- 副标题装饰 -->
       <div class="subtitle-accent">
         <span class="accent-line"></span>
         <span class="accent-text">{{ chapter.subTitle }}</span>
         <span class="accent-line"></span>
       </div>
-      
+
       <!-- 主要内容文字 -->
       <div class="main-content">
         <p v-for="(paragraph, index) in chapter.content" :key="index" class="content-paragraph">
@@ -87,12 +87,12 @@
           <div class="illustration-overlay"></div>
         </div>
       </div>-->
-      
+
       <!-- 底部装饰文字 -->
       <div class="bottom-decoration">
         <span>{{ chapter.decorativeText }}</span>
       </div>
-      
+
       <!-- 右侧竖排标题 -->
       <div class="vertical-accent" v-html="chapter.verticalAccent"></div>
     </div>
@@ -153,7 +153,7 @@ const props = defineProps({
   position: absolute;
   width: 100%;
   height: 100%;
-  background: 
+  background:
     radial-gradient(circle at 25% 35%, rgba(255, 255, 255, 0.25) 0%, transparent 45%),
     radial-gradient(circle at 75% 65%, rgba(0, 0, 0, 0.1) 0%, transparent 50%);
   pointer-events: none;
@@ -184,7 +184,7 @@ const props = defineProps({
   letter-spacing: 0.15em;
   color: #1a1a1a;
   line-height: 1;
-  text-shadow: 
+  text-shadow:
     3px 3px 0px rgba(255, 255, 255, 0.8),
     -1px -1px 0px rgba(0, 0, 0, 0.1);
   z-index: 5;
@@ -213,7 +213,7 @@ const props = defineProps({
   text-align: center;
   letter-spacing: 0.08em;
   line-height: 1;
-  text-shadow: 
+  text-shadow:
     4px 4px 0px rgba(255, 255, 255, 0.7),
     -1px -1px 0px rgba(0, 0, 0, 0.1);
   z-index: 5;
@@ -335,7 +335,7 @@ const props = defineProps({
   height: 750px;
   background: linear-gradient(135deg,  #d8b8c8 0%,  #ffe8dd 60%, #fff0e8 100%);
   position: relative;
-  box-shadow: 
+  box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.4),
     0 8px 20px rgba(0, 0, 0, 0.2);
   overflow: hidden;
@@ -347,7 +347,7 @@ const props = defineProps({
 
 .content-page:hover {
   transform: translateY(-5px);
-  box-shadow: 
+  box-shadow:
     0 25px 70px rgba(0, 0, 0, 0.45),
     0 10px 25px rgba(0, 0, 0, 0.25);
 }
@@ -356,7 +356,7 @@ const props = defineProps({
   position: absolute;
   width: 100%;
   height: 100%;
-  background: 
+  background:
     radial-gradient(circle at 15% 20%, rgba(225, 208, 218, 0.15) 0%, transparent 40%),
     radial-gradient(circle at 85% 80%, rgba(220, 210, 216, 0.12) 0%, transparent 45%);
   pointer-events: none;
@@ -560,7 +560,7 @@ const props = defineProps({
 .illustration-overlay {
   width: 100%;
   height: 100%;
-  background: 
+  background:
     radial-gradient(circle at 30% 40%, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
 }
 
@@ -595,7 +595,7 @@ const props = defineProps({
     flex-direction: column;
     gap: 20px;
   }
-  
+
   .cover-page,
   .content-page {
     width: 100%;
@@ -610,16 +610,16 @@ const props = defineProps({
     width: 380px;
     height: 532px;
   }
-  
+
   .main-title-vertical {
     font-size: 4.5rem;
     right: 30px;
   }
-  
+
   .bottom-main-title {
     font-size: 4rem;
   }
-  
+
   .english-title {
     font-size: 2rem;
   }

@@ -62,7 +62,10 @@ defineComponent({
 // 新增：按钮点击处理逻辑
 const startGame = () => {
   console.log('开始游戏');
-  // 路由跳转逻辑...
+  router.push({
+    path: '/novel-show',
+    query: { scriptId: 'chapter1-1' }
+  });
 };
 
 const continueGame = () => {

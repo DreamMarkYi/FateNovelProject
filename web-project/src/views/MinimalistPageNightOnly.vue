@@ -115,6 +115,10 @@ const goBack = () => {
 // 新增：按钮点击处理逻辑
 const startGame = () => {
   console.log('开始游戏');
+  router.push({
+    path: '/novel-show',
+    query: { scriptId: 'chapter1-0' }
+  });
 };
 
 const continueGame = () => {

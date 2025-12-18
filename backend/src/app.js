@@ -22,6 +22,7 @@ const novelScriptRoutes = require('./routes/mongo/novelScriptRoutes');
 const gameSaveRoutes = require('./routes/mongo/gameSaveRoutes');
 const startChoiceRoutes = require('./routes/mongo/startChoiceRoutes');
 const startPageScriptRoutes = require('./routes/mongo/startPageScriptRoutes');
+const miscMessageRoutes = require('./routes/mongo/miscMessageRoutes');
 
 const app = express();
 
@@ -69,6 +70,7 @@ app.use('/api/mongo/novel-scripts', novelScriptRoutes);
 app.use('/api/mongo/game-saves', gameSaveRoutes);
 app.use('/api/mongo/start-choices', startChoiceRoutes);
 app.use('/api/mongo/start-page-script', startPageScriptRoutes);
+app.use('/api/mongo/misc-messages', miscMessageRoutes);
 
 // 健康检查
 app.get('/health', (req, res) => {

@@ -57,14 +57,15 @@ nav {
   position: fixed;
   top: 0;
   width: 100%;
-  background-color: rgba(250, 249, 247, 0.95);
-  backdrop-filter: blur(10px);
+  background-color: rgba(250, 249, 247, 0.0);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   z-index: 1000;
   padding: 20px 50px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(51, 51, 51, 0.1);
+  border-bottom: 1px solid rgba(51, 51, 51, 0.08);
   opacity: 0.0;
   transform: translateY(-10px);
   transition: opacity 0.3s ease, transform 0.3s ease;
@@ -79,7 +80,7 @@ nav.nav-visible {
   font-size: 24px;
   font-weight: 300;
   letter-spacing: 3px;
-  color: #333;
+  color: #ffffff;
 }
 
 .nav-links {
@@ -90,7 +91,7 @@ nav.nav-visible {
 
 .nav-links a {
   text-decoration: none;
-  color: #333;
+  color: #ffffff;
   font-size: 14px;
   letter-spacing: 2px;
   transition: opacity 0.3s;
@@ -111,7 +112,7 @@ nav.nav-visible {
 .menu-toggle span {
   width: 25px;
   height: 2px;
-  background-color: #333;
+  background-color: #ffffff;
 }
 
 /* Responsive */
@@ -130,7 +131,9 @@ nav.nav-visible {
     position: absolute;
     top: 70px;
     right: 20px;
-    background: rgba(250, 249, 247, 0.98);
+    background: rgba(250, 249, 247, 0.0);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);

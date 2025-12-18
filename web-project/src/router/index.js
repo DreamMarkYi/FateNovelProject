@@ -12,6 +12,7 @@ import normalNight  from  '../views/MinimalistPageNormalNighty.vue'
 import StartPage from '../views/StartPage.vue'
 import exDay from '../views/MinimalistPageDayOnly.vue'
 import ChapterSelectPage from '../views/ChapterSelectPage.vue'
+import TerminalChapterSelect from '../views/TerminalChapterSelect.vue'
 import ChapterNodeEditor from '../views/ChapterNodeEditor.vue'
 
 
@@ -113,6 +114,12 @@ const router = createRouter({
       path: '/chapter-select',
       name: 'chapter-select',
       component: ChapterSelectPage,
+      meta: { requireAnyIdentity: true }
+    },
+    {
+      path: '/terminal-chapter-select',
+      name: 'terminal-chapter-select',
+      component: TerminalChapterSelect,
       meta: { requireAnyIdentity: true }
     }
   ]
