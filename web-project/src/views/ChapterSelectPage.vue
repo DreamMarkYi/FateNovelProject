@@ -415,7 +415,7 @@ const loadChapterNodes = async () => {
           },
           worldPosition: position, // 保存世界坐标用于计算
           rotation: rotation,
-          highlighted: index === 0 && !script.locked, // 第一个未锁定的节点高亮
+          highlighted: script.isCompleted || false, // 完成的章节添加高亮标记
           image: script.thumbnailImage || null,
           summary: script.summary || '',
           unlockConditions: script.unlockConditions || [],
@@ -466,7 +466,7 @@ onUnmounted(() => {
 .chapter-select-page {
   /* --- 基础变量定义在组件根元素上 --- */
   /* 修改：背景改为更黄、更旧的羊皮纸色 */
-  --bg-paper: #e8e5de;
+  --bg-paper: #faf8f3;
   /* 修改：笔触改为暖炭黑色，不像纯黑那么生硬 */
   --pencil-stroke: #362f2d;
   --pencil-light: #7a6e66;

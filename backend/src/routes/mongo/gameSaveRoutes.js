@@ -35,4 +35,13 @@ router.patch('/player/:playerId/slot/:saveSlot/playtime', authenticateToken, Gam
 // 删除存档
 router.delete('/player/:playerId/slot/:saveSlot', authenticateToken, GameSaveController.deleteSave);
 
+// 更新消息接收状态
+router.patch('/player/:playerId/message-receive-status', authenticateToken, GameSaveController.updateMessageReceiveStatus);
+
+// 批量更新消息接收状态
+router.patch('/player/:playerId/message-receive-status/batch', authenticateToken, GameSaveController.batchUpdateMessageReceiveStatus);
+
+// 获取消息接收状态
+router.get('/player/:playerId/message-receive-status', optionalAuth, GameSaveController.getMessageReceiveStatus);
+
 module.exports = router;

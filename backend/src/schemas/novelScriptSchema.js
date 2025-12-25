@@ -121,7 +121,12 @@ const novelScriptSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
-    // 背景音乐
+    // 背景音乐 URL
+    bgMusic: {
+      type: String,
+      trim: true
+    },
+    // 背景音乐（旧字段，保留以兼容旧数据）
     bgm: {
       type: String,
       trim: true

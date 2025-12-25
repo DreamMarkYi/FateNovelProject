@@ -66,14 +66,30 @@
 
       <div v-if="currentTab === 'settings'" class="sys-content active">
         <h2 class="content-header">Preferences</h2>
-        <p style="color: var(--text-color);">（Settings Placeholder）</p>
+        
+        <div class="settings-section">
+          <div class="setting-item">
+            <label class="setting-label">背景音乐音量</label>
+            <div class="volume-control">
+              <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  :value="musicVolume * 100"
+                  @input="handleVolumeChange"
+                  class="volume-slider"
+              />
+              <span class="volume-value">{{ volumePercentage }}%</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 
 const props = defineProps({
   visible: Boolean,
@@ -81,12 +97,21 @@ const props = defineProps({
   saves: {
     type: Object,
     default: () => ({})  // { 1: saveData, 2: saveData, ... }
+  },
+  musicVolume: {
+    type: Number,
+    default: 0.5
   }
 });
 
-const emit = defineEmits(['close', 'save-slot', 'load-slot']);
+const emit = defineEmits(['close', 'save-slot', 'load-slot', 'update-music-volume']);
 
 const currentTab = ref('save');
+
+// 计算音量百分比
+const volumePercentage = computed(() => {
+  return Math.round(props.musicVolume * 100);
+});
 
 // 当打开菜单时，同步父组件传进来的 tab
 watch(() => props.visible, (newVal) => {
@@ -114,6 +139,12 @@ function formatDate(dateString) {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${year}/${month}/${day} ${hours}:${minutes}`;
+}
+
+// 处理音量变化
+function handleVolumeChange(event) {
+  const newVolume = parseInt(event.target.value) / 100;
+  emit('update-music-volume', newVolume);
 }
 </script>
 
@@ -226,4 +257,74 @@ function formatDate(dateString) {
 .card-empty { opacity: 0.4; font-style: italic; }
 .save-card.empty:hover { transform: translateY(-5px); }
 .save-card.has-data:hover { transform: translateY(-15px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+
+/* === 设置页面样式 === */
+.settings-section {
+  margin-top: 30px;
+}
+
+.setting-item {
+  margin-bottom: 30px;
+}
+
+.setting-label {
+  display: block;
+  color: var(--text-color);
+  font-size: 1rem;
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.volume-slider {
+  flex: 1;
+  height: 6px;
+  background: var(--accent-color);
+  border-radius: 3px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--text-color);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+  background: #2c3e50;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--text-color);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  transition: background 0.3s;
+}
+
+.volume-slider::-moz-range-thumb:hover {
+  background: #2c3e50;
+}
+
+.volume-value {
+  color: var(--text-color);
+  font-size: 0.9rem;
+  min-width: 45px;
+  text-align: right;
+  font-family: var(--font-en);
+}
 </style>

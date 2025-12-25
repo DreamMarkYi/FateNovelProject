@@ -6,7 +6,11 @@
           COLLECTION
         </div>
       </div>
-
+      <SowakaNavigation
+          :mobile-menu-open="mobileMenuOpen"
+          @toggle-mobile-menu="toggleMobileMenu"
+          @scroll-to-section="scrollToSection"
+      />
       <div class="cards-wrapper" v-if="!loading && !error">
         <CardItem
             v-for="(card, index) in cardsData"
@@ -66,6 +70,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import CardItem from '../components/CardItem.vue'
 import CharacterDetail from '../components/CharacterDetail.vue' // 引入新分离的组件
 import characterCardApi from '../api/characterCardApi'
+import SowakaNavigation from "@/components/sowaka/SowakaNavigation.vue";
 
 const sidebarContentRef = ref(null)
 const cardRefs = ref([])

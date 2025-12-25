@@ -120,3 +120,82 @@ export const miscMessageApi = {
   }
 }
 
+// 游戏存档 API（用于消息接收状态）
+const gameSaveApi = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+// 请求拦截器 - 自动添加 JWT Token
+gameSaveApi.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('fate_novel_token')
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`
+    }
+    return config
+  },
+  error => {
+    return Promise.reject(error)
+  }
+)
+
+// 响应拦截器
+gameSaveApi.interceptors.response.use(
+  response => response.data,
+  error => {
+    console.error('Game Save API Error:', error)
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.warn('Token 已过期或无效')
+    }
+    return Promise.reject(error)
+  }
+)
+
+export const gameSaveApiForMessages = {
+  /**
+   * 更新消息接收状态
+   * @param {string} playerId - 玩家ID
+   * @param {string} topic - 消息主题
+   * @param {boolean} receiveStatus - 接收状态（true=接收，false=不接收）
+   * @returns {Promise<Object>}
+   */
+  async updateMessageReceiveStatus(playerId, topic, receiveStatus) {
+    const response = await gameSaveApi.patch(
+      `/api/mongo/game-saves/player/${playerId}/message-receive-status`,
+      { topic, receiveStatus }
+    )
+    return response
+  },
+
+  /**
+   * 批量更新消息接收状态
+   * @param {string} playerId - 玩家ID
+   * @param {Array} updates - 更新数组 [{ topic, receiveStatus }, ...]
+   * @returns {Promise<Object>}
+   */
+  async batchUpdateMessageReceiveStatus(playerId, updates) {
+    const response = await gameSaveApi.patch(
+      `/api/mongo/game-saves/player/${playerId}/message-receive-status/batch`,
+      { updates }
+    )
+    return response
+  },
+
+  /**
+   * 获取消息接收状态
+   * @param {string} playerId - 玩家ID
+   * @returns {Promise<Object>}
+   */
+  async getMessageReceiveStatus(playerId) {
+    const response = await gameSaveApi.get(
+      `/api/mongo/game-saves/player/${playerId}/message-receive-status`
+    )
+    return response
+  }
+}
+
+

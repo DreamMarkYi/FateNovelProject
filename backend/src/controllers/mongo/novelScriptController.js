@@ -157,7 +157,12 @@ class NovelScriptController {
       // 转换为 Set 以便快速查找
       const unlockedSet = new Set(unlockedScripts);
       
-      // 处理每个剧本，标记解锁状态
+      // 获取已完成的剧本列表（用于标记完成状态）
+      const completedSet = playerSave && playerSave.completedScripts 
+        ? new Set(playerSave.completedScripts)
+        : new Set();
+      
+      // 处理每个剧本，标记解锁状态和完成状态
       const nodes = scripts.map((script) => {
         const unlockConditions = script.unlockConditions || [];
         
@@ -170,6 +175,9 @@ class NovelScriptController {
         }
         // 如果 unlockConditions 为空，isLocked 保持为 false（已解锁）
         
+        // 检查是否已完成
+        const isCompleted = completedSet.has(script.scriptId);
+        
         return {
           scriptId: script.scriptId,
           scriptName: script.scriptName,
@@ -179,7 +187,8 @@ class NovelScriptController {
           connectNode: script.connectNode || [],
           position: script.position || { x: 0, y: 0 },
           visibility: script.visibility || 'all',
-          locked: isLocked
+          locked: isLocked,
+          isCompleted: isCompleted
         };
       });
       

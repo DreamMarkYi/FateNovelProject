@@ -164,6 +164,12 @@ const gameSaveSchema = new mongoose.Schema({
       type: String,
       default: '1.0.0'
     }
+  },
+  // 消息接收状态（Map格式：key为消息ID，value为boolean，true表示接收，false表示不接收）
+  messageReceiveStatus: {
+    type: Map,
+    of: Boolean,
+    default: new Map()
   }
 }, {
   timestamps: true,
@@ -342,7 +348,7 @@ gameSaveSchema.statics.findOrCreatePlayer = async function(playerId, playerName 
   if (!playerSaves) {
     playerSaves = await this.create({
       playerId,
-      playerName,
+      playerName: playerName || null,
       saves: new Map(),
       globalReadScenes: [],
       globalUnlockedContent: {
@@ -351,7 +357,12 @@ gameSaveSchema.statics.findOrCreatePlayer = async function(playerId, playerName 
         endings: []
       }
     });
-    console.log('✅ 创建新的用户存档记录:', playerId);
+    console.log('✅ 创建新的用户存档记录:', playerId, playerName ? `玩家名称: ${playerName}` : '');
+  } else if (playerName && playerName.trim() && (!playerSaves.playerName || playerSaves.playerName !== playerName.trim())) {
+    // 如果记录已存在，但 playerName 有更新，则更新它
+    playerSaves.playerName = playerName.trim();
+    await playerSaves.save();
+    console.log('✅ 更新玩家名称:', playerId, '->', playerName.trim());
   }
   
   return playerSaves;

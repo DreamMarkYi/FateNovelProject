@@ -63,7 +63,7 @@ const formatName = (name) => {
   position: absolute;
   width: 160px;
   height: 200px;
-  background: #f4efe1;
+  background: #fbfaf3;
   border: 2px solid #362f2d;
   border-radius: 2% 4% 3% 5% / 95% 4% 92% 5%;
   display: flex;

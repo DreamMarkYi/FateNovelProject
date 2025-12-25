@@ -248,9 +248,11 @@ const enterDarkSide = () => {
   /* 使用与主题一致的金棕色，带低透明度边框 */
   border: 1px solid rgba(107, 93, 75, 0.3);
   color: #65605a;
-  font-family: 'Noto Serif JP', serif;
+  font-family: 'Noto Serif JP';
   font-size: 15px;
   font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   letter-spacing: 4px;
   padding: 12px 0;
   width: 220px; /* 固定宽度保证整齐 */

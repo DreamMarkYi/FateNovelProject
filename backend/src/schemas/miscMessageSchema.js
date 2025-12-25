@@ -33,6 +33,14 @@ const miscMessageSchema = new mongoose.Schema({
     default: 'received',
     index: true
   },
+  // 消息主题（唯一标识，不能重复）
+  topic: {
+    type: String,
+    required: true,
+    trim: true,
+    unique: true,
+    index: true
+  },
   // 消息内容
   content: {
     type: String,
@@ -42,6 +50,21 @@ const miscMessageSchema = new mongoose.Schema({
   // 解锁条件：需要完成的剧本ID列表（空数组表示无解锁条件，始终显示）
   unlockConditions: {
     type: [String],
+    default: []
+  },
+  // 消息链解锁条件：需要操作的消息列表（空数组表示无解锁条件，始终显示）
+  // 支持两种格式：
+  // 1. 旧格式（向后兼容）：字符串数组，只要操作过就算满足
+  //    例如：['messageA', 'messageB']
+  // 2. 新格式：对象数组，每个对象包含：
+  //    - topic: 消息主题（必需）
+  //    - requiredAction: 必需的操作类型
+  //      - 'receive': 必须接收（messageReceiveStatus 为 true）
+  //      - 'reject': 必须拒绝（messageReceiveStatus 为 false）
+  //      - 'any': 任意操作都可以（默认值）
+  //    例如：[{ topic: 'messageA', requiredAction: 'receive' }, { topic: 'messageB', requiredAction: 'reject' }]
+  unlockTopics: {
+    type: [mongoose.Schema.Types.Mixed], // 支持字符串或对象
     default: []
   },
   // 显示顺序
@@ -69,6 +92,19 @@ const miscMessageSchema = new mongoose.Schema({
     default: 'all',
     index: true
   },
+  // 章节显示范围：消息应该在哪段章节范围内显示
+  // 如果存在，消息只会在当前完成的章节数在这个范围内时显示
+  // 如果不存在或为空，表示没有章节范围限制
+  chapterRange: {
+    startChapter: {
+      type: Number,
+      default: null
+    },
+    endChapter: {
+      type: Number,
+      default: null
+    }
+  },
   // 元数据
   metadata: {
     createdAt: { type: Date, default: Date.now },
@@ -83,6 +119,7 @@ const miscMessageSchema = new mongoose.Schema({
 miscMessageSchema.index({ date: -1, displayOrder: 1 });
 miscMessageSchema.index({ isActive: 1, visibility: 1 });
 miscMessageSchema.index({ unlockConditions: 1 });
+miscMessageSchema.index({ unlockTopics: 1 });
 
 // 保存前自动更新 updatedAt
 miscMessageSchema.pre('save', function(next) {

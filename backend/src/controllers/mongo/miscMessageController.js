@@ -36,7 +36,7 @@ class MiscMessageController {
       
       // 获取所有符合条件的消息
       const allMessages = await MiscMessage.find(query)
-        .select('date sender messageType direction content unlockConditions displayOrder isRead visibility')
+        .select('date sender messageType direction topic content unlockConditions unlockTopics displayOrder isRead visibility chapterRange')
         .sort({ displayOrder: 1, date: -1 });
       
       // 获取玩家的存档数据
@@ -49,21 +49,125 @@ class MiscMessageController {
       }
       const completedSet = new Set(completedScripts);
       
-      // 过滤消息：只显示已解锁的消息
-      const unlockedMessages = allMessages.filter(message => {
+      // 获取玩家的消息接收状态
+      const messageReceiveStatus = new Map();
+      if (playerSave && playerSave.messageReceiveStatus) {
+        playerSave.messageReceiveStatus.forEach((value, key) => {
+          messageReceiveStatus.set(key, value);
+        });
+      }
+      
+      // 计算当前完成的章节数
+      const completedChapterCount = completedScripts.length;
+      
+      // 综合解锁条件过滤消息
+      // 需要同时满足：
+      // 1. unlockConditions：完成指定的章节（如果存在）
+      // 2. unlockTopics：操作过（接收或拒绝）指定的消息（如果存在）
+      // 3. chapterRange：当前完成的章节数在指定范围内（如果存在）
+      // 如果多个条件都存在，必须都满足；如果只有一个条件，只需满足那一个；如果都没有，直接显示
+      const fullyUnlockedMessages = allMessages.filter(message => {
         const unlockConditions = message.unlockConditions || [];
+        const unlockTopics = message.unlockTopics || [];
+        const chapterRange = message.chapterRange || {};
         
-        // 如果没有解锁条件，直接显示
-        if (unlockConditions.length === 0) {
+        // 检查章节范围条件
+        let rangeMet = true;
+        if (chapterRange.startChapter !== null && chapterRange.startChapter !== undefined) {
+          // 如果设置了开始章节，当前完成的章节数必须 >= startChapter
+          if (completedChapterCount < chapterRange.startChapter) {
+            return false; // 不在范围内，不显示
+          }
+        }
+        if (chapterRange.endChapter !== null && chapterRange.endChapter !== undefined) {
+          // 如果设置了结束章节，当前完成的章节数必须 <= endChapter
+          if (completedChapterCount > chapterRange.endChapter) {
+            return false; // 不在范围内，不显示
+          }
+        }
+        
+        // 如果章节范围条件不满足，直接返回 false
+        if (!rangeMet) {
+          return false;
+        }
+        
+        // 如果所有条件都不存在，直接显示
+        if (unlockConditions.length === 0 && unlockTopics.length === 0 && 
+            (chapterRange.startChapter === null || chapterRange.startChapter === undefined) &&
+            (chapterRange.endChapter === null || chapterRange.endChapter === undefined)) {
           return true;
         }
         
-        // 如果有解锁条件，检查是否所有条件都满足
-        return unlockConditions.every(scriptId => completedSet.has(scriptId));
+        // 检查章节解锁条件
+        let conditionsMet = true;
+        if (unlockConditions.length > 0) {
+          conditionsMet = unlockConditions.every(scriptId => completedSet.has(scriptId));
+        }
+        
+        // 检查消息链解锁条件（根据 requiredAction 判断操作类型）
+        let topicsMet = true;
+        if (unlockTopics.length > 0) {
+          topicsMet = unlockTopics.every(unlockTopic => {
+            // 支持两种格式：字符串（向后兼容）或对象（新格式）
+            let topic, requiredAction;
+            
+            if (typeof unlockTopic === 'string') {
+              // 旧格式：字符串，只要操作过就算满足
+              topic = unlockTopic;
+              requiredAction = 'any';
+            } else if (typeof unlockTopic === 'object' && unlockTopic !== null) {
+              // 新格式：对象，需要检查操作类型
+              topic = unlockTopic.topic;
+              requiredAction = unlockTopic.requiredAction || 'any';
+            } else {
+              // 无效格式，不满足条件
+              console.warn('无效的 unlockTopic 格式:', unlockTopic);
+              return false;
+            }
+            
+            // 检查消息是否被操作过
+            if (!messageReceiveStatus.has(topic)) {
+              return false; // 消息未被操作，不满足条件
+            }
+            
+            // 如果 requiredAction 是 'any'，只要操作过就算满足
+            if (requiredAction === 'any') {
+              return true;
+            }
+            
+            // 检查操作类型是否匹配
+            const actualStatus = messageReceiveStatus.get(topic);
+            if (requiredAction === 'receive') {
+              // 必须接收（true）
+              return actualStatus === true;
+            } else if (requiredAction === 'reject') {
+              // 必须拒绝（false）
+              return actualStatus === false;
+            }
+            
+            // 未知的 requiredAction 值，不满足条件
+            console.warn('未知的 requiredAction 值:', requiredAction);
+            return false;
+          });
+        }
+        
+        // 必须同时满足章节条件、消息链条件和章节范围条件（如果存在的话）
+        // 注意：章节范围条件已经在上面检查过了，如果不在范围内已经返回 false
+        return conditionsMet && topicsMet;
+      });
+      
+      // 根据接收状态过滤消息
+      // 如果用户已经对消息进行了操作（接收或不接收），消息就不再显示
+      // 只有未操作的消息才显示
+      const filteredMessages = fullyUnlockedMessages.filter(message => {
+        const topic = message.topic;
+        // 如果 messageReceiveStatus Map 中没有这个 topic，说明用户还未操作，显示消息
+        // 如果 Map 中有这个 topic（无论值是 true 还是 false），说明用户已操作，不显示消息
+        return !messageReceiveStatus.has(topic);
       });
       
       // 格式化日期显示
-      const formattedMessages = unlockedMessages.map(message => {
+      const formattedMessages = filteredMessages.map(message => {
         const messageDate = new Date(message.date);
         const now = new Date();
         const diffMs = now - messageDate;
@@ -89,17 +193,27 @@ class MiscMessageController {
           dateDisplay = `${hours}:${mins}`;
         }
         
+        const messageId = message._id.toString();
+        const topic = message.topic;
+        // 由于已操作的消息已被过滤，这里的 receiveStatus 应该总是 undefined
+        // 但为了兼容性，仍然检查并设置
+        const receiveStatus = messageReceiveStatus.get(topic);
+        
         return {
-          id: message._id.toString(),
+          id: messageId,
           date: messageDate.toISOString(),
           dateDisplay: dateDisplay,
           sender: message.sender,
           messageType: message.messageType,
           direction: message.direction,
+          topic: topic,
           content: message.content,
           unlockConditions: message.unlockConditions || [],
+          unlockTopics: message.unlockTopics || [],
+          chapterRange: message.chapterRange || null,
           isRead: message.isRead || false,
-          visibility: message.visibility || 'all'
+          visibility: message.visibility || 'all',
+          receiveStatus: receiveStatus !== false // 未操作的消息默认显示为接收状态
         };
       });
       
@@ -298,4 +412,5 @@ class MiscMessageController {
 }
 
 module.exports = MiscMessageController;
+
 

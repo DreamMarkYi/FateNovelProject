@@ -144,16 +144,38 @@
 
         <div class="msg-container">
             <!-- 根据消息类型动态渲染不同的组件 -->
-            <component
+            <div
               v-for="message in messages"
               :key="message.id"
-              :is="getMessageComponent(message.messageType)"
-              :sender="message.sender"
-              :content="message.content"
-              :date-display="message.dateDisplay"
-              :direction="message.direction"
-              :is-read="message.isRead"
-            />
+              class="msg-item-wrapper"
+            >
+              <component
+                :is="getMessageComponent(message.messageType)"
+                :sender="message.sender"
+                :content="message.content"
+                :date-display="message.dateDisplay"
+                :direction="message.direction"
+                :is-read="message.isRead"
+              />
+              
+              <!-- 接收/不接收按钮 -->
+              <div class="msg-receive-control">
+                <button
+                  @click="toggleMessageReceive(message.topic, true)"
+                  :class="['receive-btn', 'receive-btn-enable', { 'active': message.receiveStatus !== false }]"
+                  title="接收消息"
+                >
+                  <span class="btn-text">接收</span>
+                </button>
+                <button
+                  @click="toggleMessageReceive(message.topic, false)"
+                  :class="['receive-btn', 'receive-btn-disable', { 'active': message.receiveStatus === false }]"
+                  title="不接收消息"
+                >
+                  <span class="btn-text">不接收</span>
+                </button>
+              </div>
+            </div>
             
             <!-- 如果没有消息，显示空状态 -->
             <div v-if="messages.length === 0" class="msg-item" style="opacity: 0.4;">
@@ -190,7 +212,7 @@ import SMSMessage from '@/components/messages/SMSMessage.vue'
 import PhoneMessage from '@/components/messages/PhoneMessage.vue'
 import QQMessage from '@/components/messages/QQMessage.vue'
 import { novelScriptApi } from '@/api/novelScriptApi'
-import { miscMessageApi } from '@/api/miscMessageApi'
+import { miscMessageApi, gameSaveApiForMessages } from '@/api/miscMessageApi'
 import { useUserSession } from '@/composables/useUserSession'
 
 const router = useRouter()
@@ -636,12 +658,58 @@ const loadMessages = async () => {
     const response = await miscMessageApi.getTerminalMessages(playerId)
     
     if (response.success && response.data) {
+      // 后端已经根据以下条件过滤了消息：
+      // 1. 已经点击接收或者未接受的消息不显示（已操作的消息不显示）
+      // 2. 未解锁的消息不显示（unlockConditions 和 unlockTopics 未满足）
+      // 3. 不在章节显示范围内的消息不显示（chapterRange 检查）
       messages.value = response.data
+      
+      console.log(`📨 加载了 ${messages.value.length} 条消息`)
+      console.log('📋 消息列表:', messages.value.map(m => ({
+        topic: m.topic,
+        sender: m.sender,
+        chapterRange: m.chapterRange,
+        unlockConditions: m.unlockConditions,
+        unlockTopics: m.unlockTopics
+      })))
+    } else {
+      messages.value = []
     }
   } catch (error) {
     console.error('加载消息失败:', error)
     // 如果加载失败，使用空数组
     messages.value = []
+  }
+}
+
+// 切换消息接收状态
+const toggleMessageReceive = async (topic, receiveStatus) => {
+  try {
+    // 确保用户会话已初始化
+    if (!userSession.userId.value) {
+      await userSession.initSession('TerminalChapterSelect')
+    }
+    
+    const playerId = userSession.userId.value
+    
+    // 调用 API 更新接收状态（使用 topic）
+    const response = await gameSaveApiForMessages.updateMessageReceiveStatus(
+      playerId,
+      topic,
+      receiveStatus
+    )
+    
+    if (response.success) {
+      // 无论接收还是不接收，都从列表中移除该消息（表示已处理）
+      messages.value = messages.value.filter(m => m.topic !== topic)
+      console.log(`✅ 消息 ${topic} 已${receiveStatus ? '接收' : '拒绝'}，已从列表中移除`)
+      
+      // 重新加载消息列表，以检查是否有新的消息因为此操作而解锁
+      // 注意：这里不立即重新加载，因为用户可能还在查看其他消息
+      // 如果需要，可以在页面可见性变化时或定时刷新
+    }
+  } catch (error) {
+    console.error('切换消息接收状态失败:', error)
   }
 }
 
@@ -677,6 +745,14 @@ const loadChapterNodes = async () => {
   }
 }
 
+// 页面可见性变化处理函数
+const handleVisibilityChange = () => {
+  if (!document.hidden) {
+    console.log('📄 页面重新可见，刷新消息列表...')
+    loadMessages()
+  }
+}
+
 onMounted(() => {
   // 加载章节节点数据
   loadChapterNodes()
@@ -686,6 +762,10 @@ onMounted(() => {
   
   // 启动打字效果
   startTypingEffect()
+  
+  // 监听页面可见性变化，当页面重新可见时刷新消息
+  // 这样可以确保在用户完成章节后返回页面时，消息列表是最新的
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onUnmounted(() => {
@@ -693,6 +773,9 @@ onUnmounted(() => {
   if (typingInterval) {
     clearTimeout(typingInterval)
   }
+  
+  // 移除事件监听器
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 
@@ -1045,6 +1128,83 @@ onUnmounted(() => {
 }
 .terminal-chapter-select .msg-item.unread .msg-sender { 
     text-shadow: 0 0 5px var(--sender-color); 
+}
+
+/* 消息项包装器 */
+.terminal-chapter-select .msg-item-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+}
+
+/* 消息接收控制按钮 */
+.terminal-chapter-select .msg-receive-control {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+    padding-right: 4px;
+}
+
+.terminal-chapter-select .receive-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-main);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Share Tech Mono', monospace;
+    opacity: 0.6;
+}
+
+.terminal-chapter-select .receive-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.terminal-chapter-select .receive-btn.active {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.15);
+    border-color: currentColor;
+}
+
+.terminal-chapter-select .receive-btn-enable {
+    color: var(--prompt-user);
+}
+
+.terminal-chapter-select .receive-btn-enable:hover {
+    border-color: var(--prompt-user);
+    background: rgba(64, 224, 208, 0.15);
+}
+
+.terminal-chapter-select .receive-btn-enable.active {
+    border-color: var(--prompt-user);
+    background: rgba(64, 224, 208, 0.2);
+    box-shadow: 0 0 4px rgba(64, 224, 208, 0.3);
+}
+
+.terminal-chapter-select .receive-btn-disable {
+    color: var(--accent-err);
+}
+
+.terminal-chapter-select .receive-btn-disable:hover {
+    border-color: var(--accent-err);
+    background: rgba(255, 51, 51, 0.15);
+}
+
+.terminal-chapter-select .receive-btn-disable.active {
+    border-color: var(--accent-err);
+    background: rgba(255, 51, 51, 0.2);
+    box-shadow: 0 0 4px rgba(255, 51, 51, 0.3);
+}
+
+.terminal-chapter-select .btn-text {
+    font-size: 0.7rem;
 }
 </style>
 

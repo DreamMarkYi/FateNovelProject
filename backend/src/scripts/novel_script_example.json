@@ -1,0 +1,134 @@
+{
+  "scriptId": "example-script-1",
+  "scriptName": "示例剧本",
+  "description": "这是一个示例剧本，展示了novel_script的完整数据结构",
+  "summary": "剧本简介，用于章节选择页面显示",
+  "thumbnailImage": "/images/thumbnail.jpg",
+  "unlockConditions": [],
+  "visibility": "all",
+  "connectNode": [],
+  "position": {
+    "x": 0,
+    "y": 0
+  },
+  "isActive": true,
+  "displayOrder": 1,
+  "scenes": [
+    {
+      "index": 0,
+      "type": "title",
+      "title": "第一章",
+      "subtitle": "故事的开始",
+      "bgImage": "/storyImage/StoryBG/storyBG1.png",
+      "theme": "dark",
+      "characterImageLeft": "",
+      "characterImageRight": "",
+      "bgMusic": "",
+      "soundEffect": "",
+      "effects": [],
+      "tags": ["opening"],
+      "note": ""
+    },
+    {
+      "index": 1,
+      "type": "text",
+      "speaker": "秋山痕",
+      "text": "这是第一段对话内容。",
+      "bgImage": "/storyImage/StoryBG/storyBG2.png",
+      "theme": "dark",
+      "characterImageLeft": "/storyImage/Seraphina.png",
+      "characterImageRight": "",
+      "bgMusic": "/music/bgm1.mp3",
+      "soundEffect": "",
+      "effects": [],
+      "tags": [],
+      "note": ""
+    },
+    {
+      "index": 2,
+      "type": "text",
+      "speaker": "系统",
+      "text": "这是第二段对话，没有角色立绘。",
+      "bgImage": "/storyImage/StoryBG/storyBG3.png",
+      "theme": "light",
+      "characterImageLeft": "",
+      "characterImageRight": "",
+      "bgMusic": "",
+      "soundEffect": "/sound/click.mp3",
+      "effects": [
+        {
+          "type": "fade",
+          "params": {
+            "duration": 1000
+          }
+        }
+      ],
+      "tags": ["important"],
+      "note": "重要场景"
+    },
+    {
+      "index": 3,
+      "type": "choice",
+      "text": "请做出你的选择：",
+      "bgImage": "/storyImage/StoryBG/storyBG2.png",
+      "theme": "dark",
+      "choices": [
+        {
+          "text": "选择选项1",
+          "jumpTo": 4,
+          "condition": ""
+        },
+        {
+          "text": "选择选项2",
+          "jumpTo": 5,
+          "condition": ""
+        }
+      ],
+      "characterImageLeft": "",
+      "characterImageRight": "",
+      "bgMusic": "",
+      "soundEffect": "",
+      "effects": [],
+      "tags": ["choice"],
+      "note": ""
+    },
+    {
+      "index": 4,
+      "type": "text",
+      "speaker": "秋山痕",
+      "text": "你选择了选项1，故事继续...",
+      "bgImage": "/storyImage/StoryBG/storyBG2.png",
+      "theme": "dark",
+      "characterImageLeft": "/storyImage/Seraphina.png",
+      "characterImageRight": "",
+      "bgMusic": "",
+      "soundEffect": "",
+      "effects": [],
+      "tags": [],
+      "note": ""
+    },
+    {
+      "index": 5,
+      "type": "text",
+      "speaker": "秋山痕",
+      "text": "你选择了选项2，故事继续...",
+      "bgImage": "/storyImage/StoryBG/storyBG2.png",
+      "theme": "dark",
+      "characterImageLeft": "/storyImage/Seraphina.png",
+      "characterImageRight": "",
+      "bgMusic": "",
+      "soundEffect": "",
+      "effects": [],
+      "tags": [],
+      "note": ""
+    }
+  ],
+  "metadata": {
+    "author": "作者名",
+    "version": "1.0.0",
+    "language": "zh-CN",
+    "totalScenes": 6,
+    "estimatedPlayTime": 3
+  }
+}
+

@@ -202,7 +202,12 @@ class GameSaveController {
         : 0;
       
       // 查找或创建用户存档记录
-      let playerSaves = await GameSave.findOrCreatePlayer(playerId);
+      let playerSaves = await GameSave.findOrCreatePlayer(playerId, saveData.playerName);
+      
+      // 如果请求中包含 playerName，更新存档记录的 playerName
+      if (saveData.playerName && saveData.playerName.trim()) {
+        playerSaves.playerName = saveData.playerName.trim();
+      }
       
       // 获取或创建存档槽位数据
       const existingSave = playerSaves.getSave(slot);
@@ -301,7 +306,12 @@ class GameSaveController {
         : 0;
       
       // 查找或创建用户存档记录
-      let playerSaves = await GameSave.findOrCreatePlayer(playerId);
+      let playerSaves = await GameSave.findOrCreatePlayer(playerId, saveData.playerName);
+      
+      // 如果请求中包含 playerName，更新存档记录的 playerName
+      if (saveData.playerName && saveData.playerName.trim()) {
+        playerSaves.playerName = saveData.playerName.trim();
+      }
       
       // 获取现有快速存档
       const existingSave = playerSaves.getQuickSave();
@@ -397,7 +407,12 @@ class GameSaveController {
         : 0;
       
       // 查找或创建用户存档记录
-      let playerSaves = await GameSave.findOrCreatePlayer(playerId);
+      let playerSaves = await GameSave.findOrCreatePlayer(playerId, saveData.playerName);
+      
+      // 如果请求中包含 playerName，更新存档记录的 playerName
+      if (saveData.playerName && saveData.playerName.trim()) {
+        playerSaves.playerName = saveData.playerName.trim();
+      }
       
       // 获取现有自动存档
       const existingSave = playerSaves.getAutoSave();
@@ -570,6 +585,117 @@ class GameSaveController {
         success: true,
         message: '游戏时长更新成功',
         data: { playTime: save.playTime }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  // 更新消息接收状态
+  static async updateMessageReceiveStatus(req, res) {
+    try {
+      const { playerId } = req.params;
+      const { topic, receiveStatus } = req.body;
+      
+      if (!topic || typeof receiveStatus !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          message: '缺少必要参数：topic 和 receiveStatus (boolean)'
+        });
+      }
+      
+      // 查找或创建用户存档记录
+      let playerSaves = await GameSave.findOrCreatePlayer(playerId);
+      
+      // 更新消息接收状态（使用 topic 作为 key）
+      playerSaves.messageReceiveStatus.set(topic, receiveStatus);
+      
+      await playerSaves.save();
+      
+      res.json({
+        success: true,
+        message: receiveStatus ? '已设置为接收消息' : '已设置为不接收消息',
+        data: {
+          topic,
+          receiveStatus
+        }
+      });
+    } catch (error) {
+      console.error('Update message receive status error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  // 批量更新消息接收状态
+  static async batchUpdateMessageReceiveStatus(req, res) {
+    try {
+      const { playerId } = req.params;
+      const { updates } = req.body; // [{ topic, receiveStatus }, ...]
+      
+      if (!Array.isArray(updates) || updates.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: '缺少必要参数：updates (数组)'
+        });
+      }
+      
+      // 查找或创建用户存档记录
+      let playerSaves = await GameSave.findOrCreatePlayer(playerId);
+      
+      // 批量更新消息接收状态（使用 topic 作为 key）
+      updates.forEach(({ topic, receiveStatus }) => {
+        if (topic && typeof receiveStatus === 'boolean') {
+          playerSaves.messageReceiveStatus.set(topic, receiveStatus);
+        }
+      });
+      
+      await playerSaves.save();
+      
+      res.json({
+        success: true,
+        message: `成功更新 ${updates.length} 条消息的接收状态`,
+        data: {
+          updatedCount: updates.length
+        }
+      });
+    } catch (error) {
+      console.error('Batch update message receive status error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  // 获取消息接收状态
+  static async getMessageReceiveStatus(req, res) {
+    try {
+      const { playerId } = req.params;
+      
+      const playerSaves = await GameSave.findOne({ playerId });
+      
+      if (!playerSaves) {
+        return res.json({
+          success: true,
+          data: {}
+        });
+      }
+      
+      // 将 Map 转换为普通对象
+      const statusMap = {};
+      playerSaves.messageReceiveStatus.forEach((value, key) => {
+        statusMap[key] = value;
+      });
+      
+      res.json({
+        success: true,
+        data: statusMap
       });
     } catch (error) {
       res.status(500).json({

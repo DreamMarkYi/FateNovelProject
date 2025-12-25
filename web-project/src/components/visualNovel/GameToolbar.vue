@@ -5,13 +5,29 @@
     <button class="tool-btn" @click="$emit('open-menu', 'save')">Save</button>
     <button class="tool-btn" @click="$emit('open-menu', 'load')">Load</button>
     <button class="tool-btn" @click="$emit('show-history')">History</button>
+    <button class="tool-btn music-btn" :class="{ 'music-playing': musicPlaying }" @click="$emit('toggle-music')" :title="musicPlaying ? '暂停音乐' : '播放音乐'">
+      <svg v-if="musicPlaying" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+      </svg>
+      <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+    </button>
     <button class="tool-btn" @click="$emit('open-menu', 'settings')">Settings</button>
   </nav>
 </template>
 
 <script setup>
+// 定义 props
+const props = defineProps({
+  musicPlaying: {
+    type: Boolean,
+    default: false
+  }
+});
+
 // 定义可触发的事件
-const emit = defineEmits(['quick-save', 'quick-load', 'open-menu', 'show-history']);
+const emit = defineEmits(['quick-save', 'quick-load', 'open-menu', 'show-history', 'toggle-music']);
 </script>
 
 <style scoped>
@@ -41,4 +57,20 @@ const emit = defineEmits(['quick-save', 'quick-load', 'open-menu', 'show-history
   background: var(--text-color); transition: all 0.3s ease;
 }
 .tool-btn:hover::after { width: 100%; left: 0; }
+
+.music-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 12px;
+}
+
+.music-btn svg {
+  display: block;
+}
+
+.music-btn.music-playing {
+  opacity: 1;
+  color: var(--text-color);
+}
 </style>

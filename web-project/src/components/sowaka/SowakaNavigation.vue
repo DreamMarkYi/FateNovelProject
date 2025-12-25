@@ -4,13 +4,10 @@
     @mouseenter="showNav"
     @mouseleave="hideNav"
   >
-    <div class="logo">そわか</div>
+    <div class="logo" @click="handleLogoClick">そわか</div>
     <ul class="nav-links" :class="{ 'mobile-open': mobileMenuOpen }">
-      <li><a href="#story" @click="scrollToSection">物語</a></li>
-      <li><a href="#concept" @click="scrollToSection">コンセプト</a></li>
-      <li><a href="#rooms" @click="scrollToSection">客室</a></li>
-      <li><a href="#news" @click="scrollToSection">お知らせ</a></li>
-      <li><a href="#access" @click="scrollToSection">アクセス</a></li>
+      <li><router-link to="/cards" @click="handleNavClick">人物介绍</router-link></li>
+      <li><router-link to="/doodle-story" @click="handleNavClick">幕间故事</router-link></li>
     </ul>
     <div class="menu-toggle" @click="toggleMobileMenu">
       <span></span>
@@ -22,16 +19,20 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUserSession } from '@/composables/useUserSession'
 
-defineProps({
+const props = defineProps({
   mobileMenuOpen: {
     type: Boolean,
     default: false
   }
 })
 
-const emit = defineEmits(['toggle-mobile-menu', 'scroll-to-section'])
+const emit = defineEmits(['toggle-mobile-menu'])
 
+const router = useRouter()
+const userSession = useUserSession()
 const isNavVisible = ref(false)
 
 const showNav = () => {
@@ -46,8 +47,31 @@ const toggleMobileMenu = () => {
   emit('toggle-mobile-menu')
 }
 
-const scrollToSection = (event) => {
-  emit('scroll-to-section', event)
+const handleNavClick = () => {
+  // 点击导航时关闭移动端菜单（如果需要）
+  if (props.mobileMenuOpen) {
+    emit('toggle-mobile-menu')
+  }
+}
+
+const handleLogoClick = async () => {
+  // 确保用户会话已初始化
+  if (!userSession.userId.value) {
+    await userSession.initSession('SowakaNavigation')
+  }
+  
+  // 验证用户身份
+  const { identity } = await userSession.verifyIdentity()
+  
+  // 根据用户身份跳转到对应页面
+  if (identity === 'day') {
+    router.push('/exDay')
+  } else if (identity === 'night') {
+    router.push('/exNight')
+  } else {
+    // 如果用户未选择身份，跳转到开始页面
+    router.push('/start')
+  }
 }
 </script>
 
@@ -80,7 +104,13 @@ nav.nav-visible {
   font-size: 24px;
   font-weight: 300;
   letter-spacing: 3px;
-  color: #ffffff;
+  color: #1c1c1c;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+
+.logo:hover {
+  opacity: 0.6;
 }
 
 .nav-links {
@@ -91,14 +121,15 @@ nav.nav-visible {
 
 .nav-links a {
   text-decoration: none;
-  color: #ffffff;
+  color: #2c2c2c;
   font-size: 14px;
   letter-spacing: 2px;
   transition: opacity 0.3s;
   font-weight: 300;
 }
 
-.nav-links a:hover {
+.nav-links a:hover,
+.nav-links a.router-link-active {
   opacity: 0.6;
 }
 
@@ -112,7 +143,7 @@ nav.nav-visible {
 .menu-toggle span {
   width: 25px;
   height: 2px;
-  background-color: #ffffff;
+  background-color: #2e2e2e;
 }
 
 /* Responsive */
