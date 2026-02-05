@@ -1,0 +1,379 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>赛博黑市 - 纯结构化过滤版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="knowledge5-assets/js/worldgen-llm.js"></script>
+    <script src="knowledge5-assets/js/item-filter-llm.js"></script>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --accent-color: #ff3366; /* 颜色改为红色系，以示区分 */
+            --text-color: #c9d1d9;
+            --border-color: #30363d;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px rgba(255, 51, 102, 0.5);
+        }
+
+        /* File Upload Section */
+        .upload-section {
+            background: rgba(255, 51, 102, 0.05);
+            border: 1px dashed var(--accent-color);
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .btn-upload {
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+            background-color: transparent;
+            padding: 8px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .upload-btn-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* Search Section */
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            opacity: 0.5;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .search-box.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: white;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        button.search-btn {
+            padding: 12px 24px;
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button.search-btn:hover {
+            box-shadow: 0 0 15px var(--accent-color);
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Debug/Log Section */
+        #log-area {
+            background: #000;
+            color: #ff3366;
+            font-family: monospace;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 12px;
+            height: 120px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            display: none;
+            white-space: pre-wrap;
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        /* Card */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            transition: transform 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            border-color: var(--accent-color);
+            transform: translateY(-5px);
+        }
+
+        .card h3 {
+            margin: 0 0 10px 0;
+            color: #fff;
+            font-size: 1.1em;
+        }
+
+        .card .meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            color: #8b949e;
+        }
+
+        .card .price {
+            color: #ffab00;
+            font-weight: bold;
+        }
+
+        .card .desc {
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: #c9d1d9;
+            margin-bottom: 10px;
+        }
+
+        .card .tags {
+            font-size: 0.8em;
+            color: var(--accent-color);
+            background: rgba(255, 51, 102, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin: 0 auto;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>CYBER MARKET <span style="font-size:0.5em; vertical-align:middle">Structured Search</span></h1>
+
+    <div class="upload-section">
+        <p style="margin-top:0; color:#8b949e">第一步：加载您的货物清单 (CSV)</p>
+        <div class="upload-btn-wrapper">
+            <button class="btn-upload">选择 CSV 文件</button>
+            <input type="file" id="csvFileInput" accept=".csv" />
+        </div>
+        <div id="fileInfo" style="margin-top:10px; font-size:0.9em; color:#fff;"></div>
+    </div>
+
+    <div class="search-box" id="searchBox">
+        <input type="text" id="userInput" placeholder="加载数据后，在此输入查询..." />
+        <button onclick="handleSearch()" id="searchBtn" class="search-btn">
+            <span id="btnText">AI 过滤</span>
+            <div class="loader" id="loader"></div>
+        </button>
+    </div>
+
+    <div id="log-area">等待数据加载...</div>
+
+    <div class="grid" id="resultsGrid">
+        <div style="grid-column: 1/-1; text-align:center; color:#555; padding: 50px;">
+            请先上传 CSV 文件以初始化系统数据
+        </div>
+    </div>
+</div>
+
+<script>
+    // ================= STATE =================
+    // 使用 ItemFilterLLM 类实例
+    const itemFilter = new ItemFilterLLM();
+
+    // ================= CSV HANDLING =================
+    document.getElementById('csvFileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('fileInfo').textContent = `正在读取: ${file.name}...`;
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                if (results.data && results.data.length > 0) {
+                    processCSVData(results.data);
+                    document.getElementById('fileInfo').textContent = `成功加载: ${file.name} (${results.data.length} 条数据)`;
+                } else {
+                    alert("CSV 文件为空或格式错误");
+                }
+            },
+            error: function(err) {
+                alert("解析错误: " + err.message);
+            }
+        });
+    });
+
+    function processCSVData(rawData) {
+        const allItems = itemFilter.processCSVData(rawData);
+        const uniqueTags = itemFilter.getUniqueTags();
+
+        const searchBox = document.getElementById('searchBox');
+        searchBox.classList.add('active');
+
+        renderItems(allItems);
+        log(`数据加载完成。检测到系统中有 ${uniqueTags.size} 种不同的标签。`);
+    }
+
+    // ================= AI LOGIC (No Keywords, Pure Filters) =================
+
+    async function handleSearch() {
+        const input = document.getElementById('userInput').value.trim();
+        if (!input) {
+            // 如果输入为空，显示所有物品
+            const allItems = itemFilter.getAllItems();
+            renderItems(allItems);
+            return;
+        }
+
+        setLoading(true);
+        log("分析意图...");
+
+        try {
+            const queryLogic = await itemFilter.fetchQueryLogic(input);
+            log("AI 过滤条件: " + JSON.stringify(queryLogic, null, 2));
+
+            const filteredItems = itemFilter.executeFilter(queryLogic);
+            renderItems(filteredItems);
+            log(`检索完成。匹配到 ${filteredItems.length} 个物品。`);
+        } catch (error) {
+            console.error(error);
+            log("错误: " + error.message);
+            alert("检索失败，请检查控制台。");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // ================= UI HELPERS =================
+
+    function renderItems(items) {
+        const grid = document.getElementById('resultsGrid');
+        grid.innerHTML = '';
+
+        if (items.length === 0) {
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#555;">没有物品匹配当前的过滤条件...</div>';
+            return;
+        }
+
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="meta">
+                    <span>${item.id}</span>
+                    <span class="price">¥${item.price}</span>
+                </div>
+                <h3>${item.name}</h3>
+                <div class="desc">${item.desc}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="tags">${item.tags}</span>
+                    <span style="font-size:0.8em; color:#666;">${item.weight}kg</span>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function setLoading(isLoading) {
+        const btn = document.getElementById('searchBtn');
+        const loader = document.getElementById('loader');
+        const btnText = document.getElementById('btnText');
+        const logArea = document.getElementById('log-area');
+
+        if (isLoading) {
+            btn.disabled = true;
+            loader.style.display = 'block';
+            btnText.style.display = 'none';
+            logArea.style.display = 'block';
+            logArea.textContent = '初始化请求...';
+        } else {
+            btn.disabled = false;
+            loader.style.display = 'none';
+            btnText.style.display = 'inline';
+        }
+    }
+
+    function log(msg) {
+        const logArea = document.getElementById('log-area');
+        logArea.textContent += '\n> ' + msg;
+        logArea.scrollTop = logArea.scrollHeight;
+    }
+
+</script>
+
+</body>
+</html>

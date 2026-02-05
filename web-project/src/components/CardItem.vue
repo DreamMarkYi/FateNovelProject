@@ -140,12 +140,15 @@ defineExpose({ cardRef })
 
 /* ================== 卡片基础结构 ================== */
 .card {
-  flex: 1;
-  min-width: 180px;
+  flex: 0 0 auto;
+  width: var(--card-width, 180px);
+  min-width: 120px;
   height: 100%;
   position: relative;
   overflow: hidden;
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   transform: skewY(-2deg);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -154,13 +157,14 @@ defineExpose({ cardRef })
 }
 
 .card.active {
-  flex: 1.8;
+  width: var(--card-active-width, 320px);
   transform: skewY(-2deg) scale(1.01);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  z-index: 5;
 }
 
 .card:not(.active) {
-  flex: 0.9;
+  width: var(--card-width, 180px);
 }
 
 /* 未解锁状态 */

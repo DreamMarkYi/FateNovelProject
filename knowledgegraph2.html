@@ -1,0 +1,641 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURO-DETECTIVE: 战术视图</title>
+
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/dist/vis-network.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #050a10;
+            --panel-bg: #0f1623;
+            --border-color: #233142;
+            --accent-color: #00ffcc; /* 青色赛博风 */
+            --danger-color: #ff3366;
+            --text-color: #d0d7de;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', 'Roboto Mono', monospace;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 顶部 HUD */
+        #hud-bar {
+            background: rgba(15, 22, 35, 0.95);
+            padding: 12px 20px;
+            border-bottom: 2px solid var(--accent-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.1);
+            z-index: 100;
+        }
+
+        .mission-objective {
+            font-size: 0.9rem;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; text-shadow: 0 0 10px var(--accent-color); } 100% { opacity: 0.8; } }
+
+        /* 主布局 */
+        #main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 左侧：图谱区域 (统一容器) */
+        #graph-container {
+            flex: 2;
+            background: radial-gradient(circle at center, #0f1623 0%, #050a10 100%);
+            position: relative;
+            border-right: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        /* 视图切换 Tabs */
+        .view-tabs {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 50;
+            display: flex;
+            gap: 5px;
+        }
+
+        .tab-btn {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #333;
+            color: #666;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .tab-btn:hover { background: rgba(0, 255, 204, 0.1); }
+
+        .tab-btn.active {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            background: rgba(0, 255, 204, 0.15);
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.1);
+        }
+
+        /* 图谱层叠容器 */
+        .graph-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transition: opacity 0.3s ease;
+        }
+
+        /* 激活状态 */
+        .graph-layer.active {
+            opacity: 1;
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        /* 隐藏状态 (使用 opacity 而非 display:none 以保持 vis.js 渲染状态) */
+        .graph-layer.inactive {
+            opacity: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .network-canvas { width: 100%; height: 100%; }
+
+        /* 右侧：交互终端 */
+        #terminal-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel-bg);
+            max-width: 500px;
+            border-left: 1px solid var(--border-color);
+        }
+
+        #chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scroll-behavior: smooth;
+        }
+
+        /* 消息样式 */
+        .msg {
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            max-width: 95%;
+            position: relative;
+        }
+        .msg::before { content: ''; position: absolute; top: 0; bottom: 0; width: 3px; left: 0; }
+
+        .msg.ai { background: rgba(0, 255, 204, 0.05); border-left: 1px solid var(--accent-color); color: #fff; }
+        .msg.user { background: rgba(255, 255, 255, 0.05); border-right: 1px solid #666; align-self: flex-end; text-align: right; }
+        .msg.system { color: #666; font-size: 0.8rem; text-align: center; font-style: italic; }
+        .msg.end {
+            background: rgba(255, 51, 102, 0.1);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        /* 输入区 */
+        #input-area {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            background: rgba(0,0,0,0.3);
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #333;
+            color: var(--accent-color);
+            padding: 12px;
+            font-family: 'Roboto Mono', monospace;
+            transition: border 0.3s;
+        }
+        input[type="text"]:focus { outline: none; border-color: var(--accent-color); }
+        input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        button {
+            background: rgba(0, 255, 204, 0.1);
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            padding: 0 20px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: 'Roboto Mono', monospace;
+            transition: all 0.2s;
+        }
+        button:hover { background: var(--accent-color); color: #000; }
+        button:disabled { border-color: #555; color: #555; background: transparent; cursor: not-allowed; }
+
+        /* Loading */
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: var(--accent-color);
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            z-index: 50;
+        }
+        .scanning .scanline { opacity: 1; animation: scan 1.5s infinite linear; }
+        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+
+        /* 节点详情悬浮窗 */
+        #node-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.9);
+            padding: 15px;
+            border: 1px solid var(--accent-color);
+            display: none;
+            max-width: 300px;
+            z-index: 60;
+            pointer-events: none;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="scanline" id="scan-effect"></div>
+
+<div id="hud-bar">
+    <div style="font-weight:900; letter-spacing:2px;">NEURO<span style="color:var(--accent-color)">://</span>DETECTIVE</div>
+    <div class="mission-objective" id="objective-display">任务目标: 初始化中...</div>
+    <div>
+        <button id="reset-btn" onclick="startGame()" style="font-size:0.8rem; padding:5px 10px;">REBOOT SYSTEM</button>
+    </div>
+</div>
+
+<div id="main-container">
+    <div id="graph-container">
+
+        <div class="view-tabs">
+            <button class="tab-btn active" id="btn-player-view" onclick="switchView('player')">PLAYER VIEW</button>
+            <button class="tab-btn" id="btn-world-view" onclick="switchView('world')">WORLD VIEW</button>
+        </div>
+
+        <div id="player-layer" class="graph-layer active">
+            <div id="player-network-visual" class="network-canvas"></div>
+        </div>
+
+        <div id="world-layer" class="graph-layer inactive">
+            <div id="world-network-visual" class="network-canvas"></div>
+        </div>
+
+        <div id="node-info">
+            <div id="n-label" style="color:var(--accent-color); font-weight:bold; margin-bottom:5px; font-size:1.1rem;"></div>
+            <div id="n-type" style="font-size:0.7rem; color:#666; margin-bottom:5px; text-transform:uppercase;"></div>
+            <div id="n-desc" style="font-size:0.9rem; color:#ccc; line-height:1.4;"></div>
+        </div>
+    </div>
+
+    <div id="terminal-panel">
+        <div id="chat-history">
+            <div class="msg system">>> SYSTEM ONLINE. 神经链路已连接.</div>
+        </div>
+        <div id="input-area">
+            <input type="text" id="player-input" placeholder="输入指令 (e.g. 移动到酒吧, 骇入终端)..." autocomplete="off" disabled>
+            <button id="send-btn" onclick="handleInput()" disabled>SEND</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. 游戏配置
+    // ==========================================
+    const API_CONFIG = {
+        url: "https://api.mindcraft.com.cn/v1/chat/completions",
+        key: "MC-E5B8AB237AAC4EDCBFA26531D6BE0081",
+        model: "gemini-3-pro-preview"
+    };
+
+    const GAME_CONFIG = {
+        title: "逃离夜之城 (Escape Night City)",
+        initial_graph: {
+            nodes: [
+                { id: 'player', label: '玩家', group: 'Player', desc: '刚醒来的你，手里紧握着一枚带血的芯片。', color: '#00ffcc' },
+                { id: 'loc_start', label: '贫民窟后巷', group: 'Location', desc: '充满酸雨味和垃圾的死胡同。', color: '#4a9eff' },
+                { id: 'item_chip', label: '加密芯片', group: 'Item', desc: '里面似乎存有逃离这座城市的通行码。', color: '#d2a8ff' },
+                { id: 'loc_end', label: '天际线穿梭站', group: 'Exit', desc: '位于城市顶层的撤离点。只有持有通行码才能进入。', color: '#ff3366' }
+            ],
+            edges: [
+                { from: 'player', to: 'loc_start', label: '位于' },
+                { from: 'player', to: 'item_chip', label: '持有' }
+            ]
+        },
+        victory_condition: "玩家成功抵达'天际线穿梭站' (loc_end) 并且 成功破解/使用了'加密芯片'。",
+        display_objective: "目标: 寻找路径前往 [天际线穿梭站] 并逃离。"
+    };
+
+    // ==========================================
+    // 2. 视图切换逻辑
+    // ==========================================
+    function switchView(mode) {
+        const pLayer = document.getElementById('player-layer');
+        const wLayer = document.getElementById('world-layer');
+        const pBtn = document.getElementById('btn-player-view');
+        const wBtn = document.getElementById('btn-world-view');
+
+        if (mode === 'player') {
+            pLayer.classList.add('active');
+            pLayer.classList.remove('inactive');
+            wLayer.classList.add('inactive');
+            wLayer.classList.remove('active');
+
+            pBtn.classList.add('active');
+            wBtn.classList.remove('active');
+
+            // 重新聚焦相机，防止Vis在隐藏期间错位
+            if(playerNetwork) playerNetwork.fit();
+        } else {
+            wLayer.classList.add('active');
+            wLayer.classList.remove('inactive');
+            pLayer.classList.add('inactive');
+            pLayer.classList.remove('active');
+
+            wBtn.classList.add('active');
+            pBtn.classList.remove('active');
+
+            if(worldNetwork) worldNetwork.fit();
+        }
+    }
+
+    // ==========================================
+    // 3. VIS.JS 引擎
+    // ==========================================
+    let masterNodes, masterEdges;
+    let playerNodes, playerEdges;
+    let worldNetwork, playerNetwork;
+
+    function initGraph() {
+        masterNodes = new vis.DataSet([]);
+        masterEdges = new vis.DataSet([]);
+        playerNodes = new vis.DataSet([]);
+        playerEdges = new vis.DataSet([]);
+
+        const commonOptions = {
+            nodes: {
+                shape: 'dot',
+                size: 20,
+                font: { color: '#fff', size: 12, face: 'Roboto Mono' },
+                borderWidth: 2,
+                shadow: true
+            },
+            edges: {
+                width: 1,
+                color: { color: '#334', highlight: '#00ffcc' },
+                arrows: 'to',
+                length: 200,
+                smooth: { type: 'dynamic' }
+            },
+            physics: {
+                stabilization: false,
+                barnesHut: { gravitationalConstant: -3000, springConstant: 0.02 }
+            },
+            interaction: { hover: true }
+        };
+
+        // 初始化世界网络
+        const worldContainer = document.getElementById('world-network-visual');
+        worldNetwork = new vis.Network(worldContainer, { nodes: masterNodes, edges: masterEdges }, commonOptions);
+
+        // 初始化玩家网络 (重力参数稍微调整，让少量的节点更聚集)
+        const playerContainer = document.getElementById('player-network-visual');
+        const playerOptions = JSON.parse(JSON.stringify(commonOptions));
+        playerOptions.physics.barnesHut.gravitationalConstant = -6000;
+        playerNetwork = new vis.Network(playerContainer, { nodes: playerNodes, edges: playerEdges }, playerOptions);
+
+        // 点击事件
+        const clickHandler = function (params, dataSource) {
+            if (params.nodes.length > 0) {
+                const node = dataSource.get(params.nodes[0]);
+                const infoBox = document.getElementById('node-info');
+                document.getElementById('n-label').innerText = node.label;
+                document.getElementById('n-type').innerText = node.group;
+                document.getElementById('n-desc').innerText = node.desc || "无数据";
+                infoBox.style.display = 'block';
+            } else {
+                document.getElementById('node-info').style.display = 'none';
+            }
+        };
+
+        worldNetwork.on("click", (p) => clickHandler(p, masterNodes));
+        playerNetwork.on("click", (p) => clickHandler(p, playerNodes));
+    }
+
+    function syncPlayerGraph() {
+        const PLAYER_ID = 'player';
+        const connectedNodeIds = new Set();
+        connectedNodeIds.add(PLAYER_ID);
+
+        const allEdges = masterEdges.get();
+        const allNodes = masterNodes.get();
+
+        allEdges.forEach(edge => {
+            if (edge.from === PLAYER_ID) connectedNodeIds.add(edge.to);
+            if (edge.to === PLAYER_ID) connectedNodeIds.add(edge.from);
+        });
+
+        const filteredNodes = allNodes.filter(node => connectedNodeIds.has(node.id));
+        const filteredEdges = allEdges.filter(edge =>
+            connectedNodeIds.has(edge.from) && connectedNodeIds.has(edge.to)
+        );
+
+        playerNodes.clear();
+        playerNodes.add(filteredNodes);
+        playerEdges.clear();
+        playerEdges.add(filteredEdges);
+
+        // 自动调整视图
+        if(playerNetwork) playerNetwork.fit({animation: true});
+    }
+
+    // ==========================================
+    // 4. LLM 交互逻辑
+    // ==========================================
+    let conversationHistory = [];
+    let isGameOver = false;
+
+    const SYSTEM_PROMPT = `
+你是一个文字冒险游戏的图形化引擎。
+游戏名称：${GAME_CONFIG.title}
+当前目标：${GAME_CONFIG.victory_condition}
+
+职责：
+1. 叙述剧情。
+2. 管理图谱：根据剧情添加新地点、人物或线索。
+3. 判定结局：达成目标胜利，或死亡失败。
+
+颜色规范：
+- Player: #00ffcc
+- Location: #4a9eff
+- Enemy: #ff3366
+- Item: #d2a8ff
+`;
+
+    const JSON_INSTRUCTION = `
+\n\n[SYSTEM INSTRUCTION]
+RESPONSE FORMAT: JSON ONLY. NO MARKDOWN.
+{
+  "narrative": "Story text (use <br> for lines)",
+  "game_over": boolean,
+  "ending_type": "VICTORY" | "DEFEAT" | null,
+  "graph_ops": [
+    { "op": "add_node", "id": "str", "label": "str", "group": "str", "desc": "str", "color": "hex" },
+    { "op": "add_edge", "from": "id", "to": "id", "label": "str" },
+    { "op": "remove_node", "id": "str" },
+    { "op": "update_node", "id": "str", "desc": "str" }
+  ]
+}
+`;
+
+    async function callLLM(userAction, isInit = false) {
+        const loading = document.getElementById('scan-effect');
+        loading.classList.add('scanning');
+
+        const graphState = `
+[World State (DM View)]
+Nodes: ${JSON.stringify(masterNodes.get().map(n => ({id: n.id, label: n.label, desc: n.desc})))}
+Edges: ${JSON.stringify(masterEdges.get().map(e => ({from: e.from, to: e.to, label: e.label})))}
+`;
+
+        const promptContent = isInit
+            ? `初始化游戏。当前图谱已加载预设的起点和终点。请描述开场剧情。`
+            : userAction;
+
+        const finalMessage = promptContent + JSON_INSTRUCTION;
+
+        const messages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...conversationHistory,
+            { role: "system", content: graphState },
+            { role: "user", content: finalMessage }
+        ];
+
+        try {
+            const response = await fetch(API_CONFIG.url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${API_CONFIG.key}`
+                },
+                body: JSON.stringify({
+                    model: API_CONFIG.model,
+                    messages: messages,
+                    temperature: 0.7,
+                    response_format: { type: "json_object" }
+                })
+            });
+
+            if (!response.ok) throw new Error("API Connection Failed");
+
+            const data = await response.json();
+            const cleanContent = data.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim();
+            const result = JSON.parse(cleanContent);
+
+            if (!isInit) conversationHistory.push({ role: "user", content: userAction });
+            conversationHistory.push({ role: "assistant", content: cleanContent });
+            if (conversationHistory.length > 8) conversationHistory.splice(1, 2);
+
+            return result;
+
+        } catch (error) {
+            console.error(error);
+            appendLog(`Error: ${error.message}`, 'system');
+            return null;
+        } finally {
+            loading.classList.remove('scanning');
+        }
+    }
+
+    function processGameResponse(data) {
+        if (!data) return;
+        appendLog(data.narrative, 'ai');
+
+        if (data.graph_ops && data.graph_ops.length > 0) {
+            applyGraphOps(data.graph_ops);
+        }
+
+        if (data.game_over) {
+            isGameOver = true;
+            const endText = data.ending_type === 'VICTORY' ? "MISSION COMPLETE" : "CRITICAL FAILURE";
+            appendLog(`*** ${endText} ***`, 'end');
+            document.getElementById('player-input').disabled = true;
+            document.getElementById('send-btn').disabled = true;
+        }
+    }
+
+    function applyGraphOps(ops) {
+        ops.forEach(op => {
+            try {
+                if (op.op === 'add_node') {
+                    if (!masterNodes.get(op.id)) masterNodes.add({ id: op.id, label: op.label, group: op.group, title: op.desc, desc: op.desc, color: op.color || '#4a9eff' });
+                }
+                else if (op.op === 'add_edge') {
+                    const exists = masterEdges.get({ filter: e => e.from === op.from && e.to === op.to });
+                    if (exists.length === 0) masterEdges.add({ from: op.from, to: op.to, label: op.label });
+                }
+                else if (op.op === 'update_node') {
+                    masterNodes.update({ id: op.id, desc: op.desc, title: op.desc });
+                }
+                else if (op.op === 'remove_node') {
+                    masterNodes.remove(op.id);
+                }
+            } catch(e) { console.error(e); }
+        });
+        syncPlayerGraph();
+    }
+
+    // ==========================================
+    // 5. UI Control
+    // ==========================================
+
+    function appendLog(text, type) {
+        const container = document.getElementById('chat-history');
+        const div = document.createElement('div');
+        div.className = `msg ${type}`;
+        div.innerHTML = text;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async function handleInput() {
+        if (isGameOver) return;
+        const input = document.getElementById('player-input');
+        const val = input.value.trim();
+        if (!val) return;
+
+        appendLog(val, 'user');
+        input.value = '';
+        input.disabled = true;
+
+        const result = await callLLM(val);
+        processGameResponse(result);
+
+        if (!isGameOver) {
+            input.disabled = false;
+            input.focus();
+        }
+    }
+
+    async function startGame() {
+        isGameOver = false;
+        conversationHistory = [];
+        masterNodes.clear();
+        masterEdges.clear();
+        playerNodes.clear();
+        playerEdges.clear();
+
+        document.getElementById('chat-history').innerHTML = '<div class="msg system">>> 系统重启中...</div>';
+        document.getElementById('objective-display').innerText = GAME_CONFIG.display_objective;
+
+        const input = document.getElementById('player-input');
+        const btn = document.getElementById('send-btn');
+        input.disabled = true;
+        btn.disabled = true;
+
+        masterNodes.add(GAME_CONFIG.initial_graph.nodes);
+        masterEdges.add(GAME_CONFIG.initial_graph.edges);
+        syncPlayerGraph();
+
+        const result = await callLLM(null, true);
+        processGameResponse(result);
+
+        input.disabled = false;
+        btn.disabled = false;
+        input.focus();
+
+        // 默认显示玩家视角
+        switchView('player');
+    }
+
+    document.getElementById('player-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleInput();
+    });
+
+    window.onload = function() {
+        initGraph();
+        startGame();
+    };
+
+</script>
+</body>
+</html>

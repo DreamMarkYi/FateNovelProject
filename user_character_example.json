@@ -1,0 +1,45 @@
+{
+  "name": "白鸟遥 ",
+  "desc": "冷静的优等生，拥有观测因果的魔眼，擅长天体/水晶魔术。",
+  "imageUrl": "./web-project/public/laoma.jpg",
+  "personality": "1. 冷静理智，擅长观察与分析。\n2. 拥有因果透视的魔眼，能预见攻击轨迹。\n3. 战斗风格优雅而精准，如同星辰运行般井然有序。",
+  "magicStyle": "1. 核心概念：天体水晶魔术 (Astral Crystal Magic)。\n2. 通过操纵光的折射与能量束，进行远程精准打击。\n3. 战斗风格：高机动、精准打击、战术布局。",
+  "moves": [
+    {
+      "id": "vega_arrow",
+      "name": "织星贯流 (Vega Arrow)",
+      "type": "攻击",
+      "effect": "施放一束极高速、高密度、不可折射的能量光束，精准锁定目标并贯穿防御。",
+      "restriction": "消耗低，由于速度接近光速，敌方难以物理闪避。"
+    },
+    {
+      "id": "vega_prism_net",
+      "name": "织星折光网 (Vega Prism Net)",
+      "type": "防御/陷阱",
+      "effect": "布置多枚水晶节点形成折射网。既可自动拦截敌方攻击，也可让己方光束不断弹跳变轨。",
+      "restriction": "需要预先布置节点，适合阵地战。"
+    },
+    {
+      "id": "vega_singularity",
+      "name": "织星破界 (Vega Singularity)",
+      "type": "终极/必杀",
+      "effect": "将所有织星水晶能量聚合一点，释放接近光速的恒星爆发射线，贯穿任意防御。",
+      "restriction": "【警告】施法后无法追加动作，短时间内魔力耗尽。"
+    },
+    {
+      "id": "lunar_eclipse_flash",
+      "name": "影月瞬斩 (Lunar Eclipse Flash)",
+      "type": "近战/暗杀",
+      "effect": "以纯粹影之力凝聚刃光，一瞬间完成多次超高速斩击。斩击轨迹延迟显现，无视护盾。",
+      "restriction": "需在低光照或新月黑域环境下发动效果最佳。"
+    },
+    {
+      "id": "causality_vision",
+      "name": "魔眼：因果透视",
+      "type": "辅助/闪避",
+      "effect": "观察24小时内的因果线，看到攻击的源头与必然走向，提前规避。",
+      "restriction": "若过度解析，大脑会产生信息超载，短暂失去现实感。"
+    }
+  ]
+}
+

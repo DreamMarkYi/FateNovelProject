@@ -1,0 +1,691 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐛🐛背单词</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* 3D Flip Animation Utilities */
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans selection:bg-indigo-100">
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // ———————————————— 图标组件 (SVG) ————————————————
+    const BookOpen = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>;
+    const Brain = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.97-1.375"/><path d="M18 18a4 4 0 0 0 1.97-1.375"/></svg>;
+    const ListIcon = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>;
+    const ChevronLeft = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>;
+    const ChevronRight = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>;
+    const RotateCw = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>;
+    const CheckCircle = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
+    const XCircle = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>;
+    const Trophy = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>;
+    const Shuffle = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>;
+    const ArrowLeftRight = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>;
+
+    // ———————————————— 数据准备 ————————————————
+    const fullVocabData = [
+        // —————————— Unit 1 ——————————
+        // Part A
+        { unit: 1, part: 'A', word: 'excessive', meaning: '过度的，过分的' },
+        { unit: 1, part: 'A', word: 'deficit', meaning: '赤字，亏损，不足' },
+        { unit: 1, part: 'A', word: 'indigenous', meaning: '本土的，土著的' },
+        { unit: 1, part: 'A', word: 'equivalent', meaning: '等价的；等价物' },
+        { unit: 1, part: 'A', word: 'formula', meaning: '公式，配方' },
+        { unit: 1, part: 'A', word: 'substantial', meaning: '大量的，实质的' },
+        { unit: 1, part: 'A', word: 'rigor', meaning: '严谨，严格' },
+        { unit: 1, part: 'A', word: 'nutrient', meaning: '营养物' },
+        { unit: 1, part: 'A', word: 'assumption', meaning: '假设，假定' },
+        { unit: 1, part: 'A', word: 'irreversible', meaning: '不可逆的' },
+        // Part B
+        { unit: 1, part: 'B', word: 'potential', meaning: '潜在的；潜力' },
+        { unit: 1, part: 'B', word: 'trend', meaning: '趋势' },
+        { unit: 1, part: 'B', word: 'accounting', meaning: '会计；占（比例）' },
+        { unit: 1, part: 'B', word: 'scale', meaning: '规模，比例' },
+        { unit: 1, part: 'B', word: 'released', meaning: '释放，发布' },
+        { unit: 1, part: 'B', word: 'volume', meaning: '体积，卷，量' },
+        { unit: 1, part: 'B', word: 'massive', meaning: '巨大的' },
+        { unit: 1, part: 'B', word: 'analyze', meaning: '分析' },
+        { unit: 1, part: 'B', word: 'application', meaning: '应用，申请' },
+        // 补充
+        { unit: 1, part: '补充', word: 'interact', meaning: '互动，相互作用' },
+        { unit: 1, part: '补充', word: 'ultimately', meaning: '最终，根本上' },
+        { unit: 1, part: '补充', word: 'demeanor', meaning: '举止，风度' },
+        { unit: 1, part: '补充', word: 'undeniably', meaning: '不可否认地' },
+        { unit: 1, part: '补充', word: 'overwhelming', meaning: '压倒性的' },
+        { unit: 1, part: '补充', word: 'guilty', meaning: '内疚的，有罪的' },
+        { unit: 1, part: '补充', word: 'intentional', meaning: '故意的' },
+        { unit: 1, part: '补充', word: 'leverages', meaning: '利用，杠杆作用' },
+        { unit: 1, part: '补充', word: 'infinitely', meaning: '无限地' },
+        { unit: 1, part: '补充', word: 'transcend', meaning: '超越' },
+        { unit: 1, part: '补充', word: 'interpret', meaning: '解释，理解' },
+        { unit: 1, part: '补充', word: 'triggered', meaning: '触发，引起' },
+        { unit: 1, part: '补充', word: 'implications', meaning: '含义，暗示，影响' },
+        { unit: 1, part: '补充', word: 'relevancy', meaning: '相关性' },
+        { unit: 1, part: '补充', word: 'mindset', meaning: '心态，思维模式' },
+        { unit: 1, part: '补充', word: 'interconnected', meaning: '相互连接的' },
+        { unit: 1, part: '补充', word: 'strikingly', meaning: '显著地，引人注目地' },
+        { unit: 1, part: '补充', word: 'monetary', meaning: '货币的，金钱的' },
+        { unit: 1, part: '补充', word: 'entity', meaning: '实体' },
+        { unit: 1, part: '补充', word: 'clinical', meaning: '临床的' },
+        { unit: 1, part: '补充', word: 'diagnose', meaning: '诊断' },
+        { unit: 1, part: '补充', word: 'perceive', meaning: '感知，认为' },
+        { unit: 1, part: '补充', word: 'diverge', meaning: '分歧，偏离' },
+        { unit: 1, part: '补充', word: 'trump', meaning: '胜过；王牌' },
+        { unit: 1, part: '补充', word: 'intuit', meaning: '凭直觉知晓' },
+
+        // —————————— Unit 2 ——————————
+        // Part A
+        { unit: 2, part: 'A', word: 'aspiring', meaning: '有抱负的' },
+        { unit: 2, part: 'A', word: 'dominance', meaning: '优势，统治地位' },
+        { unit: 2, part: 'A', word: 'complication', meaning: '并发症，复杂化' },
+        { unit: 2, part: 'A', word: 'rotation', meaning: '旋转，循环' },
+        { unit: 2, part: 'A', word: 'correlates', meaning: '（使）相关联' },
+        { unit: 2, part: 'A', word: 'coordination', meaning: '协调，配合' },
+        { unit: 2, part: 'A', word: 'exclusively', meaning: '排他地，独占地' },
+        { unit: 2, part: 'A', word: 'pathway', meaning: '路径' },
+        { unit: 2, part: 'A', word: 'cognitive', meaning: '认知的' },
+        // Part B
+        { unit: 2, part: 'B', word: 'phenomenon', meaning: '现象' },
+        { unit: 2, part: 'B', word: 'separate', meaning: '分开；单独的' },
+        { unit: 2, part: 'B', word: 'organisms', meaning: '生物，有机体' },
+        { unit: 2, part: 'B', word: 'essential', meaning: '基本的，必要的' },
+        { unit: 2, part: 'B', word: 'consumption', meaning: '消费，消耗' },
+        { unit: 2, part: 'B', word: 'evolved', meaning: '进化，发展' },
+        { unit: 2, part: 'B', word: 'advanced', meaning: '先进的，高级的' },
+        { unit: 2, part: 'B', word: 'primitive', meaning: '原始的' },
+        { unit: 2, part: 'B', word: 'reproduce', meaning: '繁殖，复制' },
+        { unit: 2, part: 'B', word: 'biologists', meaning: '生物学家' },
+        // 补充
+        { unit: 2, part: '补充', word: 'prominent', meaning: '显著的，杰出的' },
+        { unit: 2, part: '补充', word: 'underlies', meaning: '构成...的基础' },
+        { unit: 2, part: '补充', word: 'layout', meaning: '布局，设计' },
+        { unit: 2, part: '补充', word: 'assort', meaning: '把...分类' },
+        { unit: 2, part: '补充', word: 'resilient', meaning: '有弹性的，适应力强的' },
+        { unit: 2, part: '补充', word: 'variable', meaning: '变量；易变的' },
+        { unit: 2, part: '补充', word: 'horrendous', meaning: '可怕的，惊人的' },
+        { unit: 2, part: '补充', word: 'perspectives', meaning: '视角，观点' },
+        { unit: 2, part: '补充', word: 'contemplates', meaning: '沉思，注视' },
+        { unit: 2, part: '补充', word: 'evolutionary', meaning: '进化的' },
+        { unit: 2, part: '补充', word: 'entanglement', meaning: '纠缠' },
+        { unit: 2, part: '补充', word: 'predispose', meaning: '预先处置，使偏向于' },
+
+        // —————————— Unit 3 ——————————
+        // Part A
+        { unit: 3, part: 'A', word: 'discourage', meaning: '使气馁，阻碍' },
+        { unit: 3, part: 'A', word: 'hesitate', meaning: '犹豫' },
+        { unit: 3, part: 'A', word: 'exterminate', meaning: '消灭，根除' },
+        { unit: 3, part: 'A', word: 'consequence', meaning: '后果，结果' },
+        { unit: 3, part: 'A', word: 'sound', meaning: '健全的；声音' },
+        { unit: 3, part: 'A', word: 'flapped', meaning: '拍打，飘动' },
+        { unit: 3, part: 'A', word: 'strange', meaning: '奇怪的' },
+        { unit: 3, part: 'A', word: 'blame', meaning: '责备，归咎于' },
+        { unit: 3, part: 'A', word: 'experienced', meaning: '有经验的' },
+        { unit: 3, part: 'A', word: 'great', meaning: '伟大的，巨大的' },
+        // Part B
+        { unit: 3, part: 'B', word: 'in the long run', meaning: '从长远来看' },
+        { unit: 3, part: 'B', word: 'piled up', meaning: '堆积，积累' },
+        { unit: 3, part: 'B', word: 'end up', meaning: '最终，结果是' },
+        { unit: 3, part: 'B', word: 'turned down', meaning: '拒绝，关小' },
+        { unit: 3, part: 'B', word: 'take a crack', meaning: '尝试' },
+        { unit: 3, part: 'B', word: 'stage fright', meaning: '怯场' },
+        { unit: 3, part: 'B', word: 'uproot', meaning: '根除，连根拔起' },
+        { unit: 3, part: 'B', word: 'big name', meaning: '名人，大牌' },
+        { unit: 3, part: 'B', word: 'gut', meaning: '勇气；直觉；肠道' },
+        { unit: 3, part: 'B', word: 'beg off', meaning: '推辞，拒绝' },
+        // 补充
+        { unit: 3, part: '补充', word: 'prospect', meaning: '前景，展望' },
+        { unit: 3, part: '补充', word: 'terrific', meaning: '极好的，极度的' },
+        { unit: 3, part: '补充', word: 'waver', meaning: '动摇，犹豫' },
+        { unit: 3, part: '补充', word: 'sophisticated', meaning: '复杂的，老练的' },
+        { unit: 3, part: '补充', word: 'exotic', meaning: '异国情调的，外来的' },
+        { unit: 3, part: '补充', word: 'consistent', meaning: '一致的，始终如一的' },
+        { unit: 3, part: '补充', word: 'despised', meaning: '鄙视，看不起' },
+        { unit: 3, part: '补充', word: 'flattery', meaning: '奉承，恭维' },
+        { unit: 3, part: '补充', word: 'contemptible', meaning: '可鄙的，卑劣的' },
+
+        // —————————— Unit 9 ——————————
+        // Part A
+        { unit: 9, part: 'A', word: 'insights', meaning: '洞察力，见解' },
+        { unit: 9, part: 'A', word: 'potential', meaning: '潜力' },
+        { unit: 9, part: 'A', word: 'prompted', meaning: '促使，激起' },
+        { unit: 9, part: 'A', word: 'sensitive', meaning: '敏感的' },
+        { unit: 9, part: 'A', word: 'manipulative', meaning: '操纵性的' },
+        { unit: 9, part: 'A', word: 'opaque', meaning: '不透明的，晦涩的' },
+        { unit: 9, part: 'A', word: 'index', meaning: '指数，索引' },
+        { unit: 9, part: 'A', word: 'context', meaning: '语境，背景' },
+        { unit: 9, part: 'A', word: 'foster', meaning: '培养，促进' },
+        { unit: 9, part: 'A', word: 'elevate', meaning: '提升，举起' },
+        // Part B
+        { unit: 9, part: 'B', word: 'put the boot in', meaning: '落井下石，残忍攻击' },
+        { unit: 9, part: 'B', word: 'argued with', meaning: '与...争论' },
+        { unit: 9, part: 'B', word: 'laid into', meaning: '痛斥，攻击' },
+        { unit: 9, part: 'B', word: 'laid up', meaning: '卧床不起；储备' },
+        { unit: 9, part: 'B', word: 'put in the forefront', meaning: '置于首位' },
+        { unit: 9, part: 'B', word: 'laid out', meaning: '布置；花费；陈列' },
+        { unit: 9, part: 'B', word: 'came up for', meaning: '发生，被提出' },
+        { unit: 9, part: 'B', word: 'putting the work in', meaning: '投入工作' },
+        { unit: 9, part: 'B', word: 'come up with', meaning: '想出，提出' },
+        { unit: 9, part: 'B', word: 'comply with', meaning: '遵守，顺从' },
+        // 补充
+        { unit: 9, part: '补充', word: 'tailored', meaning: '定制的，剪裁的' },
+        { unit: 9, part: '补充', word: 'insight', meaning: '洞察力，顿悟 (单数)' },
+        { unit: 9, part: '补充', word: 'pinpoint', meaning: '精确找到，查明' },
+        { unit: 9, part: '补充', word: 'deploy', meaning: '部署，调度' },
+        { unit: 9, part: '补充', word: 'insurmountable', meaning: '不可逾越的' },
+        { unit: 9, part: '补充', word: 'hurdle', meaning: '障碍，难关' },
+        { unit: 9, part: '补充', word: 'stigma', meaning: '耻辱，污名' },
+        { unit: 9, part: '补充', word: 'concede', meaning: '承认，让步' },
+
+        // —————————— Unit 11 ——————————
+        // Part A
+        { unit: 11, part: 'A', word: 'compromise', meaning: '妥协；危害' },
+        { unit: 11, part: 'A', word: 'eloquent', meaning: '雄辩的' },
+        { unit: 11, part: 'A', word: 'befall', meaning: '降临，发生' },
+        { unit: 11, part: 'A', word: 'dormant', meaning: '休眠的' },
+        { unit: 11, part: 'A', word: 'monopolize', meaning: '垄断，独占' },
+        { unit: 11, part: 'A', word: 'humane', meaning: '仁慈的' },
+        { unit: 11, part: 'A', word: 'epidemics', meaning: '流行病' },
+        { unit: 11, part: 'A', word: 'vicinity', meaning: '附近' },
+        { unit: 11, part: 'A', word: 'yield', meaning: '产量；屈服' },
+        { unit: 11, part: 'A', word: 'entity', meaning: '实体，存在' },
+        // Part B
+        { unit: 11, part: 'B', word: 'send out', meaning: '发出，长出' },
+        { unit: 11, part: 'B', word: 'account for', meaning: '解释；占据；负责' },
+        { unit: 11, part: 'B', word: 'tied up', meaning: '忙于；被占用' },
+        { unit: 11, part: 'B', word: 'penetrated', meaning: '渗透，洞察' },
+        { unit: 11, part: 'B', word: 'in good shape', meaning: '状态良好' },
+        { unit: 11, part: 'B', word: 'feeds on', meaning: '以...为食' },
+        { unit: 11, part: 'B', word: 'emerging from', meaning: '从...出现' },
+        { unit: 11, part: 'B', word: 'put pressure on', meaning: '对...施加压力' },
+        { unit: 11, part: 'B', word: 'regenerated', meaning: '再生，革新' },
+        { unit: 11, part: 'B', word: 'apart from', meaning: '除...之外' },
+        // 补充
+        { unit: 11, part: '补充', word: 'decompose', meaning: '分解，腐烂' },
+        { unit: 11, part: '补充', word: 'prolonged', meaning: '延长的，拖延的' },
+        { unit: 11, part: '补充', word: 'forgo', meaning: '放弃，停止' },
+        { unit: 11, part: '补充', word: 'envisioned', meaning: '设想，预想' },
+        { unit: 11, part: '补充', word: 'eruption', meaning: '爆发，喷发' },
+        { unit: 11, part: '补充', word: 'endorsement', meaning: '认可，背书' },
+
+        // —————————— Unit 12 ——————————
+        // Part A
+        { unit: 12, part: 'A', word: 'was distressed', meaning: '感到苦恼的' },
+        { unit: 12, part: 'A', word: 'conflicted', meaning: '矛盾的' },
+        { unit: 12, part: 'A', word: 'originates', meaning: '起源于' },
+        { unit: 12, part: 'A', word: 'passion', meaning: '激情' },
+        { unit: 12, part: 'A', word: 'holy', meaning: '神圣的' },
+        { unit: 12, part: 'A', word: 'beautiful', meaning: '美丽的' },
+        { unit: 12, part: 'A', word: 'complained', meaning: '抱怨' },
+        { unit: 12, part: 'A', word: 'presupposition', meaning: '预设，前提' },
+        { unit: 12, part: 'A', word: 'analysis', meaning: '分析' },
+        { unit: 12, part: 'A', word: 'childish', meaning: '幼稚的' },
+        // Part B
+        { unit: 12, part: 'B', word: 'gaze at', meaning: '凝视' },
+        { unit: 12, part: 'B', word: 'break free', meaning: '挣脱，获得自由' },
+        { unit: 12, part: 'B', word: 'spring from', meaning: '源于' },
+        { unit: 12, part: 'B', word: 'verdict', meaning: '裁决，定论' },
+        { unit: 12, part: 'B', word: 'perspective', meaning: '观点，视角' },
+        { unit: 12, part: 'B', word: 'marital', meaning: '婚姻的' },
+        { unit: 12, part: 'B', word: 'rests on', meaning: '依赖于；基于' },
+        { unit: 12, part: 'B', word: 'permanent', meaning: '永久的' },
+        { unit: 12, part: 'B', word: 'ego', meaning: '自我' },
+        { unit: 12, part: 'B', word: 'fulfilling', meaning: '令人满足的' },
+        // 补充
+        { unit: 12, part: '补充', word: 'unfulfilling', meaning: '令人不满足的' },
+        { unit: 12, part: '补充', word: 'grieve', meaning: '悲伤，哀悼' },
+        { unit: 12, part: '补充', word: 'lamenting', meaning: '悲叹，悔恨' },
+        { unit: 12, part: '补充', word: 'infantile', meaning: '幼稚的，婴儿的' },
+        { unit: 12, part: '补充', word: 'premise', meaning: '前提' },
+        { unit: 12, part: '补充', word: 'ambiguous', meaning: '模棱两可的' },
+        { unit: 12, part: '补充', word: 'extravagant', meaning: '奢侈的，浪费的' },
+        { unit: 12, part: '补充', word: 'emanate', meaning: '散发，发出' },
+        { unit: 12, part: '补充', word: 'relentless', meaning: '无情的，残酷的' }
+    ];
+
+    // ———————————————— 主应用逻辑 ————————————————
+
+    function App() {
+        const [currentUnit, setCurrentUnit] = useState('all');
+        const [activeTab, setActiveTab] = useState('flashcards'); // 'flashcards', 'quiz', 'list'
+        const [reviewMode, setReviewMode] = useState('en-zh'); // 'en-zh' or 'zh-en'
+
+        // 过滤数据
+        const vocabList = useMemo(() => {
+            return currentUnit === 'all'
+                ? fullVocabData
+                : fullVocabData.filter(v => v.unit === parseInt(currentUnit));
+        }, [currentUnit]);
+
+        const toggleReviewMode = () => {
+            setReviewMode(prev => prev === 'en-zh' ? 'zh-en' : 'en-zh');
+        };
+
+        return (
+            <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
+                {/* Header */}
+                <header className="bg-white shadow-sm sticky top-0 z-10">
+                    <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+                                🐛🐛背单词
+                            </h1>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-center gap-3">
+                            <button
+                                onClick={toggleReviewMode}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-colors border border-indigo-200"
+                            >
+                                <ArrowLeftRight className="w-4 h-4" />
+                                {reviewMode === 'en-zh' ? '英 → 汉' : '汉 → 英'}
+                            </button>
+
+                            <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
+
+                            <label className="text-sm font-medium text-slate-500">单元:</label>
+                            <select
+                                value={currentUnit}
+                                onChange={(e) => setCurrentUnit(e.target.value)}
+                                className="bg-slate-100 border-none rounded-lg px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500 cursor-pointer hover:bg-slate-200 transition-colors"
+                            >
+                                <option value="all">全部 ({fullVocabData.length}词)</option>
+                                {[1, 2, 3, 9, 11, 12].map(u => (
+                                    <option key={u} value={u}>Unit {u}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Navigation Tabs */}
+                    <div className="max-w-4xl mx-auto px-4 flex gap-1 mt-2">
+                        {[
+                            { id: 'flashcards', label: '背单词', icon: BookOpen },
+                            { id: 'quiz', label: '测验模式', icon: Brain },
+                            { id: 'list', label: '词汇表', icon: ListIcon },
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-2 px-6 py-3 text-sm font-semibold border-b-2 transition-all duration-200 ${
+                                    activeTab === tab.id
+                                        ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+                                        : 'border-transparent text-slate-500 hover:text-indigo-600 hover:bg-slate-50'
+                                }`}
+                            >
+                                <tab.icon className="w-4 h-4" />
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </header>
+
+                {/* Main Content */}
+                <main className="max-w-4xl mx-auto px-4 py-8">
+                    {activeTab === 'flashcards' && (
+                        <FlashcardMode vocabList={vocabList} reviewMode={reviewMode} />
+                    )}
+                    {activeTab === 'quiz' && (
+                        <QuizMode vocabList={vocabList} fullData={fullVocabData} reviewMode={reviewMode} />
+                    )}
+                    {activeTab === 'list' && (
+                        <ListMode vocabList={vocabList} />
+                    )}
+                </main>
+            </div>
+        );
+    }
+
+    // ———————————————— 子组件 ————————————————
+
+    // 1. Flashcard Mode
+    function FlashcardMode({ vocabList, reviewMode }) {
+        const [currentIndex, setCurrentIndex] = useState(0);
+        const [isFlipped, setIsFlipped] = useState(false);
+        const [shuffledList, setShuffledList] = useState([...vocabList]);
+
+        useEffect(() => {
+            setShuffledList([...vocabList]);
+            setCurrentIndex(0);
+            setIsFlipped(false);
+        }, [vocabList]);
+
+        const currentCard = shuffledList[currentIndex];
+
+        const handleNext = () => {
+            setIsFlipped(false);
+            setTimeout(() => {
+                setCurrentIndex((prev) => (prev + 1) % shuffledList.length);
+            }, 150);
+        };
+
+        const handlePrev = () => {
+            setIsFlipped(false);
+            setTimeout(() => {
+                setCurrentIndex((prev) => (prev - 1 + shuffledList.length) % shuffledList.length);
+            }, 150);
+        };
+
+        const handleShuffle = () => {
+            const newOrder = [...shuffledList];
+            for (let i = newOrder.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
+            }
+            setShuffledList(newOrder);
+            setCurrentIndex(0);
+            setIsFlipped(false);
+        };
+
+        if (shuffledList.length === 0) return <EmptyState />;
+
+        const frontContent = reviewMode === 'en-zh' ? currentCard.word : currentCard.meaning;
+        const backContent = reviewMode === 'en-zh' ? currentCard.meaning : currentCard.word;
+        const frontLabel = reviewMode === 'en-zh' ? 'English' : '中文';
+
+        return (
+            <div className="flex flex-col items-center max-w-lg mx-auto">
+                <div className="w-full flex justify-between items-center mb-6 text-slate-500 text-sm font-medium">
+                    <span>进度: {currentIndex + 1} / {shuffledList.length}</span>
+                    <button
+                        onClick={handleShuffle}
+                        className="flex items-center gap-1 hover:text-indigo-600 transition-colors"
+                    >
+                        <Shuffle className="w-4 h-4" /> 打乱顺序
+                    </button>
+                </div>
+
+                <div
+                    className="group perspective-1000 w-full h-80 cursor-pointer mb-8 select-none"
+                    onClick={() => setIsFlipped(!isFlipped)}
+                >
+                    <div className={`relative w-full h-full duration-500 transform-style-3d transition-transform ${isFlipped ? 'rotate-y-180' : ''}`}>
+
+                        {/* Front */}
+                        <div className="absolute w-full h-full bg-white rounded-2xl shadow-xl border border-slate-100 backface-hidden flex flex-col items-center justify-center p-8 hover:shadow-2xl transition-shadow">
+                            <div className="absolute top-4 left-4 text-xs font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded-full uppercase tracking-wide flex items-center gap-2">
+                                <span>Unit {currentCard.unit}</span>
+                                <span className="w-1 h-1 bg-indigo-300 rounded-full"></span>
+                                <span>{frontLabel}</span>
+                            </div>
+                            <h2 className={`font-bold text-slate-800 text-center break-words mb-2 ${reviewMode === 'en-zh' ? 'text-4xl' : 'text-3xl'}`}>
+                                {frontContent}
+                            </h2>
+                            <p className="text-slate-400 text-sm mt-4 font-medium animate-pulse">点击查看答案</p>
+                        </div>
+
+                        {/* Back */}
+                        <div className="absolute w-full h-full bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl shadow-xl backface-hidden rotate-y-180 flex flex-col items-center justify-center p-8 text-white">
+                            <h3 className={`font-bold text-center leading-relaxed ${reviewMode === 'en-zh' ? 'text-2xl' : 'text-4xl'}`}>
+                                {backContent}
+                            </h3>
+                            <div className="mt-6 w-12 h-1 bg-white/30 rounded-full"></div>
+                            <p className="text-indigo-200 text-sm mt-4 opacity-75">
+                                {reviewMode === 'en-zh' ? '中文释义' : 'English'}
+                            </p>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-6">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+                        className="p-4 rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 hover:text-indigo-600 transition-all active:scale-95"
+                    >
+                        <ChevronLeft className="w-6 h-6" />
+                    </button>
+
+                    <button
+                        onClick={() => setIsFlipped(!isFlipped)}
+                        className="px-8 py-3 rounded-xl bg-indigo-600 text-white font-semibold shadow-md hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-2"
+                    >
+                        <RotateCw className="w-4 h-4" />
+                        翻转卡片
+                    </button>
+
+                    <button
+                        onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                        className="p-4 rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 hover:text-indigo-600 transition-all active:scale-95"
+                    >
+                        <ChevronRight className="w-6 h-6" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // 2. Quiz Mode
+    function QuizMode({ vocabList, fullData, reviewMode }) {
+        const [currentQIndex, setCurrentQIndex] = useState(0);
+        const [options, setOptions] = useState([]);
+        const [selectedOption, setSelectedOption] = useState(null);
+        const [score, setScore] = useState(0);
+        const [showResult, setShowResult] = useState(false);
+        const [quizFinished, setQuizFinished] = useState(false);
+
+        const questions = useMemo(() => {
+            const list = [...vocabList];
+            for (let i = list.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [list[i], list[j]] = [list[j], list[i]];
+            }
+            return list;
+        }, [vocabList, reviewMode]);
+
+        const currentQuestion = questions[currentQIndex];
+
+        const getQuestionText = (item) => reviewMode === 'en-zh' ? item.word : item.meaning;
+        const getOptionText = (item) => reviewMode === 'en-zh' ? item.meaning : item.word;
+
+        useEffect(() => {
+            if (!currentQuestion) return;
+
+            const distractors = [];
+            while (distractors.length < 3) {
+                const randomItem = fullData[Math.floor(Math.random() * fullData.length)];
+                if (randomItem.word !== currentQuestion.word && !distractors.find(d => d.word === randomItem.word)) {
+                    distractors.push(randomItem);
+                }
+            }
+
+            const allOptions = [...distractors, currentQuestion];
+            for (let i = allOptions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allOptions[i], allOptions[j]] = [allOptions[j], allOptions[i]];
+            }
+
+            setOptions(allOptions);
+            setSelectedOption(null);
+            setShowResult(false);
+        }, [currentQIndex, currentQuestion, fullData, reviewMode]);
+
+        const handleOptionClick = (option) => {
+            if (showResult) return;
+            setSelectedOption(option);
+            setShowResult(true);
+            if (option.word === currentQuestion.word) {
+                setScore(s => s + 1);
+            }
+        };
+
+        const nextQuestion = () => {
+            if (currentQIndex < questions.length - 1) {
+                setCurrentQIndex(prev => prev + 1);
+            } else {
+                setQuizFinished(true);
+            }
+        };
+
+        const restartQuiz = () => {
+            setCurrentQIndex(0);
+            setScore(0);
+            setQuizFinished(false);
+            setShowResult(false);
+        };
+
+        if (vocabList.length < 4) return <div className="text-center p-8 text-slate-500">单词数量太少，无法开始测验（至少需要4个单词）。</div>;
+
+        if (quizFinished) {
+            return (
+                <div className="flex flex-col items-center justify-center py-12 text-center animate-fade-in">
+                    <div className="w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center mb-6">
+                        <Trophy className="w-12 h-12 text-yellow-500" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-slate-800 mb-2">测验完成!</h2>
+                    <p className="text-slate-500 mb-8">
+                        你的得分: <span className="text-2xl font-bold text-indigo-600">{score}</span> / {questions.length}
+                    </p>
+                    <button
+                        onClick={restartQuiz}
+                        className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors shadow-lg"
+                    >
+                        再测一次
+                    </button>
+                </div>
+            );
+        }
+
+        return (
+            <div className="max-w-2xl mx-auto">
+                <div className="flex justify-between items-center mb-8">
+                    <div className="text-sm font-medium text-slate-500">
+                        问题 {currentQIndex + 1} / {questions.length}
+                    </div>
+                    <div className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
+                        得分: {score}
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-8 mb-8 text-center min-h-[160px] flex flex-col justify-center items-center">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block">
+                  请选择正确的{reviewMode === 'en-zh' ? '中文释义' : 'English Word'}
+                </span>
+                    <h2 className={`font-bold text-slate-800 leading-snug ${reviewMode === 'en-zh' ? 'text-4xl' : 'text-3xl'}`}>
+                        {currentQuestion && getQuestionText(currentQuestion)}
+                    </h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {options.map((opt, idx) => {
+                        let stateStyles = "bg-white border-slate-200 hover:border-indigo-300 hover:bg-indigo-50";
+                        if (showResult) {
+                            if (opt.word === currentQuestion.word) {
+                                stateStyles = "bg-green-100 border-green-500 text-green-800 ring-1 ring-green-500";
+                            } else if (selectedOption === opt && opt.word !== currentQuestion.word) {
+                                stateStyles = "bg-red-50 border-red-300 text-red-800 opacity-60";
+                            } else {
+                                stateStyles = "bg-slate-50 border-slate-100 text-slate-400";
+                            }
+                        }
+
+                        return (
+                            <button
+                                key={idx}
+                                onClick={() => handleOptionClick(opt)}
+                                disabled={showResult}
+                                className={`p-4 rounded-xl border-2 text-lg font-medium transition-all duration-200 min-h-[80px] flex items-center justify-center text-center ${stateStyles} ${showResult ? '' : 'shadow-sm'}`}
+                            >
+                      <span className="break-words w-full">
+                        {getOptionText(opt)}
+                      </span>
+                                {showResult && opt.word === currentQuestion.word && (
+                                    <CheckCircle className="flex-shrink-0 ml-2 w-5 h-5 text-green-600" />
+                                )}
+                                {showResult && selectedOption === opt && opt.word !== currentQuestion.word && (
+                                    <XCircle className="flex-shrink-0 ml-2 w-5 h-5 text-red-500" />
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {showResult && (
+                    <div className="mt-8 flex justify-center animate-fade-in-up">
+                        <button
+                            onClick={nextQuestion}
+                            className="px-10 py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-all flex items-center gap-2 shadow-lg"
+                        >
+                            {currentQIndex < questions.length - 1 ? '下一题' : '查看结果'}
+                            <ChevronRight className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // 3. List Mode
+    function ListMode({ vocabList }) {
+        return (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="grid grid-cols-12 bg-slate-50 border-b border-slate-200 p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="col-span-2 md:col-span-1">Unit</div>
+                    <div className="col-span-4 md:col-span-3">单词</div>
+                    <div className="col-span-6 md:col-span-8">释义</div>
+                </div>
+                <div className="divide-y divide-slate-100">
+                    {vocabList.map((item, idx) => (
+                        <div key={idx} className="grid grid-cols-12 p-4 hover:bg-indigo-50/30 transition-colors items-center group">
+                            <div className="col-span-2 md:col-span-1">
+                      <span className="inline-block px-2 py-1 rounded bg-slate-100 text-slate-600 text-xs font-medium">
+                        {item.unit}-{item.part}
+                      </span>
+                            </div>
+                            <div className="col-span-4 md:col-span-3 font-bold text-indigo-700 text-lg">
+                                {item.word}
+                            </div>
+                            <div className="col-span-6 md:col-span-8 text-slate-600 group-hover:text-slate-800">
+                                {item.meaning}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                {vocabList.length === 0 && <EmptyState />}
+            </div>
+        );
+    }
+
+    function EmptyState() {
+        return (
+            <div className="text-center py-20 text-slate-400">
+                <p>暂无数据</p>
+            </div>
+        );
+    }
+
+    // Mount App
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+</script>
+</body>
+</html>

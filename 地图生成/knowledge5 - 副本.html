@@ -1,0 +1,869 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRINITY // SYSTEM INTERFACE v5.0</title>
+    
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/dist/vis-network.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Teko:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- 1. 全局变量与基础设置 --- */
+        :root {
+            --bg-color: #050505;
+            --primary-cyan: #00ffcc;
+            --secondary-cyan: rgba(0, 255, 204, 0.2);
+            --alert-pink: #ff0055;
+            --warn-yellow: #ffcc00;
+            --dim-gray: #333;
+            --text-main: #eee;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--primary-cyan);
+            font-family: var(--font-mono);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        /* --- 2. 顶部导航栏 --- */
+        .top-bar {
+            height: 40px;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--primary-cyan);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 14px;
+            letter-spacing: 2px;
+            background: rgba(0, 255, 204, 0.05);
+        }
+
+        .system-status span {
+            margin-left: 20px;
+            padding: 2px 8px;
+            border: 1px solid var(--primary-cyan);
+            font-size: 10px;
+        }
+
+        .status-highlight {
+            color: var(--bg-color);
+            background-color: var(--warn-yellow);
+            border-color: var(--warn-yellow) !important;
+            font-weight: bold;
+        }
+
+        /* --- 3. 主布局容器 --- */
+        .container {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 40px);
+        }
+
+        /* 左侧主视图 */
+        .main-view {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--primary-cyan);
+        }
+
+        /* 右侧侧边栏 */
+        .sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: rgba(0, 0, 0, 0.2);
+            min-width: 250px;
+        }
+
+        /* --- 4. 通用组件样式 --- */
+        .panel-header {
+            font-size: 12px;
+            font-weight: bold;
+            padding: 8px 12px;
+            background: linear-gradient(90deg, rgba(0, 255, 204, 0.1) 0%, transparent 100%);
+            border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+            display: flex;
+            align-items: center;
+        }
+
+        .panel-marker {
+            width: 6px;
+            height: 6px;
+            background-color: var(--warn-yellow);
+            margin-right: 8px;
+            box-shadow: 0 0 5px var(--warn-yellow);
+        }
+        .marker-pink { background-color: var(--alert-pink); box-shadow: 0 0 5px var(--alert-pink); }
+        .marker-cyan { background-color: var(--primary-cyan); box-shadow: 0 0 5px var(--primary-cyan); }
+
+        /* --- 5. 区域样式：雷达/地图 (Location) --- */
+        .section-location {
+            flex: 5;
+            border-bottom: 1px solid var(--primary-cyan);
+            position: relative;
+            overflow: hidden;
+            background-image:
+                    radial-gradient(circle at 50% 50%, rgba(0,255,204,0.05) 0%, transparent 70%),
+                    linear-gradient(transparent 98%, rgba(0, 255, 204, 0.1) 100%),
+                    linear-gradient(90deg, transparent 98%, rgba(0, 255, 204, 0.1) 100%);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+        }
+
+        /* 图容器样式 */
+        #viz-location {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* --- 6. 区域样式：多标签模块 (Tab System) --- */
+        .section-modules {
+            flex: 4;
+            border-bottom: 1px solid var(--primary-cyan);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .tabs-header {
+            display: flex;
+            height: 32px;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            border-right: 1px solid rgba(0, 255, 204, 0.2);
+            color: #666;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+        }
+
+        .tab-btn:hover {
+            background: rgba(0, 255, 204, 0.05);
+            color: var(--primary-cyan);
+        }
+
+        .tab-btn.active {
+            background: rgba(0, 255, 204, 0.15);
+            color: var(--text-main);
+            font-weight: bold;
+            box-shadow: inset 0 -2px 0 var(--primary-cyan);
+        }
+
+        .tab-content {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .tab-pane {
+            display: none;
+            height: 100%;
+            padding: 15px;
+            flex-direction: row;
+            gap: 20px;
+            animation: slideIn 0.2s ease-out;
+            overflow-y: auto;
+        }
+
+        .tab-pane.active { display: flex; }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* TAB 1: PLAYER 样式 */
+        .col-status { flex: 1; border-right: 1px dashed #333; padding-right: 15px; display: flex; flex-direction: column; }
+        .col-inventory { flex: 2; display: flex; flex-direction: column; }
+
+        .status-bar-row { display: flex; align-items: center; margin-bottom: 8px; font-size: 11px; }
+        .bar-track { flex: 1; height: 6px; background: #222; margin-left: 8px; }
+        .bar-val { height: 100%; background: var(--primary-cyan); box-shadow: 0 0 5px var(--primary-cyan); }
+        .hp-val { background: var(--alert-pink); box-shadow: 0 0 5px var(--alert-pink); }
+
+        .inv-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-auto-rows: 40px;
+            gap: 5px;
+            overflow-y: auto;
+        }
+        .inv-item {
+            border: 1px solid #333;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 9px; color: #555; cursor: pointer;
+            transition: 0.2s;
+        }
+        .inv-item:hover { border-color: var(--primary-cyan); color: var(--text-main); }
+        .inv-item.active { border-color: var(--primary-cyan); color: var(--primary-cyan); box-shadow: inset 0 0 10px rgba(0,255,204,0.1); }
+
+        /* 可购买物品样式 */
+        #shop-inventory-container {
+            font-size: 13px;
+            color: #888;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .shop-item {
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid #333;
+            border-radius: 2px;
+            margin-bottom: 4px;
+            transition: 0.2s;
+        }
+        .shop-item:hover {
+            border-color: var(--primary-cyan);
+            background: rgba(0,255,204,0.05);
+        }
+        .shop-item-available {
+            border-color: var(--primary-cyan);
+        }
+        .shop-item-unavailable {
+            opacity: 0.6;
+        }
+
+        /* TAB 2: MAP INFO 样式 */
+        .map-col { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .list-header { font-size: 10px; color: var(--warn-yellow); border-bottom: 1px solid #333; margin-bottom: 8px; padding-bottom: 4px; }
+
+        .map-entity {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px; border-bottom: 1px solid #1a1a1a; font-size: 11px;
+        }
+        .map-entity:hover { background: rgba(255,255,255,0.05); }
+        .tag { font-size: 8px; padding: 1px 4px; border: 1px solid #444; border-radius: 2px; }
+        .tag-hostile { border-color: var(--alert-pink); color: var(--alert-pink); }
+        .tag-friendly { border-color: var(--primary-cyan); color: var(--primary-cyan); }
+
+        /* TAB 3: NPC 样式 */
+        .npc-layout { display: flex; width: 100%; gap: 15px; }
+        .npc-portrait {
+            width: 100px; height: 120px;
+            border: 1px solid var(--primary-cyan);
+            background: repeating-linear-gradient(45deg, rgba(0,255,204,0.05), rgba(0,255,204,0.05) 10px, transparent 10px, transparent 20px);
+            display: flex; align-items: center; justify-content: center;
+            text-align: center; font-size: 10px; color: #666;
+        }
+        .npc-details { flex: 1; font-size: 12px; line-height: 1.6; }
+        .trust-meter { width: 100%; height: 4px; background: #222; margin-top: 10px; }
+        .trust-fill { width: 45%; height: 100%; background: var(--warn-yellow); }
+
+        /* --- 7. 区域样式：数据流 (Bottom) --- */
+        .section-stream {
+            flex: 1;
+            padding: 10px 15px;
+            font-size: 10px;
+            color: #777;
+            border-top: 1px solid rgba(0,255,204,0.1);
+        }
+
+        /* --- 8. 右侧侧边栏 (Sidebar) --- */
+        .log-container {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            font-size: 11px;
+            line-height: 1.5;
+            color: #fff;
+        }
+        .log-item { margin-bottom: 12px; padding-left: 8px; border-left: 2px solid #333; color: #fff; }
+        .log-item.new { border-left-color: var(--primary-cyan); color: #fff; }
+
+        .console-input-area {
+            height: 45px;
+            border-top: 1px solid var(--primary-cyan);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            background: rgba(0,0,0,0.3);
+        }
+        .console-input-area input {
+            background: transparent;
+            border: none;
+            color: white;
+            font-family: var(--font-mono);
+            width: 100%;
+            outline: none;
+            font-size: 12px;
+        }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary-cyan); }
+
+        /* LLM控制台样式（保留原有功能） */
+        #llm-console {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 10000;
+            display: none;
+            flex-direction: column;
+        }
+        #llm-console.hidden { display: none; }
+        #llm-console:not(.hidden) { display: flex; }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <div class="brand">TRINITY // OS <span style="font-size:10px;opacity:0.5;">v5.0</span></div>
+        <div class="system-status">
+        <span class="status-highlight" id="stage-display">STAGE 1</span>
+        <span>NET: SECURE</span>
+        <span>USER: ADMIN</span>
+        <button id="reset-btn" onclick="if(typeof startGame === 'function') startGame()" style="margin-left: 20px; padding: 2px 8px; border: 1px solid var(--primary-cyan); font-size: 10px; background: transparent; color: var(--primary-cyan); cursor: pointer; font-family: var(--font-mono);">REBOOT</button>
+    </div>
+</div>
+
+<div class="container">
+
+    <div class="main-view">
+
+        <div class="section-location">
+            <div class="panel-header">
+                <div class="panel-marker marker-pink"></div>
+                TACTICAL RADAR // SECTOR 7
+            </div>
+            <div id="viz-location"></div>
+            <!-- 隐藏的图容器，用于初始化但不在UI中显示 -->
+            <div id="viz-inventory" style="display:none; position:absolute; width:1px; height:1px; overflow:hidden;"></div>
+            <div id="viz-narrative" style="display:none; position:absolute; width:1px; height:1px; overflow:hidden;"></div>
+        </div>
+
+        <div class="section-modules">
+            <div class="tabs-header">
+                <button class="tab-btn active" onclick="openTab(event, 'tab-player')">PLAYER // 01</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-map')">MAP DATA // 02</button>
+                <button class="tab-btn" onclick="openTab(event, 'tab-shop')">SHOP // 03</button>
+            </div>
+
+            <div class="tab-content">
+
+                <div id="tab-player" class="tab-pane active">
+                    <div class="col-status">
+                        <div class="list-header">VITALS</div>
+                        <div class="status-bar-row">
+                            <span>HP</span> <div class="bar-track"><div class="bar-val hp-val" id="hp-bar" style="width:100%"></div></div>
+                        </div>
+                        <div class="status-bar-row">
+                            <span>MP</span> <div class="bar-track"><div class="bar-val" id="mp-bar" style="width:0%"></div></div>
+                        </div>
+                        <div class="status-bar-row">
+                            <span>SAN</span> <div class="bar-track"><div class="bar-val" id="san-bar" style="width:100%; background:var(--warn-yellow); box-shadow:none;"></div></div>
+                        </div>
+
+                        <div class="list-header" style="margin-top:15px;">STATUS</div>
+                        <div style="font-size:10px; color:#888;" id="player-status">
+                            身体: 健康<br>
+                            社会: 普通
+                        </div>
+
+                        <div class="list-header" style="margin-top:15px;">FINANCE</div>
+                        <div style="font-size:10px; color:#888;" id="player-money">
+                            信用点: <span id="player-money-value" style="color:var(--primary-cyan, #00ffcc); font-weight:bold;">0</span>
+                        </div>
+                    </div>
+
+                    <div class="col-inventory">
+                        <div class="list-header">INVENTORY GRID</div>
+                        <div class="inv-grid" id="inventory-grid">
+                            <!-- 动态生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-map" class="tab-pane">
+                    <div class="map-col" style="border-right:1px dashed #333; padding-right:10px;">
+                        <div class="list-header">ENTITIES (CHARACTERS)</div>
+                        <div id="map-entities-list">
+                            <!-- 动态生成 -->
+                        </div>
+                    </div>
+                    <div class="map-col" style="padding-left:10px;">
+                        <div class="list-header">NPC DETAILS</div>
+                        <div class="npc-layout" id="npc-details-container" style="flex-direction: column; gap: 10px;">
+                            <div class="npc-portrait" style="width: 100%; height: 80px;">
+                                [ IMG_ERR ]<br>NO_DATA
+                            </div>
+                            <div class="npc-details">
+                                <div style="font-size:16px; font-weight:bold; color:var(--text-main);" id="npc-name">选择NPC查看详情</div>
+                                <div style="color:var(--primary-cyan); margin-bottom:10px;" id="npc-role">-</div>
+                                <p style="color:#aaa; margin:0;" id="npc-desc">-</p>
+                                <div style="margin-top:15px; font-size:10px; color:#666;" id="npc-personality">性格: -</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-shop" class="tab-pane">
+                    <div style="display:flex; flex-direction:column; height:100%; padding:10px;">
+                        <div class="list-header">SHOP INVENTORY</div>
+                        <div id="shop-inventory-container" style="font-size:13px; color:#888; flex:1; overflow-y:auto; margin-top:8px;">
+                            <div style="color:#666; font-style:italic;">暂无可购买物品</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <div class="sidebar">
+        <div class="panel-header">
+            <div class="panel-marker marker-cyan"></div>
+            LOGS
+        </div>
+        <div class="log-container" id="chat-history">
+            <div class="log-item new">
+                System initialized.<br>
+                <span style="font-size:9px; opacity:0.5;">09:00:00</span>
+            </div>
+        </div>
+        <div class="console-input-area">
+            <span style="color:var(--primary-cyan); margin-right:8px;">></span>
+            <input type="text" id="player-input" placeholder="ENTER COMMAND..." autocomplete="off" disabled>
+            <button id="send-btn" onclick="handleInput()" disabled style="background:transparent; border:1px solid var(--primary-cyan); color:var(--primary-cyan); padding:4px 12px; margin-left:8px; cursor:pointer; font-family:var(--font-mono); font-size:11px;">EXEC</button>
+        </div>
+    </div>
+
+</div>
+
+<!-- LLM控制台（保留原有功能） -->
+<div id="llm-console" class="llm-console hidden">
+    <div class="llm-console-header" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid var(--primary-cyan);">
+        <div class="llm-console-title" style="font-weight:bold;">LLM 控制台</div>
+        <div class="llm-console-actions">
+            <button id="llm-console-close" style="background:transparent; border:1px solid var(--primary-cyan); color:var(--primary-cyan); padding:4px 12px; cursor:pointer; font-family:var(--font-mono);">CLOSE</button>
+        </div>
+    </div>
+    <div class="llm-console-tabs" style="display:flex; border-bottom:1px solid var(--primary-cyan);">
+        <button class="llm-console-tab active" data-console-tab="main" style="flex:1; background:transparent; border:none; border-right:1px solid rgba(0,255,204,0.2); color:#666; padding:8px; cursor:pointer; font-family:var(--font-mono);">主LLM</button>
+        <button class="llm-console-tab" data-console-tab="worldgen" style="flex:1; background:transparent; border:none; border-right:1px solid rgba(0,255,204,0.2); color:#666; padding:8px; cursor:pointer; font-family:var(--font-mono);">世界生成</button>
+        <button class="llm-console-tab" data-console-tab="boss" style="flex:1; background:transparent; border:none; border-right:1px solid rgba(0,255,204,0.2); color:#666; padding:8px; cursor:pointer; font-family:var(--font-mono);">Boss</button>
+        <button class="llm-console-tab" data-console-tab="relevance" style="flex:1; background:transparent; border:none; color:#666; padding:8px; cursor:pointer; font-family:var(--font-mono);">语义判定</button>
+    </div>
+    <div class="llm-console-body" style="flex:1; overflow-y:auto; padding:15px;">
+        <div class="llm-console-page active" data-console-page="main">
+            <div class="llm-console-section compact" style="margin-bottom:15px;">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">System 提示词</div>
+                <div class="llm-console-io" id="console-main-system-input" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:200px; overflow-y:auto;"></div>
+            </div>
+            <div class="llm-console-section compact" style="margin-bottom:15px;">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">User 提示词</div>
+                <div class="llm-console-io" id="console-main-user-input" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:200px; overflow-y:auto;"></div>
+            </div>
+            <div class="llm-console-section large">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">输出内容</div>
+                <div class="llm-console-io" id="console-main-output" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:400px; overflow-y:auto;"></div>
+            </div>
+        </div>
+        <div class="llm-console-page" data-console-page="worldgen" style="display:none;">
+            <div class="llm-console-section compact" style="margin-bottom:15px;">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">System 提示词</div>
+                <div class="llm-console-io" id="console-worldgen-system-input" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:200px; overflow-y:auto;"></div>
+            </div>
+            <div class="llm-console-section compact" style="margin-bottom:15px;">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">User 提示词</div>
+                <div class="llm-console-io" id="console-worldgen-user-input" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:200px; overflow-y:auto;"></div>
+            </div>
+            <div class="llm-console-section large">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">输出内容</div>
+                <div class="llm-console-io" id="console-worldgen-output" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:400px; overflow-y:auto;"></div>
+            </div>
+        </div>
+        <div class="llm-console-page" data-console-page="boss" style="display:none;">
+            <div class="llm-console-section compact" style="margin-bottom:15px;">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">System 提示词</div>
+                <div class="llm-console-io" id="console-boss-system-input" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:200px; overflow-y:auto;"></div>
+            </div>
+            <div class="llm-console-section compact" style="margin-bottom:15px;">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">User 提示词</div>
+                <div class="llm-console-io" id="console-boss-user-input" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:200px; overflow-y:auto;"></div>
+            </div>
+            <div class="llm-console-section large">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">输出内容</div>
+                <div class="llm-console-io" id="console-boss-output" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:400px; overflow-y:auto;"></div>
+            </div>
+        </div>
+        <div class="llm-console-page" data-console-page="relevance" style="display:none;">
+            <div class="llm-console-section compact" style="margin-bottom:15px;">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">System 提示词</div>
+                <div class="llm-console-io" id="console-relevance-system-input" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:200px; overflow-y:auto;"></div>
+            </div>
+            <div class="llm-console-section compact" style="margin-bottom:15px;">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">User 提示词</div>
+                <div class="llm-console-io" id="console-relevance-user-input" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:200px; overflow-y:auto;"></div>
+            </div>
+            <div class="llm-console-section large">
+                <div class="llm-console-section-title" style="font-size:12px; font-weight:bold; margin-bottom:8px;">输出内容</div>
+                <div class="llm-console-io" id="console-relevance-output" style="background:rgba(0,0,0,0.3); padding:10px; font-size:10px; max-height:400px; overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript" src="knowledge5-assets/js/config.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/state.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/clue-manager.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/npc-manager.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/graph.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/prompts.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/worldgen-llm.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/context.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/consequence-judge-llm.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/item-filter-llm.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/llm-history-manager.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/llm.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/ui.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/game.js"></script>
+<script type="text/javascript" src="knowledge5-assets/js/bootstrap.js"></script>
+
+<script>
+    // 标签页切换功能
+    function openTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-pane");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+            tabcontent[i].classList.remove("active");
+        }
+
+        tablinks = document.getElementsByClassName("tab-btn");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+
+        document.getElementById(tabName).style.display = "flex";
+        setTimeout(() => {
+            document.getElementById(tabName).classList.add("active");
+        }, 10);
+
+        evt.currentTarget.className += " active";
+    }
+
+    // 更新玩家状态面板
+    function updatePlayerPanel() {
+        if (typeof gameState === 'undefined') return;
+
+        // 更新HP
+        const hpBar = document.getElementById('hp-bar');
+        if (hpBar && gameState.playerHP !== undefined) {
+            hpBar.style.width = Math.max(0, Math.min(100, gameState.playerHP)) + '%';
+        }
+
+        // 更新MP（如果存在）
+        const mpBar = document.getElementById('mp-bar');
+        if (mpBar) {
+            const mp = gameState.playerMP || 0;
+            mpBar.style.width = Math.max(0, Math.min(100, mp)) + '%';
+        }
+
+        // 更新玩家状态描述
+        const statusEl = document.getElementById('player-status');
+        if (statusEl && gameState.playerStatus) {
+            const physical = (gameState.playerStatus.physical && Array.isArray(gameState.playerStatus.physical)) 
+                ? gameState.playerStatus.physical.join('、') || '健康'
+                : '健康';
+            const social = (gameState.playerStatus.social && Array.isArray(gameState.playerStatus.social))
+                ? gameState.playerStatus.social.join('、') || '普通'
+                : '普通';
+            statusEl.innerHTML = `身体: ${physical}<br>社会: ${social}`;
+        }
+
+        // 更新物品栏（从物品列表获取）
+        const invGrid = document.getElementById('inventory-grid');
+        if (invGrid) {
+            try {
+                const invMgr = (typeof window !== 'undefined' && window.InventoryManager) ? window.InventoryManager : null;
+                const items = invMgr ? invMgr.getAllItems() : (gameState.playerInventory || []);
+                
+                invGrid.innerHTML = '';
+                items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'inv-item active';
+                    const displayText = item.quantity > 1 ? `${item.name} x${item.quantity}` : item.name;
+                    itemDiv.textContent = displayText;
+                    itemDiv.title = item.desc || item.name;
+                    invGrid.appendChild(itemDiv);
+                });
+                
+                // 填充空位
+                const emptySlots = 18 - items.length;
+                for (let i = 0; i < emptySlots; i++) {
+                    const empty = document.createElement('div');
+                    empty.className = 'inv-item';
+                    invGrid.appendChild(empty);
+                }
+            } catch (e) {
+                console.warn('[UI] 更新物品栏失败:', e);
+            }
+        }
+
+        // 更新阶段显示
+        const stageDisplay = document.getElementById('stage-display');
+        if (stageDisplay && gameState.currentStage) {
+            stageDisplay.textContent = `STAGE ${gameState.currentStage}`;
+        }
+    }
+
+    // 保存当前选中的NPC ID
+    let selectedNpcId = null;
+    let lastLocationId = null;
+
+    // 更新地图数据面板
+    function updateMapDataPanel() {
+        if (typeof GRAPH_STORE === 'undefined' || !GRAPH_STORE.location || typeof gameState === 'undefined') return;
+
+        const currentLocationId = gameState.currentLocationId;
+        
+        // 如果位置改变了，重置选中的NPC
+        if (currentLocationId !== lastLocationId) {
+            selectedNpcId = null;
+            lastLocationId = currentLocationId;
+        }
+        
+        if (!currentLocationId) {
+            const entitiesList = document.getElementById('map-entities-list');
+            if (entitiesList) entitiesList.innerHTML = '<div class="map-entity">无数据</div>';
+            updateNPCDetails(null);
+            selectedNpcId = null;
+            return;
+        }
+
+        const currentNode = GRAPH_STORE.location.nodes.get(currentLocationId);
+        
+        if (!currentNode) {
+            const entitiesList = document.getElementById('map-entities-list');
+            if (entitiesList) entitiesList.innerHTML = '<div class="map-entity">无数据</div>';
+            updateNPCDetails(null);
+            selectedNpcId = null;
+            return;
+        }
+
+        // 更新实体列表（NPC）
+        const entitiesList = document.getElementById('map-entities-list');
+        if (entitiesList) {
+            // 检查是否需要更新列表（避免频繁重新创建）
+            const currentNpcIds = currentNode.npcs ? currentNode.npcs.map(n => n.id).join(',') : '';
+            const existingNpcIds = Array.from(entitiesList.children)
+                .filter(el => el.classList.contains('map-entity') && !el.textContent.includes('无NPC'))
+                .map(el => {
+                    const npcName = el.querySelector('span')?.textContent;
+                    const npc = currentNode.npcs?.find(n => (n.name || n.id) === npcName);
+                    return npc?.id;
+                })
+                .filter(Boolean)
+                .join(',');
+            
+            // 只有当NPC列表发生变化时才重新创建
+            if (currentNpcIds !== existingNpcIds || entitiesList.children.length === 0) {
+                entitiesList.innerHTML = '';
+                if (currentNode.npcs && currentNode.npcs.length > 0) {
+                    currentNode.npcs.forEach(npc => {
+                        const entity = document.createElement('div');
+                        entity.className = 'map-entity';
+                        entity.style.cursor = 'pointer';
+                        // 高亮选中的NPC
+                        if (selectedNpcId === npc.id) {
+                            entity.style.border = '1px solid var(--primary-cyan)';
+                            entity.style.background = 'rgba(0, 255, 204, 0.1)';
+                        }
+                        entity.innerHTML = `
+                            <span>${npc.name || npc.id}</span>
+                            <span class="tag tag-friendly">NPC</span>
+                        `;
+                        // 点击NPC时显示详细信息
+                        entity.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            selectedNpcId = npc.id;
+                            updateNPCDetails(npc);
+                            // 更新所有NPC项的样式
+                            updateNPCHighlight(entitiesList, selectedNpcId);
+                        });
+                        entitiesList.appendChild(entity);
+                    });
+                    
+                    // 如果没有选中的NPC，默认显示第一个
+                    if (!selectedNpcId && currentNode.npcs.length > 0) {
+                        selectedNpcId = currentNode.npcs[0].id;
+                        updateNPCDetails(currentNode.npcs[0]);
+                        updateNPCHighlight(entitiesList, selectedNpcId);
+                    } else if (selectedNpcId) {
+                        // 显示选中的NPC
+                        const selectedNpc = currentNode.npcs.find(n => n.id === selectedNpcId);
+                        if (selectedNpc) {
+                            updateNPCDetails(selectedNpc);
+                            updateNPCHighlight(entitiesList, selectedNpcId);
+                        } else {
+                            // 如果选中的NPC不存在了，显示第一个
+                            selectedNpcId = currentNode.npcs[0].id;
+                            updateNPCDetails(currentNode.npcs[0]);
+                            updateNPCHighlight(entitiesList, selectedNpcId);
+                        }
+                    }
+                } else {
+                    entitiesList.innerHTML = '<div class="map-entity">无NPC</div>';
+                    updateNPCDetails(null);
+                    selectedNpcId = null;
+                }
+            }
+        }
+    }
+
+    // 更新NPC列表的高亮状态
+    function updateNPCHighlight(container, selectedId) {
+        if (!container) return;
+        Array.from(container.children).forEach(entity => {
+            if (entity.classList.contains('map-entity') && !entity.textContent.includes('无NPC')) {
+                const npcName = entity.querySelector('span')?.textContent;
+                // 通过名称找到对应的NPC ID
+                const currentNode = GRAPH_STORE.location.nodes.get(gameState.currentLocationId);
+                if (currentNode && currentNode.npcs) {
+                    const npc = currentNode.npcs.find(n => (n.name || n.id) === npcName);
+                    if (npc && npc.id === selectedId) {
+                        entity.style.border = '1px solid var(--primary-cyan)';
+                        entity.style.background = 'rgba(0, 255, 204, 0.1)';
+                    } else {
+                        entity.style.border = '';
+                        entity.style.background = '';
+                    }
+                }
+            }
+        });
+    }
+
+    // 更新NPC详细信息（在MAP DATA右侧显示）
+    function updateNPCDetails(npc) {
+        const nameEl = document.getElementById('npc-name');
+        const roleEl = document.getElementById('npc-role');
+        const descEl = document.getElementById('npc-desc');
+        const personalityEl = document.getElementById('npc-personality');
+        
+        if (!npc) {
+            if (nameEl) nameEl.textContent = '选择NPC查看详情';
+            if (roleEl) roleEl.textContent = '-';
+            if (descEl) descEl.textContent = '-';
+            if (personalityEl) personalityEl.textContent = '性格: -';
+            return;
+        }
+
+        if (nameEl) nameEl.textContent = npc.name || npc.id;
+        if (roleEl) roleEl.textContent = npc.occupation ? `ROLE: ${npc.occupation}` : 'ROLE: -';
+        if (descEl) descEl.textContent = npc.desc || '无描述';
+        if (personalityEl) personalityEl.textContent = npc.personality ? `性格: ${npc.personality}` : '性格: -';
+    }
+
+
+    // 定期更新UI
+    function startUIUpdateLoop() {
+        setInterval(() => {
+            updatePlayerPanel();
+            updateMapDataPanel();
+        }, 500);
+    }
+
+    // 重写appendLog函数以适配新UI（保留原有功能）
+    const originalAppendLog = window.appendLog;
+    window.appendLog = function(html, type) {
+        const box = document.getElementById('chat-history');
+        if (!box) {
+            if (originalAppendLog) originalAppendLog(html, type);
+            return;
+        }
+        const div = document.createElement('div');
+        div.className = `log-item new`;
+        const timestamp = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        div.innerHTML = html + '<br><span style="font-size:9px; opacity:0.5;">' + timestamp + '</span>';
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+        
+        // 3秒后移除new类
+        setTimeout(() => {
+            div.classList.remove('new');
+        }, 3000);
+    };
+
+    // 添加LLM控制台切换按钮到顶部栏
+    function addLlmConsoleToggle() {
+        const systemStatus = document.querySelector('.system-status');
+        if (systemStatus && !document.getElementById('llm-console-toggle-top')) {
+            const toggleBtn = document.createElement('span');
+            toggleBtn.id = 'llm-console-toggle-top';
+            toggleBtn.textContent = 'LLM CONSOLE';
+            toggleBtn.style.cssText = 'margin-left: 20px; padding: 2px 8px; border: 1px solid var(--primary-cyan); font-size: 10px; cursor: pointer;';
+            toggleBtn.addEventListener('click', () => {
+                if (typeof toggleLlmConsole === 'function') {
+                    toggleLlmConsole();
+                }
+            });
+            systemStatus.appendChild(toggleBtn);
+        }
+    }
+
+    // 页面加载完成后启动更新循环
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            startUIUpdateLoop();
+            addLlmConsoleToggle();
+        });
+    } else {
+        startUIUpdateLoop();
+        addLlmConsoleToggle();
+    }
+
+    // 监听地图节点点击，更新地图数据面板
+    if (typeof GRAPH_STORE !== 'undefined') {
+        // 这个会在graph.js加载后执行
+        setTimeout(() => {
+            if (GRAPH_STORE.location && GRAPH_STORE.location.network) {
+                GRAPH_STORE.location.network.on("click", function (params) {
+                    if (params.nodes.length > 0) {
+                        // 点击地图节点时，更新地图数据面板（包括NPC信息）
+                        updateMapDataPanel();
+                    }
+                });
+            }
+        }, 1000);
+    }
+</script>
+
+</body>
+</html>

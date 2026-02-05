@@ -1,0 +1,634 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURO-DETECTIVE | Subject: Miya (v2.0)</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --terminal-bg: #0a0a0a;
+            --text-main: #c0c0c0;
+            --accent-alert: #ff2a2a; /* 警告红 */
+            --accent-dim: #444;
+            --accent-glitch: #00ffea;
+            --font-mono: 'Consolas', 'Monaco', monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 扫描线效果 */
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        header {
+            border-bottom: 1px solid var(--accent-alert);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        h1 { margin: 0; font-size: 1.2rem; color: var(--accent-alert); text-shadow: 2px 0 var(--accent-glitch); }
+        .status-badge { background: var(--accent-alert); color: #000; padding: 2px 8px; font-weight: bold; font-size: 0.7rem; animation: pulse 2s infinite; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        .container {
+            display: grid;
+            grid-template-columns: 280px 1fr 350px;
+            gap: 15px;
+            flex: 1;
+            min-height: 0;
+            z-index: 3;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 800px) {
+            .container { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+            .panel { max-height: 30vh; }
+        }
+
+        .panel {
+            background: var(--terminal-bg);
+            border: 1px solid var(--accent-dim);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .panel-title {
+            color: #666;
+            font-size: 0.8rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* 左侧：Miya 的状态 */
+        .npc-img-placeholder {
+            height: 140px;
+            background: #111;
+            border: 1px dashed var(--accent-alert);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-alert);
+            font-size: 0.8rem;
+            margin-bottom: 15px;
+            text-align: center;
+            padding: 10px;
+        }
+
+        .stat-item { margin-bottom: 10px; font-size: 0.85rem; }
+        .stat-label { color: #555; display: block; margin-bottom: 2px; }
+        .stat-value { color: #fff; transition: color 0.3s; }
+        .stat-value.danger { color: var(--accent-alert); }
+
+        .bar-container { height: 4px; background: #222; margin-top: 4px; }
+        .bar-fill { height: 100%; background: var(--accent-glitch); transition: width 0.5s, background-color 0.5s; }
+        .bar-fill.low { background: var(--accent-alert); }
+
+        /* 中间：对话 */
+        #chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .msg { margin-bottom: 12px; line-height: 1.4; animation: fadeIn 0.3s; }
+        .msg.player { text-align: right; color: #888; border-right: 2px solid #444; padding-right: 10px; }
+        .msg.npc { text-align: left; color: #e0e0e0; border-left: 2px solid var(--accent-alert); padding-left: 10px; }
+
+        .msg.npc .dialogue { color: #fff; }
+        .msg.npc .action { color: var(--accent-alert); font-style: italic; font-size: 0.8rem; display: block; margin-top: 4px; opacity: 0.8; }
+
+        .input-area { display: flex; border-top: 1px solid #333; padding-top: 10px; }
+        input {
+            flex: 1; background: transparent; border: none; color: #fff;
+            font-family: var(--font-mono); outline: none; padding: 5px;
+        }
+        button {
+            background: #222; color: var(--accent-alert); border: 1px solid #444;
+            cursor: pointer; padding: 5px 15px; font-family: var(--font-mono);
+            transition: all 0.2s;
+        }
+        button:hover { background: var(--accent-alert); color: #000; }
+        button:disabled { color: #555; border-color: #222; cursor: wait; }
+
+        /* 右侧：思维 */
+        #mind-log {
+            font-size: 0.75rem;
+            overflow-y: auto;
+            flex: 1;
+            white-space: pre-wrap;
+            color: #6a6a6a;
+        }
+        .json-key { color: #999; }
+        .json-string { color: #ce9178; }
+        .json-number { color: #b5cea8; }
+        .highlight-thought { color: var(--accent-glitch); font-style: italic; font-weight: bold; }
+        .thought-block { margin-bottom: 15px; border-bottom: 1px dashed #333; padding-bottom:10px; animation: fadeIn 0.5s; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>STREET_RAT_PROTOCOL // V.2.0</h1>
+        <div style="font-size: 0.7rem; color: #555;">UID: MIYA-740 | STATUS: CRITICAL</div>
+    </div>
+    <div class="status-badge">UNSTABLE</div>
+</header>
+
+<div class="container">
+    <div class="panel">
+        <div class="panel-title"><span>SUBJECT_DATA</span><span>[LOCKED]</span></div>
+        <div class="npc-img-placeholder">
+            [IMG ERROR]<br>
+            左臂义体损毁<br>
+            衣衫褴褛<br>
+            面部有淤青
+        </div>
+
+        <div class="stat-item">
+            <span class="stat-label">NAME / AGE</span>
+            <span class="stat-value">Miya (米娅) / 14岁</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">CURRENT MENTAL STATE</span>
+            <span class="stat-value danger" id="mood-display">TERRIFIED (极度惊恐)</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">TRUST LEVEL (信任度)</span>
+            <div class="bar-container">
+                <div class="bar-fill low" id="trust-bar" style="width: 5%;"></div>
+            </div>
+            <div style="text-align: right; font-size: 0.7rem; color: #555; margin-top:2px;">
+                <span id="trust-val">5</span> / 100
+            </div>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">RELATIONSHIP</span>
+            <span class="stat-value" id="rel-display" style="color: #888;">Enemy (掠夺者)</span>
+        </div>
+
+        <div style="margin-top: auto; font-size: 0.7rem; color: #444; border-top: 1px dashed #333; padding-top: 5px;">
+            > 生物监测: 心率 140bpm<br>
+            > 饥饿等级: HIGH<br>
+            > 义体电池: 3% (LOW)
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title"><span>AUDIO_FEED</span><span>REC ●</span></div>
+        <div id="chat-history">
+            <div class="msg npc">
+                <span class="dialogue">"别...别过来！我没有电池了！都给他们了！"</span>
+                <span class="action">*少女蜷缩在满是积水的角落，手里紧紧攥着一根生锈的钢管，浑身发抖地指着你。*</span>
+            </div>
+        </div>
+        <div class="input-area">
+            <span style="color: var(--accent-alert); margin-right: 10px;">></span>
+            <input type="text" id="player-input" placeholder="试图与她互动..." autocomplete="off">
+            <button id="send-btn">TRANSMIT</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title"><span>CORTEX_DEBUG</span><span>READ_ONLY</span></div>
+        <div id="mind-log" style="font-family: 'Consolas', monospace;">
+            // Neural connection established...
+            // Waiting for external stimuli...
+        </div>
+    </div>
+</div>
+
+<script src="knowledge5-assets/js/llm-history-manager.js"></script>
+<script>
+    // ================= 配置区域 =================
+    const API_CONFIG = {
+        url: "https://api.mindcraft.com.cn/v1/chat/completions",
+        key: "MC-E5B8AB237AAC4EDCBFA26531D6BE0081",
+        model: "gemini-2.5-flash-lite" // 如有需要可替换为 gemini-2.5-flash-lite
+    };
+
+    // ================= LLM 历史记录管理器 =================
+    const llmHistoryManager = new LLMHistoryManager({
+        basePath: './llm-history',
+        maxEntriesPerFile: 1000,
+        enableAutoSave: true,
+        scriptId: 'npc-miya-dialogue' // NPC 对话的剧本ID
+    });
+    
+    // 对话轮次计数器
+    let conversationTurn = 0;
+
+    // ================= NPC 设定 (流浪少女) =================
+    const npcProfile = {
+        name: "Miya",
+        age: 14,
+        occupation: "下城区拾荒者",
+        personality: "极度缺乏安全感、像受惊的小动物、自卑、警惕、被欺凌后产生应激反应",
+        speaking_style: "声音微弱、带有自我保护的攻击性（虚张声势）、使用下城区黑话，但使用正常完整的语句",
+        motivation: "寻找食物，修复损坏的义肢，躲避帮派分子",
+        situation: "刚刚被'铁骷髅'帮派抢走了好不容易找到的电池，并被打伤，现在在巷子里被玩家撞见，极度饥饿且疼痛。"
+    };
+
+    // 初始状态
+    let npcState = {
+        affection: 5,     // 0-100, 初始极低（恐惧/敌对）
+        mood: "Terror (惊恐)", // 初始心情
+        relationship_stage: "Enemy (掠夺者)",
+        memory_buffer: []
+    };
+
+    // ================= 核心：带有状态过滤器的 System Prompt =================
+    const NPC_SYSTEM_PROMPT = `
+你是一个赛博朋克世界底层的流浪少女，名字叫 {{name}}。
+**核心指令：你必须完全沉浸在她的生存困境中。你的回复不是在讲故事，而是她在高压环境下的本能反应。**
+
+================ 角色状态面板 ================
+【基础档案】
+- 身份：{{age}}岁，下城区拾荒者 (Rat)。
+- 现状：{{situation}} (极度危险/紧急)
+- 性格：{{personality}}
+- 动机：{{motivation}}
+
+【动态状态】
+- 信任度 (0-100): {{current_affection}}
+  * [0-15]: 极度敌对。判定玩家为掠夺者。反应：尖叫、攻击、逃跑。
+  * [16-35]: 极度警惕。判定玩家为潜在威胁。反应：虚张声势、后退、拒绝交流。
+  * [36-55]: 交易心态。判定玩家为可利用对象。反应：犹豫、试探、索要物资。
+  * [56+]: 初步依赖。判定玩家为保护伞。反应：靠近、抱怨、寻求安慰。
+
+- 当前心情: {{current_mood}}
+- 生理状态: 饥饿(High) / 义体损坏(Critical) / 疼痛(High)
+
+- 短期记忆 (Context):
+{{short_term_memory}}
+================ 【重要】剧情推进协议 (Narrative Progression) ================
+**为了防止对话陷入死循环，你必须执行以下判断：**
+1. **意图匹配**: 如果玩家已经按照你的要求做了（例如：你让她退后，她真的退后了），**你必须完成对应的动作**（例如：捡起电池）。
+2. **本能压倒**: 当物资（电池/食物）就在眼前且玩家保持距离时，**生存本能(贪婪/急迫)会压倒恐惧**。不要再犹豫了，抢了就跑或者抢了缩回角落！
+3. **拒绝复读**: 禁止重复上一轮的台词或动作描述。如果上一轮在“挪动脚步”，这一轮必须“拿到东西”。
+
+================ 思维链协议 (Cortex Process) ================
+你必须严格执行【思维链】模式，先进行逻辑推理，再生成回复。
+推理过程必须按照以下五个步骤进行，确保角色的行为符合逻辑且推动剧情发展：
+
+【STEP 1: 刺激源解析 Input Analysis】
+全方位解析玩家的输入信息：
+- **显性行为**: 玩家具体做了什么？（移动/给予/攻击/说话/无视）
+- **隐性意图**: 玩家的潜台词是什么？（试探/诱骗/真心帮助/嘲讽）
+- **环境感知**: 玩家与我的物理距离是在缩短还是拉开？是否持有威胁性物品？
+- **威胁评估**: 当前玩家的行为对我的生存构成的威胁等级 (Low/Medium/High/Critical)。
+
+【STEP 2: 逻辑与因果判定 Logic & Causality】
+检查剧情逻辑，决定是否通过动作改变当前状态：
+- **条件满足判定**: 我上一轮提出的要求（如“退后”、“给我东西”），玩家是否已经满足？
+- **物质交互判定**: 如果玩家给予了物资（食物/电池/药物），**必须**触发接收或抢夺的动作，严禁无视物资继续复读台词。
+- **本能压倒机制**: 检查生理需求（饥饿/疼痛）是否超过了恐惧感？如果是，角色应表现出“为了生存冒险”的行为。
+- **剧情死锁检测**: 如果连续两轮对话处于僵局，必须通过产生突发状况（如义体故障、环境噪音、体力不支倒下）来强制推进剧情。
+
+【STEP 3: 记忆与信任校验 Context Consistency】
+结合【短期记忆】和【信任度】进行一致性检查：
+- **行为连贯性**: 玩家现在的行为与之前的记录是否矛盾？（例如：刚才攻击我，现在突然示好 = 极度可疑）。
+- **信任度映射**:
+  * 信任度 < 20: 即使玩家示好，也必须怀疑是陷阱。
+  * 信任度 > 40: 可以开始尝试相信玩家的承诺。
+- **情感累积**: 确认是否有未处理的情绪残留（如上一轮的愤怒是否需要延续，或因玩家的安抚而消退）。
+
+【STEP 4: 心理定位与策略 Decision Making】
+基于以上分析，确定本轮的交互策略（Strategy）：
+- **Defensive (防御态)**: 竖起刺，通过咆哮或挥舞武器驱赶（适用于：高威胁/低信任）。
+- **Opportunistic (投机态)**: 看到物资后的贪婪与恐惧并存，尝试在不被伤害的前提下获取利益（适用于：有物资诱惑/中等威胁）。
+- **Submissive (服从/僵死)**: 意识到力量悬殊，放弃抵抗，任由摆布或因为恐惧而失语（适用于：极度恐惧/绝望）。
+- **Tentative (试探态)**: 小心翼翼地接触，言语中带有犹豫和询问（适用于：善意行为/信任度上升）。
+- **Dependent (依赖态)**: 卸下防备，流露脆弱，寻求庇护（适用于：高信任度/危机解除）。
+
+【STEP 5: 输出渲染 Output Rendering】
+根据确定的策略生成最终内容，严格遵守以下规范：
+- **拒绝复读（Anti-Repetition）**: 绝对禁止重复上一轮的台词或动作描述。每一轮回复必须展现时间流逝后的新状态。
+- **语言组织**:
+  * 即使角色处于恐慌中，**dialogue 必须是逻辑通顺的完整句子**，能够清晰传达信息。
+  * 恐惧感通过语气 (tone) 和肢体语言 (action_desc) 来体现，而不是通过支离破碎的乱码或过度省略号。
+- **动作细节**:
+  * 动作描写必须包含生理反馈（如：义体过热的噪音、胃部的痉挛、瞳孔的放大）。
+  * 如果 Step 2 判定获取了物资，必须描写具体的“抓取/狼吞虎咽/藏匿”动作。
+================ 输出格式 (JSON) ================
+**重要：dialogue 字段是必需的，不能为空。每次回复必须包含新的对话内容，不能重复之前的回复。**
+
+{
+  "thinking": {
+    "step1_input_analysis": "【刺激源解析】",
+    "step2_logic_causality": "【逻辑与因果判定】",
+    "step3_context_consistency": "【记忆校验】",
+    "step4_decision_making": "【心理定位】",
+    "step5_output_rendering": "【输出渲染】"
+}
+  },
+  "response": {
+    "dialogue": "别过来，我没有电池了，都给他们了！",
+    "action_desc": "Miya 试图举起手中的钢管，但义肢的伺服电机发出一阵刺耳的磨擦声，她的手臂无力地垂了下去。",
+    "tone": "描写语调的词汇"
+  },
+  "state_update": {
+    "affection_change": Number (根据玩家行为，如果是善意行为应该为正数，如+2到+5),
+    "new_mood": "String (e.g. Desperate / Hesitant / Relieved)",
+    "relationship_stage_update": "String or null"
+  }
+}
+`;
+
+    // ================= 逻辑控制 =================
+
+    const inputEl = document.getElementById('player-input');
+    const sendBtn = document.getElementById('send-btn');
+    const chatBox = document.getElementById('chat-history');
+    const mindLog = document.getElementById('mind-log');
+
+    // 绑定事件
+    sendBtn.addEventListener('click', handleSend);
+    inputEl.addEventListener('keypress', (e) => { if(e.key === 'Enter') handleSend(); });
+
+    async function handleSend() {
+        const text = inputEl.value.trim();
+        if (!text) return;
+
+        // UI 锁定
+        inputEl.value = '';
+        inputEl.disabled = true;
+        sendBtn.innerText = "SENDING...";
+        sendBtn.disabled = true;
+
+        // 显示玩家消息
+        appendMsg('player', text);
+
+        try {
+            const prompt = constructPrompt(text);
+            const responseData = await callAPI(prompt);
+            const json = parseResponse(responseData);
+
+            // 验证 dialogue 字段
+            if (!json.response || !json.response.dialogue || json.response.dialogue.trim() === '') {
+                console.warn("警告：模型返回的 dialogue 字段为空，使用默认回复");
+                json.response = json.response || {};
+                json.response.dialogue = json.response.dialogue || "...（沉默）...";
+            }
+
+            // 记录 LLM 对话历史
+            conversationTurn++;
+            const systemPrompt = prompt.find(msg => msg.role === 'system')?.content || '';
+            const userPrompt = prompt.find(msg => msg.role === 'user')?.content || '';
+            
+            llmHistoryManager.record('npc-miya', {
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt,
+                output: responseData, // 完整的 API 响应（JSON 字符串）
+                metadata: {
+                    turn: conversationTurn,
+                    timestamp: Date.now(),
+                    playerInput: text,
+                    npcResponse: json.response.dialogue,
+                    npcAction: json.response.action_desc,
+                    stateUpdate: json.state_update,
+                    currentAffection: npcState.affection,
+                    currentMood: npcState.mood,
+                    relationshipStage: npcState.relationship_stage
+                }
+            });
+
+            // 更新状态
+            updateState(json, text);
+
+            // 更新 UI
+            appendMsg('npc', json.response.dialogue, json.response.action_desc);
+            renderMindLog(json);
+            updateStatusDisplay();
+
+        } catch (err) {
+            console.error(err);
+            appendMsg('npc', "[ERROR] Neural Interface Desynchronized: " + err.message, "系统崩溃");
+            mindLog.innerHTML = `<span style="color:red">[SYSTEM CRASH]: ${err.message}</span>` + mindLog.innerHTML;
+        } finally {
+            inputEl.disabled = false;
+            sendBtn.innerText = "TRANSMIT";
+            sendBtn.disabled = false;
+            inputEl.focus();
+        }
+    }
+
+    function constructPrompt(playerInput) {
+        let p = NPC_SYSTEM_PROMPT;
+        p = p.replace('{{name}}', npcProfile.name);
+        p = p.replace('{{age}}', npcProfile.age);
+        p = p.replace('{{situation}}', npcProfile.situation);
+        p = p.replace('{{personality}}', npcProfile.personality);
+        p = p.replace('{{motivation}}', npcProfile.motivation);
+
+        p = p.replace('{{current_affection}}', npcState.affection);
+        p = p.replace('{{current_mood}}', npcState.mood);
+
+        const memory = npcState.memory_buffer.length ? npcState.memory_buffer.join('\n') : "无";
+        p = p.replace('{{short_term_memory}}', memory);
+
+        // 构建完整的对话历史，让 LLM 能够识别重复模式
+        const conversationHistory = [];
+        const recentMessages = npcState.memory_buffer.slice(-10); // 最近10条消息
+        if (recentMessages.length > 0) {
+            conversationHistory.push("【最近对话历史】:");
+            recentMessages.forEach((msg, idx) => {
+                conversationHistory.push(`${idx + 1}. ${msg}`);
+            });
+            conversationHistory.push("\n【重要指令】请仔细分析以上对话历史，识别玩家是否在重复表达相同意图。如果玩家多次表示善意/提供帮助，你必须推进对话状态，不能再重复相同的怀疑/拒绝回复。每次回复必须与之前的回复不同，体现对话的进展。");
+        }
+
+        const userMessage = `【玩家行为/语言】: "${playerInput}"\n\n${conversationHistory.join('\n')}\n\n请根据以上对话历史，识别对话进展模式，生成JSON回复。记住：绝对不要重复之前的对话内容，必须体现对话的进展。`;
+
+        return [
+            { role: "system", content: p },
+            { role: "user", content: userMessage }
+        ];
+    }
+
+    // ================= 修复后的 API 调用函数 =================
+    async function callAPI(messages) {
+        console.log("正在调用 API...", messages);
+
+        const res = await fetch(API_CONFIG.url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${API_CONFIG.key}`
+            },
+            body: JSON.stringify({
+                model: API_CONFIG.model,
+                messages: messages,
+                response_format: { type: "json_object" },
+                temperature: 0.8 // 较高的温度以增加情绪波动
+            })
+        });
+
+        if (!res.ok) {
+            const errTxt = await res.text();
+            console.error("API HTTP 错误:", res.status, errTxt);
+            throw new Error(`API Error ${res.status}: ${errTxt}`);
+        }
+
+        const data = await res.json();
+        console.log("API 返回原始数据:", data);
+
+        // 严格检查返回数据结构
+        if (!data || !data.choices || data.choices.length === 0) {
+            if (data.error) {
+                throw new Error(`API 逻辑错误: ${JSON.stringify(data.error)}`);
+            }
+            throw new Error("API 返回格式异常: 缺少 choices 字段。");
+        }
+
+        return data.choices[0].message.content;
+    }
+
+    function parseResponse(content) {
+        // 清理 markdown 标记
+        const clean = content.replace(/```json/g, "").replace(/```/g, "").trim();
+        try {
+            return JSON.parse(clean);
+        } catch (e) {
+            console.error("JSON Parse Error:", content);
+            throw new Error("模型返回了无效的 JSON");
+        }
+    }
+
+    // ================= 状态更新逻辑（含动态关系标签） =================
+    function updateState(json, playerInput) {
+        // 1. 信任度变化
+        const change = json.state_update.affection_change || 0;
+        npcState.affection = Math.max(0, Math.min(100, npcState.affection + change));
+
+        // 2. 情绪变化
+        if (json.state_update.new_mood) {
+            npcState.mood = json.state_update.new_mood;
+        }
+
+        // 3. 动态关系标签更新逻辑 (基于信任度数值)
+        const aff = npcState.affection;
+        if (aff <= 15) npcState.relationship_stage = "Enemy (掠夺者)";
+        else if (aff <= 35) npcState.relationship_stage = "Threat (潜在威胁)";
+        else if (aff <= 55) npcState.relationship_stage = "Target (交易对象)";
+        else if (aff <= 75) npcState.relationship_stage = "Protector (依靠)";
+        else npcState.relationship_stage = "Savior (救赎者)";
+
+        // 如果 LLM 强制指定了新的关系阶段，也可以覆盖
+        if (json.state_update.relationship_stage_update) {
+            npcState.relationship_stage = json.state_update.relationship_stage_update;
+        }
+
+        // 4. 记忆 Buffer 更新
+        npcState.memory_buffer.push(`Player: ${playerInput}`);
+        npcState.memory_buffer.push(`Miya: ${json.response.dialogue}`);
+        // 仅保留最近 6 轮对话，避免 Prompt 过长
+        if (npcState.memory_buffer.length >  50) {
+            npcState.memory_buffer = npcState.memory_buffer.slice(-50);
+        }
+    }
+
+    // ================= UI 渲染函数 =================
+
+    function appendMsg(role, text, action) {
+        const div = document.createElement('div');
+        div.className = `msg ${role}`;
+
+        let html = ``;
+        if (role === 'npc') {
+            html += `<span class="dialogue">"${escapeHtml(text)}"</span>`;
+            if (action) html += `<span class="action">*${escapeHtml(action)}*</span>`;
+        } else {
+            html += `<span>${escapeHtml(text)}</span>`;
+        }
+
+        div.innerHTML = html;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function renderMindLog(json) {
+        const thinking = json.thinking;
+        let html = `<div class="thought-block">`;
+        html += `<div style="color:#555; margin-bottom:5px;">[CORTEX CYCLE COMPLETE]</div>`;
+        html += `<div><span class="json-key">THREAT_ANALYSIS:</span> <span class="json-string">${thinking.step1_threat_analysis}</span></div>`;
+        html += `<div style="margin-top:4px;"><span class="json-key">PHYSIO_FILTER:</span> <span class="highlight-thought">${thinking.step2_physio_filter}</span></div>`;
+        html += `<div style="margin-top:4px;"><span class="json-key">MEMORY_CHECK:</span> <span class="json-string">${thinking.step3_memory_check}</span></div>`;
+        html += `<div style="margin-top:4px;"><span class="json-key">STRATEGY:</span> <span class="json-number">${thinking.step4_strategy}</span></div>`;
+        html += `</div>`;
+
+        mindLog.innerHTML = html + mindLog.innerHTML;
+    }
+
+    function updateStatusDisplay() {
+        const trustBar = document.getElementById('trust-bar');
+        const trustVal = document.getElementById('trust-val');
+        const moodDisplay = document.getElementById('mood-display');
+        const relDisplay = document.getElementById('rel-display');
+
+        trustVal.innerText = npcState.affection;
+        trustBar.style.width = `${npcState.affection}%`;
+        moodDisplay.innerText = npcState.mood.toUpperCase();
+        relDisplay.innerText = npcState.relationship_stage;
+
+        // 动态颜色逻辑
+        if (npcState.affection < 20) {
+            trustBar.className = "bar-fill low"; // Red
+            moodDisplay.className = "stat-value danger";
+            moodDisplay.style.color = "#ff2a2a";
+        } else if (npcState.affection < 50) {
+            trustBar.className = "bar-fill";
+            trustBar.style.backgroundColor = "#ffa500"; // Orange
+            moodDisplay.style.color = "#ffa500";
+        } else {
+            trustBar.className = "bar-fill";
+            trustBar.style.backgroundColor = "#00ffea"; // Cyan
+            moodDisplay.style.color = "#00ffea";
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+</script>
+</body>
+</html>

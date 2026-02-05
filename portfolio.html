@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人作品集 | COLLECTION</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif+SC:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 1. 核心变量与配色 (提取自参考图) --- */
+        :root {
+            --bg-color: #FDFDFD;       /* 极简白背景 */
+            --text-main: #2C3E50;      /* 深色文字 */
+            --text-sub: #8E9AA3;       /* Caster 灰色 */
+
+            --accent-ice: #A8D0E6;     /* Enemy 冰蓝 */
+            --accent-red: #C85A5A;     /* Archer 茜红 */
+            --accent-gold: #D4AF37;    /* 点缀金 */
+
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+
+        /* --- 2. 全局重置 --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Serif SC', 'Cinzel', serif; /* 使用衬线体营造优雅感 */
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.8;
+            overflow-x: hidden;
+        }
+
+        a { text-decoration: none; color: inherit; transition: 0.3s; }
+        ul { list-style: none; }
+
+        /* --- 3. 布局组件 --- */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* 竖排文字效果 (装饰用) */
+        .vertical-text {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            letter-spacing: 0.2em;
+            opacity: 0.6;
+            font-family: 'Cinzel', serif;
+        }
+
+        /* --- 4. 导航栏 --- */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px 0;
+            background: rgba(253, 253, 253, 0.9);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .nav-inner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.2rem;
+            letter-spacing: 0.1em;
+            font-weight: 700;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 40px;
+            font-size: 0.9rem;
+            color: var(--text-sub);
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-red);
+        }
+
+        /* --- 5. Hero 区域 (首屏) --- */
+        .hero {
+            height: 90vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            /* 模拟参考图中最右侧的冰蓝渐变氛围 */
+            background: linear-gradient(135deg, #ffffff 0%, #f0f8ff 100%);
+        }
+
+        /* 装饰线条 */
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 10%;
+            bottom: 10%;
+            left: 50px;
+            width: 1px;
+            background: var(--text-sub);
+            opacity: 0.2;
+        }
+
+        .hero-content {
+            text-align: center;
+            z-index: 1;
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 300;
+            margin-bottom: 20px;
+            letter-spacing: 0.2rem;
+            background: -webkit-linear-gradient(45deg, var(--text-main), var(--accent-red));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            color: var(--text-sub);
+            font-size: 1.1rem;
+            letter-spacing: 0.1rem;
+            margin-bottom: 40px;
+        }
+
+        .btn-scroll {
+            display: inline-block;
+            padding: 12px 30px;
+            border: 1px solid var(--accent-red);
+            color: var(--accent-red);
+            border-radius: 0; /* 直角设计 */
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+        }
+
+        .btn-scroll:hover {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        /* --- 6. 关于部分 (About) --- */
+        .section {
+            padding: 100px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.03);
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 60px;
+            position: relative;
+        }
+
+        .section-title h2 {
+            font-size: 2rem;
+            font-weight: 300;
+            letter-spacing: 0.1em;
+        }
+
+        .section-title span {
+            display: block;
+            margin-top: 10px;
+            font-family: 'Cinzel', serif;
+            color: var(--accent-ice);
+            font-size: 0.8rem;
+            letter-spacing: 0.3em;
+        }
+
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 50px;
+            align-items: center;
+        }
+
+        .about-text p {
+            margin-bottom: 20px;
+            color: var(--text-main);
+            text-align: justify;
+        }
+
+        /* --- 7. 作品集展示 (Grid Layout) --- */
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .project-card {
+            background: #fff;
+            padding: 30px;
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            /* 模仿卡片感 */
+        }
+
+        /* 顶部彩色条，对应参考图的不同角色色条 */
+        .project-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--accent-sub);
+            transition: 0.4s;
+        }
+
+        /* 定义不同类型的卡片颜色 */
+        .card-type-1 { --accent-sub: var(--accent-red); } /* Archer Theme */
+        .card-type-2 { --accent-sub: var(--accent-ice); } /* Enemy Theme */
+        .card-type-3 { --accent-sub: var(--text-sub); }   /* Caster Theme */
+
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--card-shadow);
+            border-color: var(--accent-sub);
+        }
+
+        .card-num {
+            font-family: 'Cinzel', serif;
+            font-size: 3rem;
+            opacity: 0.1;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .project-title {
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+
+        .project-desc {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            margin-bottom: 20px;
+        }
+
+        .tags {
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            color: var(--accent-sub); /* 这里的颜色会跟随卡片类型变化 */
+            text-transform: uppercase;
+        }
+
+        /* --- 8. 底部区域 --- */
+        footer {
+            padding: 50px 0;
+            text-align: center;
+            background: #FAFAFA;
+            font-size: 0.8rem;
+            color: var(--text-sub);
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.5rem; }
+            .about-grid { grid-template-columns: 1fr; }
+            .nav-links { display: none; } /* 移动端可做折叠菜单，此处简化隐藏 */
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="container nav-inner">
+        <a href="#" class="logo">COLLECTION</a>
+        <ul class="nav-links">
+            <li><a href="#about">ABOUT</a></li>
+            <li><a href="#works">WORKS</a></li>
+            <li><a href="#contact">CONTACT</a></li>
+        </ul>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="vertical-text" style="position: absolute; left: 20px; font-size: 12px;">NO.001 - SABER</div>
+
+    <div class="container hero-content">
+        <h1>PORTFOLIO</h1>
+        <p>DESIGN / DEVELOPMENT / ART</p>
+        <p style="font-size: 0.8rem; margin-top: -30px; opacity: 0.6;">Create with Code & Passion</p>
+        <br>
+        <a href="#works" class="btn-scroll">VIEW WORKS</a>
+    </div>
+
+    <div class="vertical-text" style="position: absolute; right: 20px; font-size: 12px; color: var(--accent-ice);">NO.004 - ICE</div>
+</section>
+
+<section id="about" class="section">
+    <div class="container">
+        <div class="section-title">
+            <h2>关于我</h2>
+            <span>INTRODUCTION</span>
+        </div>
+        <div class="about-grid">
+            <div class="about-img" style="background: #f0f0f0; height: 300px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
+                <span style="font-family: 'Cinzel'; color: #ccc;">PROFILE IMAGE</span>
+            </div>
+            <div class="about-text">
+                <p>你好，我是[你的名字]。</p>
+                <p>我是一名热衷于极简主义设计的创造者。深受视觉小说与现代网页艺术的影响，我致力于在数字空间中构建具有沉浸感的体验。</p>
+                <p>如同收集卡牌一般，我将每一个项目视为不可复制的独特藏品，精心打磨每一个细节。</p>
+                <br>
+                <p style="color: var(--accent-red); font-size: 0.9rem;">Skillset: UI Design, Frontend Dev, Visual Art</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="works" class="section">
+    <div class="container">
+        <div class="section-title">
+            <h2>精选作品</h2>
+            <span>COLLECTION</span>
+        </div>
+
+        <div class="portfolio-grid">
+
+            <article class="project-card card-type-1">
+                <div class="card-num">01</div>
+                <h3 class="project-title">项目名称 A</h3>
+                <p class="project-desc">这是一个关于品牌设计的项目，使用了大胆的红色调与衬线字体，展现强烈的视觉冲击力。</p>
+                <div class="tags">DESIGN / BRANDING</div>
+            </article>
+
+            <article class="project-card card-type-2">
+                <div class="card-num">02</div>
+                <h3 class="project-title">应用界面 B</h3>
+                <p class="project-desc">受寒冰元素启发的UI套件，专注于冷色调的交互反馈与极简布局。</p>
+                <div class="tags">UI / UX / APP</div>
+            </article>
+
+            <article class="project-card card-type-3">
+                <div class="card-num">03</div>
+                <h3 class="project-title">摄影集 C</h3>
+                <p class="project-desc">黑白灰阶的摄影作品展示页，强调光影与构图的理性之美。</p>
+                <div class="tags">PHOTOGRAPHY / ART</div>
+            </article>
+
+            <article class="project-card card-type-1">
+                <div class="card-num">04</div>
+                <h3 class="project-title">插画系列 D</h3>
+                <p class="project-desc">基于神话传说的概念插画设计。</p>
+                <div class="tags">ILLUSTRATION</div>
+            </article>
+
+        </div>
+    </div>
+</section>
+
+<section id="contact" class="section" style="background: #fff;">
+    <div class="container" style="text-align: center;">
+        <div class="section-title">
+            <h2>保持联络</h2>
+            <span>CONTACT</span>
+        </div>
+        <p style="margin-bottom: 30px; color: var(--text-sub);">期待与您共同创造下一个未解之谜。</p>
+        <a href="mailto:email@example.com" class="btn-scroll" style="border-color: var(--text-main); color: var(--text-main);">SEND EMAIL</a>
+    </div>
+</section>
+
+<footer>
+    <p>&copy; 2024 Your Name. All Rights Reserved.</p>
+    <p style="font-family: 'Cinzel'; font-size: 0.7rem; opacity: 0.5; margin-top: 10px;">DESIGNED BASED ON VISUAL NOVEL AESTHETICS</p>
+</footer>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

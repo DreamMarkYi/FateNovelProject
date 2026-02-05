@@ -1,0 +1,685 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圣杯战争模拟器 (全文本记录版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Noto Serif SC', 'SimSun', serif;
+            background-color: #0f0f1a;
+            color: #e0e0e0;
+        }
+        .nasu-text p {
+            margin-bottom: 1.2em;
+            line-height: 1.9;
+            letter-spacing: 0.05em;
+        }
+        .battle-log-item {
+            border-left: 3px solid #c0392b;
+            background: linear-gradient(90deg, rgba(192, 57, 43, 0.1) 0%, rgba(0,0,0,0) 100%);
+        }
+        input, select, textarea {
+            background-color: #1e1e2e;
+            border-color: #3e3e5e;
+            color: #fff;
+        }
+        input:focus, select:focus, textarea:focus {
+            --tw-ring-color: #e74c3c;
+            border-color: #e74c3c;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
+        }
+        .loader {
+            border-top-color: #e74c3c;
+            -webkit-animation: spinner 1s linear infinite;
+            animation: spinner 1s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .result-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border: 1px solid currentColor;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            letter-spacing: 0.1em;
+            box-shadow: 0 0 10px currentColor;
+        }
+        .memory-btn {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #4a4a6e;
+            border-radius: 0.25rem;
+            color: #a0a0c0;
+            transition: all 0.2s;
+        }
+        .memory-btn:hover {
+            border-color: #e74c3c;
+            color: #fff;
+            background-color: rgba(231, 76, 60, 0.2);
+        }
+        /* 招式卡片样式 */
+        .move-card {
+            border: 1px solid #3e3e5e;
+            background: #151520;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .move-card:hover {
+            border-color: #60a5fa;
+            background: rgba(96, 165, 250, 0.1);
+        }
+        .move-card.selected {
+            border-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.15);
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.2);
+        }
+
+        /* 自定义滚动条 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0f0f1a;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4a4a6e;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #e74c3c;
+        }
+
+        /* 章节分割线动画 */
+        .chapter-divider {
+            display: flex;
+            align-items: center;
+            color: #e74c3c;
+            font-size: 0.7rem;
+            opacity: 0.6;
+            margin: 2rem 0;
+        }
+        .chapter-divider::before, .chapter-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #e74c3c;
+            opacity: 0.3;
+        }
+        .chapter-divider span {
+            padding: 0 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 flex justify-center">
+
+<div class="container max-w-6xl">
+    <header class="text-center mb-8 py-6 border-b border-gray-800">
+        <h1 class="text-4xl font-bold text-red-600 mb-2 tracking-widest" style="text-shadow: 0 0 10px rgba(192, 57, 43, 0.5);">圣杯战争模拟系统</h1>
+        <p class="text-gray-500 text-xs tracking-[0.2em] uppercase">Fate / Grand Order System - Chronicle Ver.</p>
+    </header>
+
+    <details class="bg-gray-900 rounded border border-gray-800 p-4 mb-6">
+        <summary class="font-bold text-gray-400 cursor-pointer text-sm hover:text-white transition">⚙️ 术式构筑 (API Settings)</summary>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div>
+                <label class="block text-xs font-bold mb-1 text-gray-500">API Key</label>
+                <input type="password" id="apiKey" class="w-full p-2 rounded text-xs" value="MC-E5B8AB237AAC4EDCBFA26531D6BE0081">
+            </div>
+            <div>
+                <label class="block text-xs font-bold mb-1 text-gray-500">Base URL</label>
+                <input type="text" id="baseUrl" class="w-full p-2 rounded text-xs" value="https://api.mindcraft.com.cn/v1">
+            </div>
+            <div>
+                <label class="block text-xs font-bold mb-1 text-gray-500">Model</label>
+                <input type="text" id="modelName" class="w-full p-2 rounded text-xs" value="gemini-3-flash-latest">
+            </div>
+        </div>
+    </details>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <div class="bg-gray-900 rounded border border-gray-800 p-6 h-fit relative">
+            <div class="absolute top-0 left-0 w-1 h-full bg-red-900"></div>
+
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-gray-300 flex items-center">
+                    <span class="text-red-600 mr-2">◆</span> 战术终端
+                </h2>
+                <button onclick="document.getElementById('moveConfigInput').click()" class="text-xs text-blue-400 hover:text-blue-300 underline">
+                    📂 加载招式库 (.json)
+                </button>
+                <input type="file" id="moveConfigInput" accept=".json" class="hidden" onchange="loadMoveConfig(this)">
+            </div>
+
+            <div class="flex gap-2 mb-6">
+                <button onclick="saveAllMemories()" class="memory-btn flex-1 flex items-center justify-center gap-1">
+                    📥 保存战况
+                </button>
+                <button onclick="document.getElementById('loadInput').click()" class="memory-btn flex-1 flex items-center justify-center gap-1">
+                    📤 读取战况
+                </button>
+                <input type="file" id="loadInput" accept=".json" class="hidden" onchange="loadMemories(this)">
+                <button onclick="clearCurrentMemory()" class="memory-btn flex-none px-3 text-red-400 hover:bg-red-900 hover:border-red-600">
+                    🗑️
+                </button>
+            </div>
+
+            <div class="mb-5">
+                <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">
+                    Target Enemy (<span id="currentTimelineCount" class="text-red-400">0</span> Turn)
+                </label>
+                <select id="aiClass" class="w-full p-3 rounded text-sm" onchange="switchEnemyContext()">
+                    <option value="Saber">Saber (剑之骑士)</option>
+                    <option value="Archer">Archer (弓之骑士)</option>
+                    <option value="Lancer">Lancer (枪之骑士)</option>
+                    <option value="Caster">Caster (魔术师)</option>
+                    <option value="Berserker">Berserker (狂战士)</option>
+                    <option value="Assassin">Assassin (暗匿者)</option>
+                    <option value="Gilgamesh">Gilgamesh (英雄王)</option>
+                </select>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Select Noble Phantasm</label>
+
+                <div id="moveListContainer" class="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar mb-3">
+                </div>
+
+                <div id="selectedMoveDetail" class="hidden bg-black/40 border border-gray-700 p-3 rounded text-xs">
+                    <div class="font-bold text-blue-300 mb-1" id="detailName"></div>
+                    <div class="text-gray-300 mb-2 leading-relaxed" id="detailEffect"></div>
+                    <div class="text-red-400 italic" id="detailRestriction"></div>
+                </div>
+            </div>
+
+            <button onclick="startBattleTurn()" id="submitBtn" class="w-full bg-red-900 hover:bg-red-800 text-gray-100 font-bold py-3 px-4 rounded transition flex justify-center items-center border border-red-700 shadow-[0_0_15px_rgba(192,57,43,0.3)] disabled:opacity-50 disabled:cursor-not-allowed">
+                <span id="btnText">执行指令 (Execute)</span>
+                <div id="loadingSpinner" class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-5 w-5 ml-3 hidden"></div>
+            </button>
+
+            <div class="mt-8 border-t border-gray-800 pt-4">
+                <h3 class="text-xs font-bold text-gray-500 mb-2 uppercase">Battle Log</h3>
+                <div id="battleLog" class="space-y-3 text-xs text-gray-400 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                    <p class="opacity-50">等待指令...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 bg-gray-900 rounded border border-gray-800 p-8 relative overflow-hidden flex flex-col h-[700px]">
+            <div class="absolute -right-10 top-20 text-9xl font-serif font-bold text-white opacity-[0.03] rotate-90 pointer-events-none select-none">
+                CHRONICLE
+            </div>
+
+            <div id="aiMoveDisplay" class="mb-4 hidden transition-all duration-500 bg-gray-900/80 backdrop-blur-sm border-b border-gray-800 pb-2 z-20">
+                <div class="flex flex-col gap-2">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <div class="h-px w-8 bg-red-600"></div>
+                            <span class="text-xs text-red-400 uppercase tracking-widest">Enemy Reaction</span>
+                        </div>
+                        <h3 id="aiMoveName" class="text-xl font-bold text-gray-100 font-serif tracking-wide" style="text-shadow: 0 0 5px rgba(255,255,255,0.3);"></h3>
+                    </div>
+                    <div id="battleResultBadge" class="self-start"></div>
+                </div>
+            </div>
+
+            <div id="novelOutput" class="nasu-text text-gray-300 text-sm md:text-base leading-relaxed flex-grow z-10 overflow-y-auto custom-scrollbar pr-4 pb-10">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 🟢 默认招式库
+    const DEFAULT_MOVES = [
+        {
+            "id": "vega_arrow",
+            "name": "织星贯流 (Vega Arrow)",
+            "type": "攻击",
+            "effect": "施放一束极高速、高密度、不可折射的能量光束，精准锁定目标并贯穿防御。",
+            "restriction": "消耗低，由于速度接近光速，敌方难以物理闪避。"
+        },
+        {
+            "id": "vega_prism_net",
+            "name": "织星折光网 (Vega Prism Net)",
+            "type": "防御/陷阱",
+            "effect": "布置多枚水晶节点形成折射网。既可自动拦截敌方攻击，也可让己方光束不断弹跳变轨。",
+            "restriction": "需要预先布置节点，适合阵地战。"
+        },
+        {
+            "id": "vega_singularity",
+            "name": "织星破界 (Vega Singularity)",
+            "type": "终极/必杀",
+            "effect": "将所有织星水晶能量聚合一点，释放接近光速的恒星爆发射线，贯穿任意防御。",
+            "restriction": "【警告】施法后无法追加动作，短时间内魔力耗尽。"
+        },
+        {
+            "id": "lunar_eclipse_flash",
+            "name": "影月瞬斩 (Lunar Eclipse Flash)",
+            "type": "近战/暗杀",
+            "effect": "以纯粹影之力凝聚刃光，一瞬间完成多次超高速斩击。斩击轨迹延迟显现，无视护盾。",
+            "restriction": "需在低光照或新月黑域环境下发动效果最佳。"
+        },
+        {
+            "id": "eclipse_mind_prison",
+            "name": "影蚀幽禁 (Eclipse Mind Prison)",
+            "type": "控制/精神",
+            "effect": "将敌人的意识封锁在无尽黑暗空间，剥夺其五感，使其无法感知战场信息。",
+            "restriction": "对精神力强大或具备心眼的敌人效果减弱。"
+        },
+        {
+            "id": "lunar_cataclysm",
+            "name": "月煌倾世 (Celestial Flood)",
+            "type": "对界/毁灭",
+            "effect": "满月光辉极限超载，战场化作光能洪流，空间崩解，引发星耀反应。",
+            "restriction": "【危险】绝对范围毁灭，释放后战场成为废墟，自身可能受反噬。"
+        },
+        {
+            "id": "causality_vision",
+            "name": "魔眼：因果透视",
+            "type": "辅助/闪避",
+            "effect": "观察24小时内的因果线，看到攻击的“源头”与“必然走向”，提前规避。",
+            "restriction": "若过度解析，大脑会产生信息超载，短暂失去现实感。"
+        }
+    ];
+
+    let battleDatabase = {};
+    let currentClass = "Saber";
+    let activeMoves = [...DEFAULT_MOVES];
+    let currentSelectedMove = null;
+
+    window.onload = function() {
+        currentClass = document.getElementById('aiClass').value;
+        ensureClassDataExists(currentClass);
+        renderMoveList();
+        refreshUI();
+    };
+
+    function ensureClassDataExists(className) {
+        if (!battleDatabase[className]) {
+            battleDatabase[className] = [];
+        }
+    }
+
+    function renderMoveList() {
+        const container = document.getElementById('moveListContainer');
+        container.innerHTML = '';
+        currentSelectedMove = null;
+        updateMoveDetailUI();
+
+        activeMoves.forEach((move, index) => {
+            const btn = document.createElement('div');
+            btn.className = "move-card p-3 rounded flex justify-between items-center";
+            btn.onclick = () => selectMove(index, btn);
+
+            let typeColor = "text-gray-400";
+            if(move.type.includes("攻击")) typeColor = "text-red-400";
+            if(move.type.includes("防御")) typeColor = "text-blue-400";
+            if(move.type.includes("终极")) typeColor = "text-yellow-400";
+
+            btn.innerHTML = `
+                <span class="font-bold text-sm text-gray-200">${move.name}</span>
+                <span class="text-[10px] border border-gray-700 px-1 rounded ${typeColor}">${move.type}</span>
+            `;
+            container.appendChild(btn);
+        });
+    }
+
+    function selectMove(index, btnElement) {
+        const allBtns = document.querySelectorAll('.move-card');
+        allBtns.forEach(b => b.classList.remove('selected'));
+        btnElement.classList.add('selected');
+        currentSelectedMove = activeMoves[index];
+        updateMoveDetailUI();
+    }
+
+    function updateMoveDetailUI() {
+        const detailBox = document.getElementById('selectedMoveDetail');
+        if (!currentSelectedMove) {
+            detailBox.classList.add('hidden');
+            return;
+        }
+        detailBox.classList.remove('hidden');
+        document.getElementById('detailName').innerText = currentSelectedMove.name;
+        document.getElementById('detailEffect').innerText = "效果：" + currentSelectedMove.effect;
+        document.getElementById('detailRestriction').innerText = "限制：" + currentSelectedMove.restriction;
+    }
+
+    function loadMoveConfig(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (Array.isArray(data) && data[0].name && data[0].effect) {
+                    activeMoves = data;
+                    renderMoveList();
+                    alert("招式库加载成功！");
+                } else {
+                    throw new Error("格式不符合规范");
+                }
+            } catch (err) {
+                alert("加载失败：" + err.message);
+            }
+            input.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    function switchEnemyContext() {
+        const select = document.getElementById('aiClass');
+        currentClass = select.value;
+        ensureClassDataExists(currentClass);
+        document.getElementById('aiMoveDisplay').classList.add('hidden');
+        refreshUI(); // 切换时，刷新UI会重建整个历史文本
+    }
+
+    // 🟢 核心修改：刷新UI时同时重建小说历史
+    function refreshUI() {
+        const history = battleDatabase[currentClass] || [];
+        document.getElementById('currentTimelineCount').innerText = history.length;
+        rebuildBattleLog(history);
+        rebuildNovelHistory(history); // 重建小说文本
+    }
+
+    function clearCurrentMemory() {
+        if(confirm(`确定要删除与 [${currentClass}] 的所有战斗记录吗？`)) {
+            battleDatabase[currentClass] = [];
+            document.getElementById('aiMoveDisplay').classList.add('hidden');
+            refreshUI();
+        }
+    }
+
+    function saveAllMemories() {
+        const dataStr = JSON.stringify(battleDatabase, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Fate_Save_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+    }
+
+    function loadMemories(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                battleDatabase = JSON.parse(e.target.result);
+                ensureClassDataExists(currentClass);
+                refreshUI();
+                alert("存档读取成功");
+            } catch (e) { alert("存档格式错误"); }
+            input.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    // 重建左侧简易日志
+    function rebuildBattleLog(history) {
+        const battleLog = document.getElementById('battleLog');
+        battleLog.innerHTML = '';
+        if (history.length === 0) {
+            battleLog.innerHTML = '<p class="opacity-50">无交战记录...</p>';
+            return;
+        }
+        [...history].forEach((turn, index) => {
+            const logItem = document.createElement('div');
+            logItem.className = "battle-log-item p-2 mb-2 text-xs text-gray-300";
+            logItem.innerHTML = `
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-blue-400 font-bold">Turn ${index + 1}</span>
+                    </div>
+                    <div class="mb-1 opacity-80">You: "${turn.userMoveName}"</div>
+                    <div class="mb-1 opacity-80 text-red-300">AI: "${turn.ai}"</div>
+                `;
+            battleLog.prepend(logItem);
+        });
+    }
+
+    // 🟢 核心修改：重建右侧完整小说历史
+    function rebuildNovelHistory(history) {
+        const container = document.getElementById('novelOutput');
+        container.innerHTML = ''; // 清空当前视图
+
+        if (history.length === 0) {
+            container.innerHTML = `
+                <div class="h-full flex flex-col items-center justify-center text-gray-600 italic opacity-50 space-y-4">
+                    <p>（——时间线：[${currentClass}] 处于静止状态。）</p>
+                    <p>（请从左侧选择招式，开始推演。）</p>
+                </div>`;
+            return;
+        }
+
+        history.forEach((turn, index) => {
+            // 章节分割线
+            const divider = document.createElement('div');
+            divider.className = "chapter-divider";
+            divider.innerHTML = `<span>Turn ${index + 1} // Phase: ${turn.userMoveName}</span>`;
+            container.appendChild(divider);
+
+            // 内容块
+            const contentDiv = document.createElement('div');
+            contentDiv.className = "mb-8 animate-fade-in";
+            contentDiv.innerHTML = marked.parse(turn.novelText);
+            container.appendChild(contentDiv);
+        });
+
+        // 自动滚动到底部
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 100);
+    }
+
+    async function startBattleTurn() {
+        const apiKey = document.getElementById('apiKey').value.trim();
+        let baseUrl = document.getElementById('baseUrl').value.trim().replace(/\/+$/, '');
+        const modelName = document.getElementById('modelName').value.trim();
+
+        if (!currentSelectedMove) { alert("请先从列表选择一个招式 (Noble Phantasm)！"); return; }
+        if (!apiKey) { alert("请先配置 API Key"); return; }
+
+        currentClass = document.getElementById('aiClass').value;
+        const btn = document.getElementById('submitBtn');
+        const spinner = document.getElementById('loadingSpinner');
+        btn.disabled = true;
+        spinner.classList.remove('hidden');
+
+        const currentHistory = battleDatabase[currentClass] || [];
+
+        // --- 核心修改逻辑开始 ---
+
+        // 1. 获取上一回合的上下文和“正确答案”
+        const lastTurn = currentHistory.length > 0 ? currentHistory[currentHistory.length - 1] : null;
+        let lastNovelSnippet = lastTurn ? lastTurn.novelText : "（战斗在冬木市的废墟中爆发，双方的魔力威压让空气开始冻结。）";
+
+        // 2. 判定胜负关系 (博弈结果)
+        let tacticalFeedback = "";
+        let tacticalStatus = "NEUTRAL"; // DEFAULT, SUCCESS, FAILURE
+
+        if (lastTurn) {
+            const userMove = currentSelectedMove.name;
+            // 简单的模糊匹配，防止AI输出的招式名略有不同
+            const isBest = lastTurn.bestSolution && (userMove.includes(lastTurn.bestSolution) || lastTurn.bestSolution.includes(userMove));
+            const isWorst = lastTurn.worstSolution && (userMove.includes(lastTurn.worstSolution) || lastTurn.worstSolution.includes(userMove));
+
+            if (isBest) {
+                tacticalStatus = "SUCCESS";
+                tacticalFeedback = `
+                【判定结果：大成功/克制】
+                用户选择了上一轮预测的[最优解]（${userMove}）。
+                **写作强制要求**：
+                1. 描写白鸟遥完全看穿了敌人的死点。
+                2. **必须描写敌方(${currentClass})受到实质性伤害**（如：铠甲碎裂、吐血、魔力回路短路、被击退）。
+                3. 强调此招式如何完美克制了敌人的上一招。
+                `;
+            } else if (isWorst) {
+                tacticalStatus = "FAILURE";
+                tacticalFeedback = `
+                【判定结果：大失败/被克】
+                用户选择了上一轮警告的[最差解/陷阱]（${userMove}）。
+                **写作强制要求**：
+                1. 描写白鸟遥的预测出现了致命偏差，或者落入了敌人的陷阱。
+                2. **必须描写白鸟遥(User)受到伤害**（如：被冲击波震飞、身体割伤、魔眼过载流血）。
+                3. 敌方毫发无伤或伤势轻微。
+                `;
+            } else {
+                tacticalFeedback = `
+                【判定结果：普通交锋】
+                用户的选择中规中矩。双方互有攻守，可能产生激烈的魔力碰撞，但无人受重伤，战局僵持。
+                `;
+            }
+        } else {
+            tacticalFeedback = "【判定结果：初战】这是遭遇战的第一回合。双方互相试探。";
+        }
+        // --- 核心修改逻辑结束 ---
+
+        const aiUsedMoves = [...new Set(currentHistory.map(turn => turn.ai))].join(", ");
+        const userMoveSetContext = activeMoves.map(m =>
+            `- [${m.name}]: ${m.effect} (类型: ${m.type})`
+        ).join("\n");
+
+        const systemPrompt = `
+            你是一名《Fate/Stay Night》及《魔法使之夜》风格的战斗小说家 (奈须蘑菇风格)。
+
+            【角色定义】
+            * **己方 (AI)**: 职阶 **${currentClass}**。
+            * **敌方 (User)**: **白鸟遥 (Shiratori Haruka)**。设定：冷静的优等生，拥有观测因果的魔眼，擅长天体/水晶魔术。
+
+            【写作铁律】
+            1. **禁绝人称代词**：只使用“${currentClass}”和“白鸟遥”，禁止“你/我”。
+            2. **氛围描写**：使用复杂的修辞、独特的名词（如“以太”、“大源”、“固有结界”）来堆砌史诗感。
+            3. **输出格式**：JSON 单行，无 Markdown 标记。
+
+            【核心逻辑：回合制博弈】
+            1. **执行判定**：首先根据用户提供的【判定结果】，描写上一轮攻防的**受伤情况**。
+            2. **发起新挑战**：${currentClass} 在承受或化解攻击后，必须发起**全新**的攻击。
+            3. **出题**：为这个新攻击设计一个【最优解】和一个【最差解】（从用户的招式库中选择）。
+        `;
+
+        const userPrompt = `
+            【上文结尾】
+            ...${lastNovelSnippet.slice(-200)}
+
+            【当前回合行动】
+            >>> 白鸟遥 (User) 发动招式：${currentSelectedMove.name}
+            >>> 招式效果：${currentSelectedMove.effect}
+
+            ${tacticalFeedback}
+
+            【白鸟遥的可用招式库 (用于设计下一轮的解法)】
+            ${userMoveSetContext}
+
+            【写作指令】
+            请生成 JSON 数据：
+            1. **novel_text**:
+               - 第一段：描写白鸟遥发动招式的过程以及**造成的后果**（根据判定结果，写谁受伤）。
+               - 第二段：${currentClass} 重整态势（或带伤反击），释放新宝具/招式。
+               - 结尾：留白在攻击即将命中的瞬间。
+            2. **ai_move_name**: AI使用的新招式名。
+            3. **battle_result**: 简短概括本回合结果（例：“白鸟遥轻伤/敌方重创”）。
+            4. **solution_best**: 针对AI新招式，用户招式库中最好的那个招式名（作为下一轮的正确答案）。
+            5. **solution_worst**: 针对AI新招式，用户招式库中最差的那个招式名（作为下一轮的陷阱）。
+
+            【JSON 格式】
+            {
+                "ai_move_name": "...",
+                "battle_result": "...",
+                "solution_best": "...",
+                "solution_worst": "...",
+                "novel_text": "..."
+            }
+        `;
+
+        try {
+            const response = await fetch(`${baseUrl}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                    model: modelName,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userPrompt }
+                    ],
+                    temperature: 0.95 // 保持高创造性
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error?.message || "API Error");
+            }
+
+            const data = await response.json();
+            let rawContent = data.choices[0].message.content;
+
+            // 清洗 JSON 格式（防止 AI 输出 Markdown 代码块）
+            const firstBrace = rawContent.indexOf('{');
+            const lastBrace = rawContent.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1) {
+                rawContent = rawContent.substring(firstBrace, lastBrace + 1);
+            }
+
+            let result;
+            try {
+                result = JSON.parse(rawContent);
+            } catch (e) {
+                // 简单的容错处理
+                const fixedContent = rawContent.replace(/\n/g, "\\n").replace(/\r/g, "");
+                result = JSON.parse(fixedContent);
+            }
+
+            // 存入数据库
+            battleDatabase[currentClass].push({
+                userMoveName: currentSelectedMove.name,
+                ai: result.ai_move_name,
+                result: result.battle_result,
+                novelText: result.novel_text,
+                bestSolution: result.solution_best,
+                worstSolution: result.solution_worst
+            });
+
+            refreshUI();
+            renderBattleResult(result);
+
+            // 在控制台打印“作弊码”，方便测试
+            console.log(`%c[Next Puzzle] Best: ${result.solution_best} | Worst: ${result.solution_worst}`, "color: #e74c3c; font-weight: bold; background: #222; padding: 4px;");
+
+        } catch (error) {
+            console.error(error);
+            alert("系统错误: " + error.message);
+        } finally {
+            btn.disabled = false;
+            spinner.classList.add('hidden');
+        }
+    }
+
+    function renderBattleResult(result) {
+        const aiMoveDisplay = document.getElementById('aiMoveDisplay');
+
+        document.getElementById('aiMoveName').innerText = result.ai_move_name || "————";
+
+        const resText = result.battle_result || "判定不明";
+        let colorClass = "text-yellow-400 border-yellow-400";
+        if (resText.includes("败") || resText.includes("死")) colorClass = "text-red-400 border-red-400";
+        if (resText.includes("胜") || resText.includes("优")) colorClass = "text-green-400 border-green-400";
+
+        document.getElementById('battleResultBadge').innerHTML = `<span class="result-badge ${colorClass}">RESULT: ${resText}</span>`;
+        aiMoveDisplay.classList.remove('hidden');
+
+        // 注意：小说文本的渲染现已移交给 refreshUI -> rebuildNovelHistory 处理
+        // 这里不需要再设置 novelOutput.innerHTML
+    }
+</script>
+</body>
+</html>

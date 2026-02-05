@@ -1,0 +1,129 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>LangGraph 原理演示 - Agentic RAG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .node { transition: all 0.3s; border: 2px solid #e2e8f0; }
+        .active-node { border-color: #3b82f6; background-color: #eff6ff; transform: scale(1.05); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .arrow { font-size: 24px; color: #cbd5e1; }
+        .loop-back { color: #f43f5e; font-weight: bold; }
+    </style>
+</head>
+<body class="bg-slate-50 p-8">
+<div class="max-w-4xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6 text-slate-800">LangGraph 循环图原理演示 (Agentic RAG)</h1>
+
+    <div class="bg-white p-8 rounded-xl shadow-sm mb-6 flex justify-around items-center border border-slate-200">
+        <div id="node-query" class="node p-4 rounded-lg text-center">
+            <div class="text-xs text-slate-500">Node 1</div>
+            <div class="font-bold">查询改写</div>
+        </div>
+        <div class="arrow">→</div>
+        <div id="node-search" class="node p-4 rounded-lg text-center">
+            <div class="text-xs text-slate-500">Node 2</div>
+            <div class="font-bold">检索知识</div>
+        </div>
+        <div class="arrow">→</div>
+        <div id="node-eval" class="node p-4 rounded-lg text-center">
+            <div class="text-xs text-slate-500">Node 3</div>
+            <div class="font-bold">质量评估</div>
+        </div>
+        <div class="arrow text-blue-500">→</div>
+        <div id="node-end" class="node p-4 rounded-lg text-center bg-green-50">
+            <div class="font-bold text-green-700">完成退出</div>
+        </div>
+    </div>
+
+    <div id="loop-line" class="hidden text-center mb-4 loop-back">
+        ↺ 评估未通过：重新改写查询中...
+    </div>
+
+    <div class="bg-slate-900 text-green-400 p-4 rounded-lg font-mono text-sm h-64 overflow-y-auto mb-4" id="console">
+        > 等待启动...
+    </div>
+
+    <button onclick="runAgent()" id="run-btn" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-bold">
+        模拟执行 Agentic 流程
+    </button>
+</div>
+
+<script>
+    const API_CONFIG = {
+        url: "https://hk-api.gptbest.vip/v1/chat/completions",
+        key: "sk-D7OWUqvBcM500TgnC4UBixNKHiiguyppWdSw11xgVjKVDdFU",
+        model: "gemini-3-flash-preview-thinking-*"
+    };
+
+    let state = { retry_count: 0 };
+
+    async function log(msg, color = "text-green-400") {
+        const consoleEl = document.getElementById('console');
+        consoleEl.innerHTML += `<div class="${color}">> ${msg}</div>`;
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    function setActive(nodeId) {
+        document.querySelectorAll('.node').forEach(n => n.classList.remove('active-node'));
+        document.getElementById(nodeId).classList.add('active-node');
+    }
+
+    async function callAPI(prompt) {
+        try {
+            const res = await fetch(API_CONFIG.url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${API_CONFIG.key}`
+                },
+                body: JSON.stringify({
+                    model: API_CONFIG.model,
+                    messages: [{role: "user", content: prompt}]
+                })
+            });
+            const data = await res.json();
+            return data.choices[0].message.content;
+        } catch (e) {
+            return "Error";
+        }
+    }
+
+    async function runAgent() {
+        document.getElementById('run-btn').disabled = true;
+        state.retry_count = 0;
+        document.getElementById('loop-line').classList.add('hidden');
+
+        // 节点1: Query Rewrite
+        setActive('node-query');
+        log("正在执行节点 [Query Rewrite]...");
+        await new Promise(r => setTimeout(r, 800));
+
+        // 节点2: Search
+        setActive('node-search');
+        log("正在执行节点 [Retrieve]...");
+        await new Promise(r => setTimeout(r, 800));
+
+        // 节点3: Eval (模拟逻辑)
+        setActive('node-eval');
+        log("正在执行节点 [Evaluator]... 调用 API 判断相关性");
+
+        // 模拟一个“故意失败”的循环逻辑
+        const decision = state.retry_count < 1 ? "RETRY" : "PROCEED";
+
+        if(decision === "RETRY") {
+            log("API 判断：检索内容不匹配，触发循环边 (Edge: retry)", "text-red-400");
+            document.getElementById('loop-line').classList.remove('hidden');
+            state.retry_count++;
+            await new Promise(r => setTimeout(r, 1500));
+            return runAgent(); // 递归模拟循环
+        }
+
+        // 节点结束
+        setActive('node-end');
+        log("评估通过，工作流结束。", "text-blue-400");
+        document.getElementById('run-btn').disabled = false;
+    }
+</script>
+</body>
+</html>

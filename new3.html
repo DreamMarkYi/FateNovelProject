@@ -1,0 +1,729 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圣杯战争模拟器 Ver.2.0 (Logic Enhanced)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        /* 保持原有的基础样式 */
+        body {
+            font-family: 'Noto Serif SC', 'SimSun', serif;
+            background-color: #0f0f1a;
+            color: #e0e0e0;
+        }
+        .nasu-text p {
+            margin-bottom: 1.2em;
+            line-height: 1.9;
+            letter-spacing: 0.05em;
+        }
+        .battle-log-item {
+            border-left: 3px solid #3b82f6;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(0,0,0,0) 100%);
+        }
+        input, select, textarea {
+            background-color: #1e1e2e;
+            border-color: #3e3e5e;
+            color: #fff;
+        }
+        input:focus, select:focus, textarea:focus {
+            --tw-ring-color: #60a5fa;
+            border-color: #60a5fa;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+        }
+        .loader {
+            border-top-color: #60a5fa;
+            -webkit-animation: spinner 1s linear infinite;
+            animation: spinner 1s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* === 新增样式 === */
+
+        /* 战场环境 Tag */
+        .field-tag {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.3);
+            margin-right: 4px;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* 骰子动画容器 */
+        .dice-box {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-shadow: 0 0 5px currentColor;
+        }
+
+        /* AI 思考气泡 */
+        .thought-bubble {
+            position: relative;
+            background: #1a1a24;
+            border: 1px dashed #4a4a6e;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-style: italic;
+            margin-bottom: 1rem;
+        }
+        .thought-bubble::before {
+            content: "AI LOGIC CHAIN";
+            position: absolute;
+            top: -8px;
+            left: 10px;
+            background: #0f0f1a;
+            padding: 0 5px;
+            font-size: 0.6rem;
+            color: #64748b;
+        }
+
+        /* 呼吸灯效果 */
+        @keyframes pulse-border {
+            0% { border-color: rgba(59, 130, 246, 0.3); }
+            50% { border-color: rgba(59, 130, 246, 0.8); box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
+            100% { border-color: rgba(59, 130, 246, 0.3); }
+        }
+        .animate-pulse-border {
+            animation: pulse-border 2s infinite;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .move-card {
+            border: 1px solid #3e3e5e;
+            background: #151520;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .move-card:hover { border-color: #60a5fa; background: rgba(96, 165, 250, 0.1); }
+        .move-card.selected { border-color: #60a5fa; background: rgba(96, 165, 250, 0.15); box-shadow: 0 0 10px rgba(96, 165, 250, 0.2); }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f0f1a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4a4a6e; border-radius: 3px; }
+        .chapter-divider { display: flex; align-items: center; color: #60a5fa; font-size: 0.7rem; opacity: 0.6; margin: 2rem 0; }
+        .chapter-divider::before, .chapter-divider::after { content: ''; flex: 1; border-bottom: 1px solid #60a5fa; opacity: 0.3; }
+        .chapter-divider span { padding: 0 10px; text-transform: uppercase; letter-spacing: 2px; }
+    </style>
+</head>
+<body class="min-h-screen p-4 flex justify-center">
+
+<div class="container max-w-6xl">
+    <header class="text-center mb-6 py-4 border-b border-gray-800">
+        <h1 class="text-4xl font-bold text-blue-500 mb-2 tracking-widest" style="text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);">圣杯战争模拟系统 2.0</h1>
+        <p class="text-gray-500 text-xs tracking-[0.2em] uppercase">Fate/Grand Order Logic Simulator</p>
+    </header>
+
+    <details class="bg-gray-900 rounded border border-gray-800 p-4 mb-6">
+        <summary class="font-bold text-gray-400 cursor-pointer text-sm hover:text-white transition">⚙️ 术式构筑 (API Settings)</summary>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div>
+                <label class="block text-xs font-bold mb-1 text-gray-500">API Key</label>
+                <input type="password" id="apiKey" class="w-full p-2 rounded text-xs" value="MC-E5B8AB237AAC4EDCBFA26531D6BE0081">
+            </div>
+            <div>
+                <label class="block text-xs font-bold mb-1 text-gray-500">Base URL</label>
+                <input type="text" id="baseUrl" class="w-full p-2 rounded text-xs" value="https://api.mindcraft.com.cn/v1">
+            </div>
+            <div>
+                <label class="block text-xs font-bold mb-1 text-gray-500">Model</label>
+                <input type="text" id="modelName" class="w-full p-2 rounded text-xs" value="gemini-2.0-flash-exp">
+            </div>
+        </div>
+    </details>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <div class="bg-gray-900 rounded border border-gray-800 p-4 h-fit relative shadow-xl">
+            <div class="absolute top-0 left-0 w-1 h-full bg-blue-900"></div>
+
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-gray-300 flex items-center">
+                    <span class="text-blue-500 mr-2">◆</span> 战术终端
+                </h2>
+                <div class="flex gap-2">
+                    <button onclick="document.getElementById('moveConfigInput').click()" class="text-xs text-gray-500 hover:text-white">📂 Load</button>
+                    <button onclick="saveAllMemories()" class="text-xs text-gray-500 hover:text-white">💾 Save</button>
+                </div>
+                <input type="file" id="moveConfigInput" accept=".json" class="hidden" onchange="loadMoveConfig(this)">
+            </div>
+
+            <div class="mb-4 bg-black/20 p-3 rounded border border-gray-800">
+                <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wide">Opponent</label>
+                <select id="aiClass" class="w-full p-2 rounded text-sm mb-2" onchange="switchEnemyContext()">
+                    <option value="HimuroRinne">氷室 凛音 (Ice Caster)</option>
+                    <option value="Saber">Saber (Generic)</option>
+                </select>
+                <div class="flex items-center gap-2 mt-2">
+                    <div id="aiMoodIndicator" class="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_currentColor]"></div>
+                    <span id="aiMoodText" class="text-xs text-gray-400">Status: Calm</span>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wide">
+                    Field Radar (Reality Texture)
+                </label>
+                <div id="fieldTagsContainer" class="flex flex-wrap min-h-[30px] p-2 bg-black/40 rounded border border-gray-800">
+                    <span class="text-gray-600 text-xs italic w-full text-center py-1">Scanning...</span>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wide">Command Spells</label>
+                <div id="moveListContainer" class="grid grid-cols-1 gap-2 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar mb-2"></div>
+
+                <div id="selectedMoveDetail" class="hidden bg-black/40 border-l-2 border-blue-500 p-3 rounded-r text-xs animate-pulse-border">
+                    <div class="flex justify-between">
+                        <div class="font-bold text-blue-300 mb-1" id="detailName"></div>
+                        <div class="text-[10px] text-gray-500" id="detailType"></div>
+                    </div>
+                    <div class="text-gray-300 mb-2 leading-relaxed opacity-90" id="detailEffect"></div>
+                    <div class="text-red-400 italic opacity-80" id="detailRestriction"></div>
+                </div>
+            </div>
+
+            <button onclick="startBattleTurn()" id="submitBtn" class="w-full bg-gradient-to-r from-blue-900 to-indigo-900 hover:from-blue-800 hover:to-indigo-800 text-gray-100 font-bold py-3 px-4 rounded transition flex justify-center items-center border border-blue-700 shadow-[0_0_15px_rgba(59,130,246,0.3)] disabled:opacity-50 disabled:cursor-not-allowed group">
+                <span id="btnText" class="group-hover:tracking-widest transition-all">EXECUTE</span>
+                <div id="loadingSpinner" class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-5 w-5 ml-3 hidden"></div>
+            </button>
+
+            <div class="mt-4 border-t border-gray-800 pt-2">
+                <div id="battleLog" class="space-y-2 text-[10px] text-gray-500 max-h-32 overflow-y-auto custom-scrollbar"></div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 bg-gray-900 rounded border border-gray-800 p-8 relative overflow-hidden flex flex-col h-[750px]">
+            <div class="absolute -right-10 top-20 text-9xl font-serif font-bold text-white opacity-[0.02] rotate-90 pointer-events-none select-none">
+                AVALON
+            </div>
+
+            <div id="aiMoveDisplay" class="mb-4 hidden transition-all duration-500 z-20">
+                <div class="flex items-center gap-4 mb-3 border-b border-gray-800 pb-3">
+                    <div class="dice-box bg-black/50 px-3 py-2 rounded border border-gray-700 text-center min-w-[80px]">
+                        <div class="text-[10px] text-gray-500 uppercase">Check</div>
+                        <div id="diceRollVal" class="text-2xl text-white">--</div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs text-blue-400 uppercase tracking-widest">Enemy Response</span>
+                        </div>
+                        <h3 id="aiMoveName" class="text-lg font-bold text-gray-100 font-serif tracking-wide" style="text-shadow: 0 0 5px rgba(255,255,255,0.3);"></h3>
+                    </div>
+                    <div id="battleResultBadge"></div>
+                </div>
+
+                <div id="aiThoughtBlock" class="thought-bubble hidden">
+                    <span class="font-bold text-blue-400">[Tactical Assessment]: </span>
+                    <span id="aiThoughtText">Computing...</span>
+                </div>
+            </div>
+
+            <div id="novelOutput" class="nasu-text text-gray-300 text-sm md:text-base leading-relaxed flex-grow z-10 overflow-y-auto custom-scrollbar pr-4 pb-10">
+                <div class="h-full flex flex-col items-center justify-center text-gray-600 italic opacity-50 space-y-2">
+                    <p>Initialize System...</p>
+                    <p>Waiting for command input.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // === 1. 数据定义 ===
+    const CHARACTER_PROFILES = {
+        "HimuroRinne": {
+            name: "氷室 凛音",
+            desc: "操纵“冰结律法”的冷酷大小姐。",
+            personality: "冷酷、逻辑至上、完美主义。面对弱者会表现出高傲，面对强者则会展现出极致的计算。",
+            magicStyle: "冰结律法 (Frozen Ordinance)。擅长控制战场环境，通过冻结概念来封锁敌人的行动。",
+            moves: [
+                { id: "ice_lance", name: "氷结断罪", type: "攻击", effect: "亚音速冰弹，点对点贯穿。" },
+                { id: "law_rain", name: "法则之雨", type: "范围", effect: "AOE 冰晶覆盖，限制移动。" },
+                { id: "absolute_zero", name: "绝对零度", type: "破防", effect: "脆化物理/魔力结构。" },
+                { id: "ice_prison", name: "永恒冰狱", type: "终极", effect: "时空冻结，存在抹杀。" },
+                { id: "diamond_dust", name: "钻石星尘", type: "环境", effect: "制造极低温雾气，降低能见度与反应速度。" },
+                { id: "mirror_image", name: "冰镜映像", type: "防御", effect: "利用冰面折射制造幻影。" }
+            ]
+        },
+        "Saber": {
+            name: "Saber",
+            desc: "拥有圣剑的骑士王。",
+            personality: "正直、勇敢、绝不屈服。直觉敏锐。",
+            magicStyle: "高魔力放出，近战压制，对魔力极高。",
+            moves: [
+                { id: "strike", name: "魔力放出", type: "攻击", effect: "爆发性近战重击。" },
+                { id: "instinct", name: "直感 A", type: "被动", effect: "预知未来的危险。" },
+                { id: "excalibur", name: "Excalibur", type: "终极", effect: "对城宝具，光炮。" }
+            ]
+        }
+    };
+
+    const DEFAULT_USER_MOVES = [
+        { "id": "vega_arrow", "name": "织星贯流 (Vega Arrow)", "type": "攻击", "effect": "极高速能量光束，不可折射，贯穿力极强。", "restriction": "直线攻击，难以转向。" },
+        { "id": "prism_net", "name": "织星折光网", "type": "防御/陷阱", "effect": "布置水晶节点形成折射网，拦截光束或反弹攻击。", "restriction": "需要提前布置。" },
+        { "id": "singularity", "name": "织星破界 (Singularity)", "type": "终极", "effect": "聚合能量引发恒星级爆发。", "restriction": "魔力耗尽，下一回合无法行动。" },
+        { "id": "lunar_flash", "name": "影月瞬斩", "type": "暗杀", "effect": "利用阴影进行的超高速斩击，无视护盾。", "restriction": "需要在低光照环境下使用。" },
+        { "id": "causality_eye", "name": "魔眼：因果透视", "type": "辅助", "effect": "观测未来的因果线，寻找必胜路径。", "restriction": "精神负荷极大，Sanity降低。" },
+        { "id": "gravity_anchor", "name": "重力锚点", "type": "控制", "effect": "在指定空间产生高重力场，压制敌人。", "restriction": "持续时间短。" }
+    ];
+
+    let battleDatabase = {};
+    let currentClass = "HimuroRinne";
+    let activeMoves = [...DEFAULT_USER_MOVES];
+    let currentSelectedMove = null;
+
+    // === 2. 初始化与 UI 逻辑 ===
+    window.onload = function() {
+        currentClass = document.getElementById('aiClass').value;
+        ensureClassDataExists(currentClass);
+        renderMoveList();
+        refreshUI();
+    };
+
+    function ensureClassDataExists(className) {
+        if (!battleDatabase[className]) {
+            battleDatabase[className] = [];
+        }
+    }
+
+    function renderMoveList() {
+        const container = document.getElementById('moveListContainer');
+        container.innerHTML = '';
+        currentSelectedMove = null;
+        updateMoveDetailUI();
+
+        activeMoves.forEach((move, index) => {
+            const btn = document.createElement('div');
+            btn.className = "move-card p-2 rounded flex justify-between items-center mb-1";
+            btn.onclick = () => selectMove(index, btn);
+
+            let typeColor = "text-gray-400 border-gray-600";
+            if(move.type.includes("攻击")) typeColor = "text-red-400 border-red-800 bg-red-900/10";
+            if(move.type.includes("防御")) typeColor = "text-blue-400 border-blue-800 bg-blue-900/10";
+            if(move.type.includes("终极")) typeColor = "text-yellow-400 border-yellow-800 bg-yellow-900/10";
+            if(move.type.includes("辅助") || move.type.includes("环境")) typeColor = "text-green-400 border-green-800 bg-green-900/10";
+
+            btn.innerHTML = `
+                <span class="font-bold text-xs text-gray-200">${move.name}</span>
+                <span class="text-[9px] border px-1 rounded ${typeColor}">${move.type}</span>
+            `;
+            container.appendChild(btn);
+        });
+    }
+
+    function selectMove(index, btnElement) {
+        const allBtns = document.querySelectorAll('.move-card');
+        allBtns.forEach(b => b.classList.remove('selected'));
+        btnElement.classList.add('selected');
+        currentSelectedMove = activeMoves[index];
+        updateMoveDetailUI();
+    }
+
+    function updateMoveDetailUI() {
+        const detailBox = document.getElementById('selectedMoveDetail');
+        if (!currentSelectedMove) {
+            detailBox.classList.add('hidden');
+            return;
+        }
+        detailBox.classList.remove('hidden');
+        document.getElementById('detailName').innerText = currentSelectedMove.name;
+        document.getElementById('detailType').innerText = currentSelectedMove.type;
+        document.getElementById('detailEffect').innerText = currentSelectedMove.effect;
+        document.getElementById('detailRestriction').innerText = "⚠️ " + currentSelectedMove.restriction;
+    }
+
+    function switchEnemyContext() {
+        currentClass = document.getElementById('aiClass').value;
+        ensureClassDataExists(currentClass);
+        document.getElementById('aiMoveDisplay').classList.add('hidden');
+        refreshUI();
+    }
+
+    function refreshUI() {
+        const history = battleDatabase[currentClass] || [];
+        rebuildBattleLog(history);
+        rebuildNovelHistory(history);
+
+        // 恢复最新的环境状态 (如果有)
+        if(history.length > 0) {
+            const lastTurn = history[history.length - 1];
+            updateFieldTags(lastTurn.envTags || []);
+            updateAIMood(lastTurn.aiMood || "Calm");
+        } else {
+            updateFieldTags(["Neutral Space"]);
+            updateAIMood("Calm");
+        }
+    }
+
+    // === 3. 新增视觉功能 ===
+
+    function updateFieldTags(tags) {
+        const container = document.getElementById('fieldTagsContainer');
+        container.innerHTML = '';
+        if(!tags || tags.length === 0) {
+            container.innerHTML = '<span class="text-gray-600 text-xs italic">Normal Space</span>';
+            return;
+        }
+
+        // 预设一些颜色的 Tag
+        const colorMap = {
+            "冰": "border-blue-500 text-blue-300",
+            "火": "border-red-500 text-red-300",
+            "暗": "border-purple-500 text-purple-300",
+            "重力": "border-yellow-500 text-yellow-300",
+            "光": "border-white text-white shadow-[0_0_10px_white]",
+            "破碎": "border-gray-500 text-gray-400 decoration-line-through"
+        };
+
+        tags.forEach(tag => {
+            const el = document.createElement('span');
+            let className = "field-tag text-gray-300 border-gray-600"; // 默认
+
+            // 简单的关键词匹配配色
+            for (let key in colorMap) {
+                if (tag.includes(key)) className = `field-tag ${colorMap[key]}`;
+            }
+
+            el.className = className;
+            el.innerText = tag;
+            container.appendChild(el);
+        });
+    }
+
+    function updateAIMood(mood) {
+        const indicator = document.getElementById('aiMoodIndicator');
+        const text = document.getElementById('aiMoodText');
+        text.innerText = `Status: ${mood}`;
+
+        // 简单的颜色映射
+        let color = "bg-blue-500";
+        if(mood.includes("Angry") || mood.includes("Aggressive")) color = "bg-red-500 shadow-[0_0_10px_red]";
+        if(mood.includes("Panicked") || mood.includes("Confused")) color = "bg-purple-500 animate-pulse";
+        if(mood.includes("Confident") || mood.includes("Smug")) color = "bg-yellow-500";
+        if(mood.includes("Analysis")) color = "bg-green-500";
+
+        indicator.className = `w-2 h-2 rounded-full ${color} transition-all duration-500`;
+    }
+
+    function animateDice(targetVal, isSuccess) {
+        const el = document.getElementById('diceRollVal');
+        const box = el.parentElement;
+        let count = 0;
+        const interval = setInterval(() => {
+            el.innerText = Math.floor(Math.random() * 20) + 1;
+            count++;
+            if(count > 10) {
+                clearInterval(interval);
+                el.innerText = targetVal;
+
+                // 结果颜色
+                if(isSuccess) {
+                    el.style.color = "#4ade80"; // Green
+                    box.style.borderColor = "#4ade80";
+                    box.style.boxShadow = "0 0 15px rgba(74, 222, 128, 0.5)";
+                } else {
+                    el.style.color = "#f87171"; // Red
+                    box.style.borderColor = "#f87171";
+                    box.style.boxShadow = "0 0 15px rgba(248, 113, 113, 0.5)";
+                }
+            }
+        }, 50);
+    }
+
+    // === 4. 核心 API 逻辑 (LLM Logic V2) ===
+
+    async function startBattleTurn() {
+        const apiKey = document.getElementById('apiKey').value.trim();
+        const baseUrl = document.getElementById('baseUrl').value.trim().replace(/\/+$/, '');
+        const modelName = document.getElementById('modelName').value.trim();
+
+        if (!currentSelectedMove) { alert("请选择一个招式！"); return; }
+        if (!apiKey) { alert("请输入 API Key"); return; }
+
+        // UI Loading State
+        const btn = document.getElementById('submitBtn');
+        const spinner = document.getElementById('loadingSpinner');
+        const btnText = document.getElementById('btnText');
+        btn.disabled = true;
+        btnText.innerText = "CALCULATING...";
+        spinner.classList.remove('hidden');
+
+        // Context Setup
+        const history = battleDatabase[currentClass] || [];
+        const lastTurn = history.length > 0 ? history[history.length - 1] : null;
+        const aiProfile = CHARACTER_PROFILES[currentClass];
+
+        // 构建历史概要 (Recent Memory)
+        const recentLog = history.slice(-2).map(h =>
+            `Turn ${h.turn}: User used [${h.userMoveName}], AI used [${h.ai}], Environment: [${h.envTags?.join(',')}]`
+        ).join("\n");
+
+        // 构建当前环境
+        const currentEnv = lastTurn ? lastTurn.envTags.join(", ") : "Neutral State";
+        const currentMood = lastTurn ? lastTurn.aiMood : "Calm";
+
+        // === Prompt Engineering V2: Game Master Mode ===
+        const systemPrompt = `
+            You are a "Game Master" and "Battle Novelist" for a Fate/Stay Night style RPG.
+
+            【Role】
+            You control the enemy Character: **${aiProfile.name}**.
+            Personality: ${aiProfile.personality}
+            Magic: ${aiProfile.magicStyle}
+
+            【Task】
+            1. **Analyze**: Evaluate User's move "${currentSelectedMove.name}" against current environment "${currentEnv}" and AI's state.
+            2. **Roll Dice**: Simulate a D20 roll for the User's success rate.
+               - If User's move counters AI or uses environment well -> Lower Difficulty (DC).
+               - If User's move is reckless or countered by AI -> Higher Difficulty (DC).
+               - Roll Result > DC = Success (User hits/defends well).
+               - Roll Result < DC = Failure (User is countered/damaged).
+            3. **React**: Choose the AI's next move based on the roll result.
+               - If User Failed: AI punishes them severely.
+               - If User Succeeded: AI is forced to defend or takes damage, then tries to recover.
+            4. **Environment**: Update battlefield tags. (e.g., if User uses Fire, add "Scorched Earth").
+            5. **Narrate**: Write a dramatic, Nasu-style battle scene describing the exchange.
+
+            【Output Format】
+            Strict JSON only. No markdown.
+            {
+                "ai_thought": "Short internal monologue explaining why AI chose this move (e.g. 'He is aiming for my blind spot, I must freeze the ground').",
+                "roll_result": { "roll": 1-20, "dc": 1-20, "success": boolean },
+                "ai_move_name": "Name of AI's counter/attack",
+                "ai_mood": "Current emotional state (Calm/Angry/Shocked/Arrogant)",
+                "env_tags": ["Tag1", "Tag2"],
+                "battle_result_short": "Short status (e.g. 'AI Damaged', 'User Repelled')",
+                "solution_best": "Best next move for User",
+                "solution_worst": "Worst next move for User",
+                "novel_text": "The actual story text..."
+            }
+        `;
+
+        const userPrompt = `
+            [Current State]
+            Turn: ${history.length + 1}
+            Environment: ${currentEnv}
+            AI Mood: ${currentMood}
+
+            [History]
+            ${recentLog}
+
+            [Action]
+            **Player uses**: "${currentSelectedMove.name}"
+            **Effect**: ${currentSelectedMove.effect}
+            **Type**: ${currentSelectedMove.type}
+
+            [Instructions]
+            - Calculate the interaction logic.
+            - If Player uses "Time" or "Causality" magic, increase DC significantly (Hard to pull off).
+            - If Environment is "Frozen" and Player uses "Slide" or "Ice" moves, give Advantage (Roll + 5 virtual).
+            - Generate the JSON response.
+        `;
+
+        try {
+            const response = await fetch(`${baseUrl}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                    model: modelName,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userPrompt }
+                    ],
+                    temperature: 1.0 // 增加随机性
+                })
+            });
+
+            if (!response.ok) throw new Error("API Connection Failed");
+
+            const data = await response.json();
+            const result = parseJSONSafe(data.choices[0].message.content);
+
+            // 保存数据
+            const turnData = {
+                turn: history.length + 1,
+                userMoveName: currentSelectedMove.name,
+                ai: result.ai_move_name,
+                result: result.battle_result_short,
+                novelText: result.novel_text,
+                envTags: result.env_tags || [],
+                aiMood: result.ai_mood || "Calm",
+                aiThought: result.ai_thought,
+                roll: result.roll_result
+            };
+
+            battleDatabase[currentClass].push(turnData);
+
+            // UI 更新序列
+            refreshUI();
+
+            // 触发动画
+            const display = document.getElementById('aiMoveDisplay');
+            display.classList.remove('hidden');
+
+            document.getElementById('aiMoveName').innerText = result.ai_move_name;
+            document.getElementById('aiThoughtText').innerText = result.ai_thought;
+            document.getElementById('aiThoughtBlock').classList.remove('hidden');
+
+            // 渲染结果 Badge
+            const resBadge = document.getElementById('battleResultBadge');
+            const isWin = result.roll_result.success;
+            resBadge.innerHTML = `<span class="result-badge ${isWin ? 'text-green-400 border-green-400' : 'text-red-400 border-red-400'}">
+                ${result.battle_result_short}
+            </span>`;
+
+            // 骰子动画
+            animateDice(result.roll_result.roll, result.roll_result.success);
+
+            // 更新环境和心情
+            updateFieldTags(result.env_tags);
+            updateAIMood(result.ai_mood);
+
+        } catch (error) {
+            console.error(error);
+            alert("Error: " + error.message);
+        } finally {
+            btn.disabled = false;
+            btnText.innerText = "EXECUTE";
+            spinner.classList.add('hidden');
+        }
+    }
+
+    // 辅助: 鲁棒的 JSON 解析
+    function parseJSONSafe(str) {
+        // 1. 定义一个完整的默认对象，确保所有字段都存在
+        const defaultData = {
+            ai_thought: "（系统：AI 逻辑运算中，未生成具体思考内容）",
+            roll_result: { roll: 10, dc: 10, success: false }, // 关键！确保 roll_result 永远存在
+            ai_move_name: "未知招式",
+            ai_mood: "Calm",
+            env_tags: [],
+            battle_result_short: "未知结果",
+            solution_best: "暂无",
+            solution_worst: "暂无",
+            novel_text: str // 如果解析失败，至少把原始文本显示出来
+        };
+
+        try {
+            let parsed = null;
+            // 尝试提取 JSON 区块
+            const first = str.indexOf('{');
+            const last = str.lastIndexOf('}');
+
+            if (first !== -1 && last !== -1) {
+                // 提取 {} 之间的内容进行解析
+                parsed = JSON.parse(str.substring(first, last + 1));
+            } else {
+                // 尝试直接解析
+                parsed = JSON.parse(str);
+            }
+
+            // 2. 数据合并：用解析出的数据覆盖默认数据
+            // 使用 Object.assign 或 展开运算符 (...)
+            const finalData = { ...defaultData, ...parsed };
+
+            // 3. 特殊检查：防止嵌套对象 roll_result 丢失
+            // 即使 parsed 成功了，它可能也没有 roll_result 字段，所以要单独检查
+            if (!finalData.roll_result || typeof finalData.roll_result.success === 'undefined') {
+                console.warn("修复：AI 返回数据缺少 roll_result，使用默认值。");
+                finalData.roll_result = defaultData.roll_result;
+            }
+
+            return finalData;
+
+        } catch (e) {
+            console.error("JSON Parse Error", e);
+            console.log("原始返回内容:", str);
+
+            // 解析彻底失败时的兜底
+            defaultData.novel_text = "【系统错误】数据解析失败，可能是 AI 返回格式异常。\n\n原始数据：" + str;
+            return defaultData;
+        }
+    }
+
+    // 保持原来的存档读写功能
+    function saveAllMemories() {
+        const dataStr = JSON.stringify(battleDatabase, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `FGO_Sim_Save_${new Date().getTime()}.json`;
+        a.click();
+    }
+
+    function loadMemories(input) { /* ... same as before ... */ }
+    function loadMoveConfig(input) { /* ... same as before ... */ }
+
+    // 复用原来的 Log 重建逻辑，稍作修改以适应新数据
+    function rebuildBattleLog(history) {
+        const battleLog = document.getElementById('battleLog');
+        battleLog.innerHTML = '';
+        [...history].reverse().forEach(turn => {
+            const item = document.createElement('div');
+            item.className = "mb-2 p-2 bg-black/30 rounded border-l-2 " + (turn.roll?.success ? "border-green-500" : "border-red-500");
+            item.innerHTML = `
+                <div class="flex justify-between text-gray-400">
+                    <span>Turn ${turn.turn}</span>
+                    <span class="${turn.roll?.success ? 'text-green-400' : 'text-red-400'} font-bold">Roll: ${turn.roll?.roll}</span>
+                </div>
+                <div class="text-gray-500 truncate">User: ${turn.userMoveName} | AI: ${turn.ai}</div>
+            `;
+            battleLog.appendChild(item);
+        });
+    }
+
+    function rebuildNovelHistory(history) {
+        const container = document.getElementById('novelOutput');
+        container.innerHTML = '';
+        if (history.length === 0) {
+            container.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-gray-600 italic opacity-50 space-y-4"><p>Link Start...</p></div>`;
+            return;
+        }
+
+        history.forEach((turn, index) => {
+            const divider = document.createElement('div');
+            divider.className = "chapter-divider";
+            divider.innerHTML = `<span>Turn ${turn.turn} // Phase: ${turn.roll?.success ? 'ADVANTAGE' : 'DISADVANTAGE'}</span>`;
+            container.appendChild(divider);
+
+            const content = document.createElement('div');
+            content.className = "mb-6 animate-fade-in";
+            // 渲染小说文本
+            content.innerHTML = marked.parse(turn.novelText || "");
+
+            // 渲染回合结束后的环境小字
+            if(turn.envTags && turn.envTags.length > 0) {
+                const tagLine = document.createElement('div');
+                tagLine.className = "text-[10px] text-gray-600 mt-2 font-mono text-right";
+                tagLine.innerText = `[REALITY TEXTURE]: ${turn.envTags.join(' / ')}`;
+                content.appendChild(tagLine);
+            }
+
+            container.appendChild(content);
+        });
+
+        setTimeout(() => container.scrollTop = container.scrollHeight, 100);
+    }
+</script>
+</body>
+</html>

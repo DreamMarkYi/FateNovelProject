@@ -1,0 +1,16 @@
+{
+  "name": "knowledge-graph-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for writing knowledge graph data to Neo4j (calls 地图生成 HTTP API)",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "knowledge-graph-mcp": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

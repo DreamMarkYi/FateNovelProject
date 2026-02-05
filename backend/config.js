@@ -23,6 +23,13 @@ module.exports = {
   
   cors: {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173'
+  },
+  
+  // AI API 配置（用于战斗模拟器）
+  ai: {
+    apiKey: process.env.AI_API_KEY || 'MC-E5B8AB237AAC4EDCBFA26531D6BE0081',
+    baseUrl: process.env.AI_BASE_URL || 'https://api.mindcraft.com.cn/v1',
+    modelName: process.env.AI_MODEL_NAME || 'gemini-3-flash-latest'
   }
 };
 

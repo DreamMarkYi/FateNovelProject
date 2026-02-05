@@ -1,110 +1,137 @@
 <template>
   <div class="container">
-    <aside class="sidebar">
-      <div class="sidebar-text">Sketchbook</div>
+    <!-- 加载状态 -->
+    <div v-if="loading" class="loading-container">
+      <div class="loading-text">正在加载涂鸦故事...</div>
+    </div>
 
-      <div class="nav-controls">
-        <button
-            class="nav-btn prev-btn"
-            @click="prevPage"
-            :disabled="currentIndex === 0"
-            title="上一页"
-        >
-          ↑
-        </button>
-        <span class="page-indicator">{{ currentIndex + 1 }} / {{ stories.length }}</span>
-        <button
-            class="nav-btn next-btn"
-            @click="nextPage"
-            :disabled="currentIndex === stories.length - 1"
-            title="下一页"
-        >
-          ↓
-        </button>
-      </div>
-    </aside>
+    <!-- 错误状态 -->
+    <div v-else-if="error" class="error-container">
+      <div class="error-text">{{ error }}</div>
+      <button @click="loadStories" class="retry-btn">重试</button>
+    </div>
 
-    <transition name="book-flip" mode="out-in">
+    <!-- 正常内容 -->
+    <template v-else-if="stories.length > 0">
+      <aside class="sidebar">
+        <div class="sidebar-text">Sketchbook</div>
 
-      <div class="page-wrapper" :key="currentIndex">
+        <div class="nav-controls">
+          <button
+              class="nav-btn prev-btn"
+              @click="prevPage"
+              :disabled="currentIndex === 0"
+              title="上一页"
+          >
+            ↑
+          </button>
+          <span class="page-indicator">{{ currentIndex + 1 }} / {{ stories.length }}</span>
+          <button
+              class="nav-btn next-btn"
+              @click="nextPage"
+              :disabled="currentIndex === stories.length - 1"
+              title="下一页"
+          >
+            ↓
+          </button>
+        </div>
+      </aside>
 
-        <section class="text-section">
-          <div class="date-mark">{{ currentStory.dateMark }}</div>
+      <transition name="book-flip" mode="out-in">
 
-          <h1>{{ currentStory.date }}</h1>
+        <div class="page-wrapper" :key="currentIndex">
 
-          <div class="content-body">
-            <p v-for="(paragraph, index) in currentStory.content" :key="index">
-              {{ paragraph }}
-            </p>
-          </div>
+          <section class="text-section">
+            <div class="date-mark">{{ currentStory.dateMark }}</div>
 
-          <div class="signature">
-            <div class="sign-name">{{ currentStory.signature }}</div>
-          </div>
-        </section>
+            <h1>{{ currentStory.date }}</h1>
 
-        <section class="image-section">
-          <div class="doodle-frame">
-            <img :src="currentStory.image" :alt="currentStory.title">
-          </div>
-        </section>
+            <div class="content-body">
+              <p v-for="(paragraph, index) in currentStory.content" :key="index">
+                {{ paragraph }}
+              </p>
+            </div>
 
-      </div>
-    </transition>
+            <div class="signature">
+              <div class="sign-name">{{ currentStory.signature }}</div>
+            </div>
+          </section>
+
+          <section class="image-section">
+            <div class="doodle-frame">
+              <img :src="currentStory.image" :alt="currentStory.title">
+            </div>
+          </section>
+
+        </div>
+      </transition>
+    </template>
+
+    <!-- 空数据状态 -->
+    <div v-else class="empty-container">
+      <div class="empty-text">暂无涂鸦故事数据</div>
+    </div>
 
   </div>
 </template>
 
 <script>
+import doodleStoryApi from '@/api/doodleStoryApi'
+
 export default {
   name: 'DoodleStoryPage',
   data() {
     return {
       currentIndex: 0,
-      stories: [
-        {
-          dateMark: '上课无聊画的',
-          date: '2016年10月21日',
-          title: '汉堡店的秘密',
-          content: [
-            '今天做了一件"坏事"。 我带着琉璃,还有顺手抓来的秋山,逃掉了学生会的例会。',
-            '理由很简单:琉璃盯着校门口快餐店的眼神太直白了。那个平日里完美无缺的大小姐 ,居然会对廉价的油炸食品露出这种渴望又胆怯的表情,实在让人没法放着不管。',
-            '到了店里,琉璃拿着汉堡的样子如临大敌。果然,第一口下去,番茄酱就沾到了嘴角。 她瞬间僵住,脸色惨白,仿佛犯下了什么不可饶恕的社交错误。',
-            '笨蛋秋山叹了口气,极其自然地递过一张纸巾,用那种毫无起伏的语调说:"神代同学,这里没有观众,也没人给你打分,放松点。"',
-            '琉璃愣了一下,脸颊瞬间涨红。她狠狠瞪了痕一眼,接过纸巾擦掉了污渍,但紧绷的肩膀却垮了下来。',
-            'P.S. 其实,我早就注意到痕的口袋里装着那包没开封的纸巾了。 故意没提醒琉璃小心酱汁,就是想看看那个木头会怎么做。'
-          ],
-          signature: '遥',
-          image: 'https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/MiniStoryBG1.png'
-        },
-        {
-          dateMark: '不开心',
-          date: '2016年11月05日',
-          title: '图书馆的偶遇',
-          content: [
-            '如果有“在毫无意义的事情上浪费人生”的比赛，痕这家伙绝对能拿金牌。',
-            '今天躲雨的时候钻进了一家电玩城。本来只是想打发时间，结果这家伙在一台抓娃娃机前走不动路了。橱窗里明明只是一只长得像被生活痛殴过的、眼歪嘴斜的蓝色鲨鱼玩偶，审美奇差无比。但整个笨蛋就像是被下了降头一样，死死盯着那只鲨鱼。',
-            '真的太好笑了。 平日里那副对什么都提不起劲、仿佛看破红尘的死鱼眼去哪了？现在这个为了几十块钱的布偶跟机器较劲的笨蛋是谁啊？',
-            '“喂，秋山同学“，“再投下去，这只鲨鱼的身价都要超过神户牛肉了。”',
-            '痕被我吓得手一抖，摇杆一歪，爪子却奇迹般地勾住了鲨鱼的尾巴。 伴随着欢快的廉价电子音，那只丑鲨鱼滚了出来。',
-            '他愣了一下，把玩偶从取物口拿出来，长舒了一口气，然后极其顺手地，把那个丑东西塞进了我的怀里。',
-            '“拿去堵住你的嘴。”',
-            '既然你这么诚心诚意地供奉了，本小姐就勉为其难收下吧。 虽然它真的很丑，丑得和你刚才那副不服输的表情一模一样。',
-              'P.S. 回家把鲨鱼摆在床头了。 盯着看了会儿，发现这鲨鱼死气沉沉的眼神……怎么越看越像痕？ 以后心情不好的时候，就戳它的脸出气好了。'
-          ],
-          signature: '遥',
-          image: 'https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/MiniStoryBG2.png'
-        }
-      ]
+      stories: [],
+      loading: true,
+      error: null
     }
   },
   computed: {
     currentStory() {
-      return this.stories[this.currentIndex];
+      return this.stories[this.currentIndex] || {};
     }
   },
+  async mounted() {
+    await this.loadStories();
+  },
   methods: {
+    async loadStories() {
+      try {
+        this.loading = true;
+        this.error = null;
+        
+        console.log('📖 开始加载涂鸦故事数据...');
+        const response = await doodleStoryApi.getActiveDoodleStories();
+        
+        if (response.success && response.data && response.data.length > 0) {
+          // 将数据库中的数据映射到前端需要的格式
+          this.stories = response.data.map(story => ({
+            dateMark: story.dateMark || '',
+            date: story.date || '',
+            title: story.title || '',
+            content: Array.isArray(story.content) ? story.content : [],
+            signature: story.signature || '遥',
+            image: story.image || ''
+          }));
+          
+          console.log(`✅ 成功加载 ${this.stories.length} 个涂鸦故事`);
+        } else {
+          console.warn('⚠️ 涂鸦故事数据为空或加载失败');
+          this.error = '暂无涂鸦故事数据';
+          // 使用空数组作为后备
+          this.stories = [];
+        }
+      } catch (err) {
+        console.error('加载涂鸦故事失败:', err);
+        this.error = '加载涂鸦故事失败，请确保后端服务器正在运行';
+        // 使用空数组作为后备
+        this.stories = [];
+      } finally {
+        this.loading = false;
+      }
+    },
     nextPage() {
       if (this.currentIndex < this.stories.length - 1) {
         this.currentIndex++;
@@ -350,6 +377,48 @@ h1 {
 
   /* 增加一个轻微的阴影，增加纸张剪贴感 */
   filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.1));
+}
+
+/* --- 加载和错误状态 --- */
+.loading-container,
+.error-container,
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  width: 100vw;
+  font-family: 'Caveat', 'Zhi Mang Xing', cursive;
+  color: #2c3e50;
+}
+
+.loading-text,
+.error-text,
+.empty-text {
+  font-size: 1.5rem;
+  color: #888;
+  margin-bottom: 20px;
+}
+
+.error-text {
+  color: #b85c5c;
+}
+
+.retry-btn {
+  padding: 10px 20px;
+  background-color: #b85c5c;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-family: 'Caveat', cursive;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.retry-btn:hover {
+  background-color: #a04949;
 }
 
 /* 移动端适配 */

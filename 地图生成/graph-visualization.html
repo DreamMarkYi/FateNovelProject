@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo4j 图谱可视化</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #0a0a0a;
+            color: #d0d7de;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #1a1a1a;
+            border-bottom: 2px solid #00ffcc;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 255, 204, 0.2);
+        }
+
+        .header h1 {
+            color: #00ffcc;
+            font-size: 24px;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn {
+            background: #1a1a1a;
+            border: 2px solid #00ffcc;
+            color: #00ffcc;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #00ffcc;
+            color: #0a0a0a;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.5);
+        }
+
+        .btn.active {
+            background: #00ffcc;
+            color: #0a0a0a;
+        }
+
+        .btn.danger {
+            border-color: #ff3333;
+            color: #ff3333;
+        }
+
+        .btn.danger:hover {
+            background: #ff3333;
+            color: #0a0a0a;
+            box-shadow: 0 0 15px rgba(255, 51, 51, 0.5);
+        }
+
+        .status {
+            padding: 8px 16px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .status.success {
+            border-color: #00ff33;
+            color: #00ff33;
+        }
+
+        .status.error {
+            border-color: #ff3333;
+            color: #ff3333;
+        }
+
+        .status.loading {
+            border-color: #ffaa00;
+            color: #ffaa00;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 70px);
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .graph-panel {
+            flex: 1;
+            background: #0f0f0f;
+            border: 2px solid #333;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .graph-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(180deg, #1a1a1a 0%, transparent 100%);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .graph-title {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            z-index: 11;
+            color: #00ffcc;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+        }
+
+        .graph-stats {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            z-index: 11;
+            color: #888;
+            font-size: 12px;
+        }
+
+        .fullscreen-btn {
+            position: absolute;
+            top: 10px;
+            right: 120px;
+            z-index: 11;
+            background: rgba(26, 26, 26, 0.8);
+            border: 1px solid #00ffcc;
+            color: #00ffcc;
+            padding: 4px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 12px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+        }
+
+        .fullscreen-btn:hover {
+            background: #00ffcc;
+            color: #0a0a0a;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+        }
+
+        .graph-panel.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            border-radius: 0;
+            border: none;
+        }
+
+        .graph-panel.fullscreen .fullscreen-btn {
+            right: 15px;
+        }
+
+        /* 节点对比图例 */
+        .node-legend {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(26, 26, 26, 0.95);
+            border: 2px solid #00ffcc;
+            border-radius: 8px;
+            padding: 15px;
+            z-index: 10000;
+            display: none;
+            min-width: 280px;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .node-legend.visible {
+            display: block;
+        }
+
+        .node-legend h4 {
+            color: #00ffcc;
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+            padding-bottom: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            font-size: 12px;
+            color: #d0d7de;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            margin-right: 12px;
+            border: 3px solid;
+            flex-shrink: 0;
+            background: #1a1a1a;
+        }
+
+        .legend-label {
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        #graph-default, #graph-graph1, #graph-graph2, #graph-graph3, #graph-graph4 {
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+        }
+
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(26, 26, 26, 0.95);
+            border: 2px solid #00ffcc;
+            border-radius: 8px;
+            padding: 15px;
+            max-width: 400px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+
+        .info-panel.visible {
+            display: block;
+        }
+
+        .info-panel h3 {
+            color: #00ffcc;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .info-panel .info-item {
+            margin: 8px 0;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .info-panel .info-label {
+            color: #888;
+            display: inline-block;
+            width: 80px;
+        }
+
+        .info-panel .info-value {
+            color: #d0d7de;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #00ffcc;
+            font-size: 20px;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            color: #ff3333;
+        }
+
+        /* 滚动条样式 */
+        .info-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .info-panel::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .info-panel::-webkit-scrollbar-thumb {
+            background: #00ffcc;
+            border-radius: 3px;
+        }
+
+        .info-panel::-webkit-scrollbar-thumb:hover {
+            background: #00ff33;
+        }
+
+        /* 执行日志模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.visible {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: #1a1a1a;
+            border: 2px solid #00ffcc;
+            border-radius: 8px;
+            padding: 20px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+
+        .modal-header h2 {
+            color: #00ffcc;
+            font-size: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #00ffcc;
+            font-size: 28px;
+            cursor: pointer;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.3s;
+        }
+
+        .modal-close:hover {
+            color: #ff3333;
+        }
+
+        .log-container {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            flex: 1;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #d0d7de;
+            max-height: 60vh;
+        }
+
+        .log-line {
+            margin: 4px 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .log-line.stdout {
+            color: #d0d7de;
+        }
+
+        .log-line.stderr {
+            color: #ff6b6b;
+        }
+
+        .log-line.success {
+            color: #00ff33;
+            font-weight: bold;
+        }
+
+        .log-line.error {
+            color: #ff3333;
+            font-weight: bold;
+        }
+
+        .modal-footer {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .log-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .log-container::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .log-container::-webkit-scrollbar-thumb {
+            background: #00ffcc;
+            border-radius: 4px;
+        }
+
+        .btn.running {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔮 Neo4j 图谱可视化</h1>
+            <div class="controls">
+            <div class="status" id="status">就绪</div>
+            <button class="btn" onclick="loadAllGraphs()">刷新数据</button>
+            <button class="btn" onclick="resetLayout()">重置布局</button>
+            <button class="btn" onclick="compareNodes()">节点对比</button>
+            <button class="btn" onclick="clearNodeColors()">清除对比</button>
+            <button class="btn danger" onclick="clearAllDatabases()">清空数据库</button>
+            <button class="btn" id="executeBtn" onclick="executeMainPy()">执行 main.py</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="graph-panel" id="panel-default">
+            <div class="graph-title">📊 默认数据库 (neo4j)</div>
+            <div class="graph-stats" id="stats-default">节点: 0 | 关系: 0</div>
+            <button class="fullscreen-btn" onclick="toggleFullscreen('default')" title="全屏显示/退出全屏">
+                <span id="fullscreen-icon-default">⛶</span> 全屏
+            </button>
+            <div id="graph-default"></div>
+            <div class="info-panel" id="info-default">
+                <button class="close-btn" onclick="closeInfoPanel('default')">×</button>
+                <h3>节点信息</h3>
+                <div id="info-content-default"></div>
+            </div>
+        </div>
+
+        <div class="graph-panel" id="panel-graph1">
+            <div class="graph-title">📈 Graph1 数据库</div>
+            <div class="graph-stats" id="stats-graph1">节点: 0 | 关系: 0</div>
+            <button class="fullscreen-btn" onclick="toggleFullscreen('graph1')" title="全屏显示/退出全屏">
+                <span id="fullscreen-icon-graph1">⛶</span> 全屏
+            </button>
+            <div id="graph-graph1"></div>
+            <div class="info-panel" id="info-graph1">
+                <button class="close-btn" onclick="closeInfoPanel('graph1')">×</button>
+                <h3>节点信息</h3>
+                <div id="info-content-graph1"></div>
+            </div>
+        </div>
+
+        <div class="graph-panel" id="panel-graph2">
+            <div class="graph-title">📊 Graph2 数据库</div>
+            <div class="graph-stats" id="stats-graph2">节点: 0 | 关系: 0</div>
+            <button class="fullscreen-btn" onclick="toggleFullscreen('graph2')" title="全屏显示/退出全屏">
+                <span id="fullscreen-icon-graph2">⛶</span> 全屏
+            </button>
+            <div id="graph-graph2"></div>
+            <div class="info-panel" id="info-graph2">
+                <button class="close-btn" onclick="closeInfoPanel('graph2')">×</button>
+                <h3>节点信息</h3>
+                <div id="info-content-graph2"></div>
+            </div>
+        </div>
+
+        <div class="graph-panel" id="panel-graph3">
+            <div class="graph-title">📉 Graph3 数据库</div>
+            <div class="graph-stats" id="stats-graph3">节点: 0 | 关系: 0</div>
+            <button class="fullscreen-btn" onclick="toggleFullscreen('graph3')" title="全屏显示/退出全屏">
+                <span id="fullscreen-icon-graph3">⛶</span> 全屏
+            </button>
+            <div id="graph-graph3"></div>
+            <div class="info-panel" id="info-graph3">
+                <button class="close-btn" onclick="closeInfoPanel('graph3')">×</button>
+                <h3>节点信息</h3>
+                <div id="info-content-graph3"></div>
+            </div>
+        </div>
+
+        <div class="graph-panel" id="panel-graph4">
+            <div class="graph-title">📊 Graph4 数据库</div>
+            <div class="graph-stats" id="stats-graph4">节点: 0 | 关系: 0</div>
+            <button class="fullscreen-btn" onclick="toggleFullscreen('graph4')" title="全屏显示/退出全屏">
+                <span id="fullscreen-icon-graph4">⛶</span> 全屏
+            </button>
+            <div id="graph-graph4"></div>
+            <div class="info-panel" id="info-graph4">
+                <button class="close-btn" onclick="closeInfoPanel('graph4')">×</button>
+                <h3>节点信息</h3>
+                <div id="info-content-graph4"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 节点对比图例（全屏时显示） -->
+    <div class="node-legend" id="nodeLegend">
+        <h4>📊 节点对比图例</h4>
+        <div class="legend-item">
+            <div class="legend-color" style="border-color: #00ff00;"></div>
+            <div class="legend-label">5个数据库都有</div>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="border-color: #00aaff;"></div>
+            <div class="legend-label">Graph1-4 都有</div>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="border-color: #ffaa00;"></div>
+            <div class="legend-label">Graph2-4 都有</div>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="border-color: #ff00aa;"></div>
+            <div class="legend-label">Graph3-4 都有</div>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="border-color: #aa00ff;"></div>
+            <div class="legend-label">仅在 Graph4 中</div>
+        </div>
+    </div>
+
+    <!-- 执行日志模态框 -->
+    <div class="modal" id="executeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🚀 执行 main.py</h2>
+                <button class="modal-close" onclick="closeExecuteModal()">×</button>
+            </div>
+            <div class="log-container" id="logContainer"></div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeExecuteModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let networks = {};
+        let nodesData = {};
+        let edgesData = {};
+        let nodeComparison = null; // 存储节点对比结果
+
+        // 初始化图谱
+        function initGraph(graphId, databaseName) {
+            const container = document.getElementById(`graph-${graphId}`);
+            if (!container) return;
+
+            const nodes = new vis.DataSet([]);
+            const edges = new vis.DataSet([]);
+
+            const options = {
+                nodes: {
+                    shape: 'hexagon',
+                    size: 25,
+                    font: {
+                        color: '#d0d7de',
+                        size: 12,
+                        face: 'Microsoft YaHei, Arial, sans-serif',
+                        align: 'center'
+                    },
+                    borderWidth: 3,
+                    color: {
+                        background: '#1a1a1a',
+                        border: graphId === 'default' ? '#00ffcc' 
+                            : (graphId === 'graph1' ? '#ff6b6b' 
+                            : (graphId === 'graph2' ? '#9d4edd' 
+                            : (graphId === 'graph3' ? '#06b6d4' : '#f59e0b'))),
+                        highlight: {
+                            background: '#0a0a0a',
+                            border: graphId === 'default' ? '#00ff33' 
+                                : (graphId === 'graph1' ? '#ff3333' 
+                                : (graphId === 'graph2' ? '#c77dff' 
+                                : (graphId === 'graph3' ? '#22d3ee' : '#fbbf24')))
+                        },
+                        hover: {
+                            background: '#0f0f0f',
+                            border: graphId === 'default' ? '#00ff33' 
+                                : (graphId === 'graph1' ? '#ff3333' 
+                                : (graphId === 'graph2' ? '#c77dff' 
+                                : (graphId === 'graph3' ? '#22d3ee' : '#fbbf24')))
+                        }
+                    },
+                    shadow: {
+                        enabled: true,
+                        color: graphId === 'default' 
+                            ? 'rgba(0, 255, 204, 0.3)' 
+                            : (graphId === 'graph1' ? 'rgba(255, 107, 107, 0.3)' 
+                            : (graphId === 'graph2' ? 'rgba(157, 78, 221, 0.3)' 
+                            : (graphId === 'graph3' ? 'rgba(6, 182, 212, 0.3)' : 'rgba(245, 158, 11, 0.3)'))),
+                        size: 10
+                    }
+                },
+                edges: {
+                    width: 2,
+                    color: {
+                        color: '#333333',
+                        highlight: graphId === 'default' ? '#00ffcc' 
+                            : (graphId === 'graph1' ? '#ff6b6b' 
+                            : (graphId === 'graph2' ? '#9d4edd' 
+                            : (graphId === 'graph3' ? '#06b6d4' : '#f59e0b'))),
+                        hover: graphId === 'default' ? '#00ff33' 
+                            : (graphId === 'graph1' ? '#ff3333' 
+                            : (graphId === 'graph2' ? '#c77dff' 
+                            : (graphId === 'graph3' ? '#22d3ee' : '#fbbf24')))
+                    },
+                    smooth: {
+                        type: 'dynamic',
+                        roundness: 0.5
+                    },
+                    arrows: {
+                        to: {
+                            enabled: true,
+                            scaleFactor: 0.8
+                        }
+                    },
+                    shadow: {
+                        enabled: true,
+                        color: 'rgba(0, 0, 0, 0.5)',
+                        size: 3
+                    }
+                },
+                physics: {
+                    enabled: true,
+                    stabilization: {
+                        enabled: true,
+                        iterations: 200,
+                        updateInterval: 25
+                    },
+                    barnesHut: {
+                        gravitationalConstant: -2000,
+                        springConstant: 0.04,
+                        springLength: 200,
+                        damping: 0.09
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    zoomView: true,
+                    dragNodes: true,
+                    dragView: true,
+                    tooltipDelay: 200
+                }
+            };
+
+            const data = { nodes, edges };
+            const network = new vis.Network(container, data, options);
+
+            // 节点点击事件
+            network.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    showNodeInfo(graphId, nodeId);
+                } else {
+                    closeInfoPanel(graphId);
+                }
+            });
+
+            // 双击重置视图
+            network.on('doubleClick', function(params) {
+                if (params.nodes.length === 0) {
+                    network.fit();
+                }
+            });
+
+            networks[graphId] = network;
+            nodesData[graphId] = nodes;
+            edgesData[graphId] = edges;
+        }
+
+        // 显示节点信息
+        function showNodeInfo(graphId, nodeId) {
+            const nodes = nodesData[graphId];
+            const node = nodes.get(nodeId);
+            if (!node) return;
+
+            const infoPanel = document.getElementById(`info-${graphId}`);
+            const infoContent = document.getElementById(`info-content-${graphId}`);
+
+            let html = `
+                <div class="info-item">
+                    <span class="info-label">ID:</span>
+                    <span class="info-value">${node.id || 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">标签:</span>
+                    <span class="info-value">${node.label || 'N/A'}</span>
+                </div>
+            `;
+
+            if (node.content) {
+                const contentPreview = node.content.length > 200 
+                    ? node.content.substring(0, 200) + '...' 
+                    : node.content;
+                html += `
+                    <div class="info-item">
+                        <span class="info-label">内容:</span>
+                        <span class="info-value">${contentPreview}</span>
+                    </div>
+                `;
+            }
+
+            if (node.labels && node.labels.length > 0) {
+                html += `
+                    <div class="info-item">
+                        <span class="info-label">类型:</span>
+                        <span class="info-value">${node.labels.join(', ')}</span>
+                    </div>
+                `;
+            }
+
+            infoContent.innerHTML = html;
+            infoPanel.classList.add('visible');
+        }
+
+        // 关闭信息面板
+        function closeInfoPanel(graphId) {
+            const infoPanel = document.getElementById(`info-${graphId}`);
+            infoPanel.classList.remove('visible');
+        }
+
+        // 执行main.py
+        async function executeMainPy() {
+            const executeBtn = document.getElementById('executeBtn');
+            const modal = document.getElementById('executeModal');
+            const logContainer = document.getElementById('logContainer');
+            
+            // 确认对话框
+            const confirmed = confirm(
+                '🚀 执行 main.py 脚本\n\n' +
+                '这将运行Python脚本来提取图谱数据并写入Neo4j数据库。\n\n' +
+                '执行过程可能需要一些时间，是否继续？'
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            // 禁用按钮
+            executeBtn.classList.add('running');
+            executeBtn.disabled = true;
+            executeBtn.textContent = '执行中...';
+
+            // 打开模态框
+            modal.classList.add('visible');
+            logContainer.innerHTML = '<div class="log-line">正在启动Python脚本...</div>';
+
+            try {
+                updateStatus('loading', '正在执行 main.py...');
+                
+                const response = await fetch('/api/execute/main', {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.substring(6));
+                                
+                                if (data.type === 'stdout') {
+                                    addLogLine(data.data, 'stdout');
+                                } else if (data.type === 'stderr') {
+                                    addLogLine(data.data, 'stderr');
+                                } else if (data.type === 'close') {
+                                    if (data.success) {
+                                        addLogLine(`\n✅ ${data.message}`, 'success');
+                                        updateStatus('success', '脚本执行成功');
+                                        
+                                        // 执行成功后自动刷新图谱
+                                        setTimeout(() => {
+                                            loadAllGraphs();
+                                        }, 1000);
+                                    } else {
+                                        addLogLine(`\n❌ ${data.message}`, 'error');
+                                        if (data.stderr) {
+                                            addLogLine(data.stderr, 'stderr');
+                                        }
+                                        updateStatus('error', '脚本执行失败');
+                                    }
+                                } else if (data.type === 'error') {
+                                    addLogLine(`\n❌ ${data.message}`, 'error');
+                                    updateStatus('error', data.message);
+                                }
+                            } catch (e) {
+                                // 忽略JSON解析错误
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('执行脚本失败:', error);
+                addLogLine(`\n❌ 执行失败: ${error.message}`, 'error');
+                updateStatus('error', `执行失败: ${error.message}`);
+            } finally {
+                // 恢复按钮
+                executeBtn.classList.remove('running');
+                executeBtn.disabled = false;
+                executeBtn.textContent = '执行 main.py';
+            }
+        }
+
+        // 添加日志行
+        function addLogLine(text, type = 'stdout') {
+            const logContainer = document.getElementById('logContainer');
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            line.textContent = text;
+            logContainer.appendChild(line);
+            // 自动滚动到底部
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 关闭执行模态框
+        function closeExecuteModal() {
+            const modal = document.getElementById('executeModal');
+            modal.classList.remove('visible');
+        }
+
+        // 点击模态框外部关闭
+        document.getElementById('executeModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeExecuteModal();
+            }
+        });
+
+        // 加载图谱数据
+        async function loadGraphData(graphId, databaseName) {
+            try {
+                updateStatus('loading', '正在加载数据...');
+                const response = await fetch(`/api/graph/${databaseName}`);
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    const { nodes, relationships } = result.data;
+
+                    // 转换节点数据
+                    const visNodes = nodes.map(node => ({
+                        id: node.id,
+                        label: node.label || node.id,
+                        content: node.content || '',
+                        labels: node.labels || [],
+                        title: `${node.label || node.id}\n${(node.content || '').substring(0, 100)}`
+                    }));
+
+                    // 转换关系数据
+                    const visEdges = relationships.map(rel => ({
+                        from: rel.from,
+                        to: rel.to,
+                        label: rel.type,
+                        title: rel.type,
+                        arrows: 'to'
+                    }));
+
+                    // 更新图谱
+                    nodesData[graphId].clear();
+                    edgesData[graphId].clear();
+                    nodesData[graphId].add(visNodes);
+                    edgesData[graphId].add(visEdges);
+
+                    // 更新统计信息
+                    updateStats(graphId, visNodes.length, visEdges.length);
+
+                    updateStatus('success', `已加载 ${visNodes.length} 个节点，${visEdges.length} 条关系`);
+                } else {
+                    throw new Error(result.error || '加载数据失败');
+                }
+            } catch (error) {
+                console.error(`加载 ${databaseName} 数据失败:`, error);
+                updateStatus('error', `加载失败: ${error.message}`);
+            }
+        }
+
+        // 加载所有图谱
+        async function loadAllGraphs() {
+            updateStatus('loading', '正在加载所有数据...');
+            try {
+                await Promise.all([
+                    loadGraphData('default', 'default'),
+                    loadGraphData('graph1', 'graph1'),
+                    loadGraphData('graph2', 'graph2'),
+                    loadGraphData('graph3', 'graph3'),
+                    loadGraphData('graph4', 'graph4')
+                ]);
+                updateStatus('success', '所有数据加载完成');
+            } catch (error) {
+                updateStatus('error', `加载失败: ${error.message}`);
+            }
+        }
+
+        // 更新统计信息
+        function updateStats(graphId, nodeCount, edgeCount) {
+            const statsEl = document.getElementById(`stats-${graphId}`);
+            if (statsEl) {
+                statsEl.textContent = `节点: ${nodeCount} | 关系: ${edgeCount}`;
+            }
+        }
+
+        // 更新状态
+        function updateStatus(type, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = message;
+        }
+
+        // 重置布局
+        function resetLayout() {
+            Object.values(networks).forEach(network => {
+                if (network) {
+                    network.fit({
+                        animation: {
+                            duration: 1000,
+                            easingFunction: 'easeInOutQuad'
+                        }
+                    });
+                }
+            });
+        }
+
+        // 清空所有数据库
+        async function clearAllDatabases() {
+            // 确认对话框
+            const confirmed = confirm(
+                '⚠️ 警告：此操作将永久删除五个数据库中的所有数据！\n\n' +
+                '• 默认数据库 (neo4j) 中的所有节点和关系将被删除\n' +
+                '• Graph1 数据库中的所有节点和关系将被删除\n' +
+                '• Graph2 数据库中的所有节点和关系将被删除\n' +
+                '• Graph3 数据库中的所有节点和关系将被删除\n' +
+                '• Graph4 数据库中的所有节点和关系将被删除\n\n' +
+                '此操作不可恢复！\n\n' +
+                '确定要继续吗？'
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                updateStatus('loading', '正在清空数据库...');
+                
+                const response = await fetch('/api/graph/all', {
+                    method: 'DELETE'
+                });
+
+                // 检查响应状态
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+                }
+
+                // 检查响应类型
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    throw new Error(`服务器返回了非JSON响应: ${text.substring(0, 100)}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    updateStatus('success', result.message || '数据库已清空');
+                    
+                    // 清空图谱显示
+                    nodesData['default'].clear();
+                    edgesData['default'].clear();
+                    nodesData['graph1'].clear();
+                    edgesData['graph1'].clear();
+                    nodesData['graph2'].clear();
+                    edgesData['graph2'].clear();
+                    nodesData['graph3'].clear();
+                    edgesData['graph3'].clear();
+                    nodesData['graph4'].clear();
+                    edgesData['graph4'].clear();
+                    
+                    // 更新统计信息
+                    updateStats('default', 0, 0);
+                    updateStats('graph1', 0, 0);
+                    updateStats('graph2', 0, 0);
+                    updateStats('graph3', 0, 0);
+                    updateStats('graph4', 0, 0);
+                    
+                    // 延迟刷新，让用户看到清空结果
+                    setTimeout(() => {
+                        loadAllGraphs();
+                    }, 1000);
+                } else {
+                    throw new Error(result.error || '清空数据库失败');
+                }
+            } catch (error) {
+                console.error('清空数据库失败:', error);
+                updateStatus('error', `清空失败: ${error.message}`);
+            }
+        }
+
+        // 全屏切换功能
+        function toggleFullscreen(graphId) {
+            const panel = document.getElementById(`panel-${graphId}`);
+            const icon = document.getElementById(`fullscreen-icon-${graphId}`);
+            const network = networks[graphId];
+            
+            if (!panel) return;
+            
+            if (panel.classList.contains('fullscreen')) {
+                // 退出全屏
+                panel.classList.remove('fullscreen');
+                icon.textContent = '⛶';
+                // 恢复其他面板的显示
+                document.querySelectorAll('.graph-panel').forEach(p => {
+                    if (p.id !== `panel-${graphId}`) {
+                        p.style.display = '';
+                    }
+                });
+                document.querySelector('.header').style.display = '';
+                document.querySelector('.container').style.display = 'flex';
+                
+                // 隐藏图例
+                const legend = document.getElementById('nodeLegend');
+                if (legend) {
+                    legend.classList.remove('visible');
+                }
+                
+                // 调整图谱大小
+                setTimeout(() => {
+                    if (network) {
+                        network.fit({
+                            animation: {
+                                duration: 500,
+                                easingFunction: 'easeInOutQuad'
+                            }
+                        });
+                    }
+                }, 100);
+            } else {
+                // 进入全屏
+                // 隐藏其他面板
+                document.querySelectorAll('.graph-panel').forEach(p => {
+                    if (p.id !== `panel-${graphId}`) {
+                        p.style.display = 'none';
+                    }
+                });
+                document.querySelector('.header').style.display = 'none';
+                document.querySelector('.container').style.display = 'block';
+                
+                panel.classList.add('fullscreen');
+                icon.textContent = '⛶';
+                
+                // 如果已进行节点对比，显示图例
+                const legend = document.getElementById('nodeLegend');
+                if (legend && nodeComparison) {
+                    legend.classList.add('visible');
+                }
+                
+                // 调整图谱大小
+                setTimeout(() => {
+                    if (network) {
+                        network.fit({
+                            animation: {
+                                duration: 500,
+                                easingFunction: 'easeInOutQuad'
+                            }
+                        });
+                    }
+                }, 100);
+            }
+        }
+
+        // ESC 键退出全屏
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const fullscreenPanel = document.querySelector('.graph-panel.fullscreen');
+                if (fullscreenPanel) {
+                    const graphId = fullscreenPanel.id.replace('panel-', '');
+                    toggleFullscreen(graphId);
+                }
+            }
+        });
+
+        // 节点对比功能
+        async function compareNodes() {
+            try {
+                updateStatus('loading', '正在对比节点...');
+                
+                const response = await fetch('/api/graph/compare');
+                const result = await response.json();
+                
+                if (result.success) {
+                    nodeComparison = result.comparison;
+                    
+                    // 应用节点颜色
+                    applyNodeColors();
+                    
+                    // 如果当前有全屏面板，显示图例
+                    const fullscreenPanel = document.querySelector('.graph-panel.fullscreen');
+                    if (fullscreenPanel) {
+                        const legend = document.getElementById('nodeLegend');
+                        if (legend) {
+                            legend.classList.add('visible');
+                        }
+                    }
+                    
+                    updateStatus('success', 
+                        `对比完成 - 全部5个: ${result.stats.all5}, ` +
+                        `Graph1-4: ${result.stats.graph1to4}, ` +
+                        `Graph2-4: ${result.stats.graph2to4}, ` +
+                        `Graph3-4: ${result.stats.graph3to4}, ` +
+                        `仅Graph4: ${result.stats.onlyGraph4}`
+                    );
+                } else {
+                    throw new Error(result.error || '对比失败');
+                }
+            } catch (error) {
+                console.error('节点对比失败:', error);
+                updateStatus('error', `对比失败: ${error.message}`);
+            }
+        }
+
+        // 应用节点颜色
+        function applyNodeColors() {
+            if (!nodeComparison) return;
+            
+            // 定义颜色方案
+            const colors = {
+                all5: {
+                    border: '#00ff00',      // 绿色 - 5个数据库都有
+                    background: '#1a1a1a',
+                    highlight: { border: '#00ff33', background: '#0a0a0a' }
+                },
+                graph1to4: {
+                    border: '#00aaff',      // 蓝色 - graph1-graph4都有
+                    background: '#1a1a1a',
+                    highlight: { border: '#00ccff', background: '#0a0a0a' }
+                },
+                graph2to4: {
+                    border: '#ffaa00',      // 橙色 - graph2-graph4都有
+                    background: '#1a1a1a',
+                    highlight: { border: '#ffcc00', background: '#0a0a0a' }
+                },
+                graph3to4: {
+                    border: '#ff00aa',      // 粉色 - graph3-graph4都有
+                    background: '#1a1a1a',
+                    highlight: { border: '#ff33cc', background: '#0a0a0a' }
+                },
+                onlyGraph4: {
+                    border: '#aa00ff',       // 紫色 - 只在graph4中
+                    background: '#1a1a1a',
+                    highlight: { border: '#cc33ff', background: '#0a0a0a' }
+                }
+            };
+            
+            // 创建节点ID到分类的映射
+            const nodeCategoryMap = {};
+            nodeComparison.all5.forEach(id => nodeCategoryMap[id] = 'all5');
+            nodeComparison.graph1to4.forEach(id => nodeCategoryMap[id] = 'graph1to4');
+            nodeComparison.graph2to4.forEach(id => nodeCategoryMap[id] = 'graph2to4');
+            nodeComparison.graph3to4.forEach(id => nodeCategoryMap[id] = 'graph3to4');
+            nodeComparison.onlyGraph4.forEach(id => nodeCategoryMap[id] = 'onlyGraph4');
+            
+            // 为每个图谱应用颜色
+            Object.keys(nodesData).forEach(graphId => {
+                const nodes = nodesData[graphId];
+                const allNodes = nodes.get();
+                
+                allNodes.forEach(node => {
+                    const category = nodeCategoryMap[node.id];
+                    if (category) {
+                        const colorScheme = colors[category];
+                        nodes.update({
+                            id: node.id,
+                            color: {
+                                background: colorScheme.background,
+                                border: colorScheme.border,
+                                highlight: colorScheme.highlight
+                            }
+                        });
+                    }
+                });
+            });
+        }
+
+        // 清除节点颜色（恢复默认）
+        function clearNodeColors() {
+            nodeComparison = null;
+            
+            // 隐藏图例
+            const legend = document.getElementById('nodeLegend');
+            if (legend) {
+                legend.classList.remove('visible');
+            }
+            
+            // 重新加载所有图谱以恢复默认颜色
+            loadAllGraphs();
+        }
+
+        // 初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            initGraph('default', 'neo4j');
+            initGraph('graph1', 'graph1');
+            initGraph('graph2', 'graph2');
+            initGraph('graph3', 'graph3');
+            initGraph('graph4', 'graph4');
+            loadAllGraphs();
+        });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,169 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GenAI Guardrails & GraphRAG 交互演示终端</title>
+    <style>
+        /* CSS 变量定义，实现暗色极客风格 */
+        :root {
+            --bg-primary: #1a1b26;
+            --bg-secondary: #24283b;
+            --text-main: #c0caf5;
+            --accent-color: #7aa2f7;
+            --success-color: #9ece6a; /* 安全通过的护栏 */
+            --warning-color: #e0af68; /* 处理中 */
+            --danger-color: #f7768e; /* 触发拦截  */
+            --border-color: #414868;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* 布局容器 */
+        .layout-container {
+            display: grid;
+            grid-template-columns: 280px 1fr 350px;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 左侧边栏 */
+        .sidebar {
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 右侧透视板 */
+        .inspector {
+            background-color: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+            padding: 20px;
+            overflow-y: auto;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+        }
+
+        /* 中间主舞台 */
+        .stage {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .input-area {
+            padding: 20px;
+            background-color: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+        }
+
+        /* UI 组件样式 */
+        .rail-status-card {
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border-left: 4px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .rail-status-card.active { border-left-color: var(--warning-color); }
+        .rail-status-card.blocked { border-left-color: var(--danger-color); background: rgba(247, 118, 142, 0.1); }
+        .rail-status-card.safe { border-left-color: var(--success-color); }
+
+        textarea {
+            flex: 1;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            resize: none;
+        }
+
+        button {
+            background: var(--accent-color);
+            border: none;
+            color: var(--bg-primary);
+            padding: 0 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* 隐藏类，用于状态切换 */
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+<div class="layout-container">
+    <aside class="sidebar">
+        <h2>系统配置</h2>
+        <div class="control-group">
+            <label>运行模式</label>
+            <select id="mode-selector" style="width: 100%; padding: 8px; margin-top: 5px;">
+                <option value="nemo">NeMo Guardrails (安全对话)</option>
+                <option value="graphrag">GraphRAG (知识检索)</option>
+                <option value="quest">Procedural Quest (结构化生成)</option>
+            </select>
+        </div>
+
+        <div id="rag-controls" class="hidden">
+            <h3>OData 参数 </h3>
+            <input type="text" id="odata-filter" placeholder="$filter=startswith(name,'A')" style="width: 90%; margin-bottom: 10px;">
+            <input type="text" id="odata-select" placeholder="$select=title,content" style="width: 90%;">
+        </div>
+
+        <div class="monitor-panel">
+            <h3>护栏监控 </h3>
+            <div id="rail-input" class="rail-status-card">Input Rail: 待机</div>
+            <div id="rail-dialog" class="rail-status-card">Dialog Rail: 待机</div>
+            <div id="rail-gen" class="rail-status-card">Generation Rail: 待机</div>
+            <div id="rail-output" class="rail-status-card">Output Rail: 待机</div>
+        </div>
+    </aside>
+
+    <main class="stage">
+        <div id="chat-container" class="chat-history">
+            <div class="system-msg">系统就绪。请选择模式并输入指令。</div>
+        </div>
+        <div class="input-area">
+            <textarea id="user-input" rows="3" placeholder="在此输入您的Prompt..."></textarea>
+            <button id="send-btn">发送指令</button>
+        </div>
+    </main>
+
+    <aside class="inspector">
+        <h3>实时数据透视</h3>
+        <div class="tab-header">
+            <span style="color: var(--accent-color)">JSON Logs</span>
+        </div>
+        <pre id="json-viewer" style="white-space: pre-wrap; color: #a9b1d6;">等待数据交互...</pre>
+    </aside>
+</div>
+
+<script src="tee1.js"></script>
+</body>
+</html>

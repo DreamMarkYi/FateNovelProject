@@ -1,0 +1,675 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURO-DETECTIVE: Rival & Keypoints</title>
+
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/dist/vis-network.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #050a10;
+            --panel-bg: #0f1623;
+            --border-color: #233142;
+            --accent-color: #00ffcc;
+            --rival-color: #ff3366;     /* Boss 颜色 */
+            --narrative-color: #ffcc00;
+            --loc-color: #4a9eff;
+            --item-color: #d2a8ff;
+            --text-color: #d0d7de;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', 'Roboto Mono', monospace;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 顶部 HUD */
+        #hud-bar {
+            background: rgba(15, 22, 35, 0.95);
+            padding: 0 20px;
+            border-bottom: 2px solid var(--accent-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            height: 50px;
+        }
+
+        .hud-group { display: flex; gap: 20px; align-items: center; }
+
+        .stage-indicator {
+            font-size: 0.8rem;
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            padding: 2px 8px;
+        }
+
+        .progress-container {
+            display: flex;
+            flex-direction: column;
+            width: 200px;
+        }
+        .progress-label { font-size: 0.7rem; color: #888; display: flex; justify-content: space-between; }
+        .progress-bar-bg { width: 100%; height: 6px; background: #333; margin-top: 2px; position: relative; }
+        .progress-bar-fill { height: 100%; background: var(--accent-color); width: 0%; transition: width 0.5s; }
+        .progress-bar-rival { position: absolute; top:0; height: 100%; background: var(--rival-color); width: 0%; opacity: 0.7; transition: width 0.5s; }
+
+        /* 主布局 */
+        #main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 左侧：三个图谱的容器 */
+        #graphs-column {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            background: #000;
+        }
+
+        .graph-section {
+            flex: 1;
+            position: relative;
+            border-bottom: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        .graph-section:last-child { border-bottom: none; }
+
+        .graph-label {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            background: rgba(0,0,0,0.7);
+            border-left: 3px solid;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #viz-location { width: 100%; height: 100%; background: radial-gradient(circle at center, #0f1c2e 0%, #000 100%); }
+        #viz-inventory { width: 100%; height: 100%; background: radial-gradient(circle at center, #1a0f2e 0%, #000 100%); }
+        #viz-narrative { width: 100%; height: 100%; background: radial-gradient(circle at center, #2e260f 0%, #000 100%); }
+
+        /* 右侧交互终端 */
+        #terminal-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel-bg);
+            max-width: 450px;
+            border-left: 1px solid var(--border-color);
+        }
+
+        #chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scroll-behavior: smooth;
+        }
+
+        /* 消息样式 */
+        .msg { padding: 10px; border-radius: 4px; font-size: 0.9rem; line-height: 1.5; max-width: 95%; position: relative; word-wrap: break-word;}
+        .msg.ai { background: rgba(0, 255, 204, 0.05); border-left: 2px solid var(--accent-color); color: #fff; }
+        .msg.user { background: rgba(255, 255, 255, 0.05); border-right: 2px solid #666; align-self: flex-end; text-align: right; }
+        .msg.system { color: #666; font-size: 0.8rem; text-align: center; font-style: italic; }
+        .msg.rival { border: 1px solid var(--rival-color); color: #ff99aa; background: rgba(255, 51, 102, 0.05); font-size: 0.85rem; }
+        .msg.keypoint { border: 1px dashed var(--narrative-color); color: var(--narrative-color); text-align: center; font-weight: bold; }
+        .msg.end { border: 1px solid var(--accent-color); color: var(--accent-color); text-align: center; font-weight: bold; background: rgba(0, 255, 204, 0.1); }
+
+        /* 输入区 */
+        #input-area {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            background: rgba(0,0,0,0.3);
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #333;
+            color: var(--accent-color);
+            padding: 10px;
+            font-family: 'Roboto Mono', monospace;
+        }
+        input[type="text"]:focus { outline: none; border-color: var(--accent-color); }
+        button {
+            background: rgba(0, 255, 204, 0.1);
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            cursor: pointer;
+            font-family: 'Roboto Mono', monospace;
+        }
+        button:hover { background: var(--accent-color); color: #000; }
+        button:disabled { border-color: #444; color: #444; cursor: not-allowed; background: transparent;}
+
+        /* Loading */
+        .scanline {
+            width: 100%; height: 2px; background: var(--accent-color);
+            position: absolute; top: 0; left: 0; opacity: 0; z-index: 50; pointer-events: none;
+        }
+        .scanning .scanline { opacity: 1; animation: scan 1.5s infinite linear; }
+        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+
+    </style>
+</head>
+<body>
+
+<div class="scanline" id="scan-effect"></div>
+
+<div id="hud-bar">
+    <div class="hud-group">
+        <div style="font-weight:900; letter-spacing:2px;">TRINITY<span style="color:var(--accent-color)">://</span>ENGINE</div>
+        <div class="stage-indicator" id="stage-display">STAGE 1: 觉醒</div>
+    </div>
+
+    <div class="hud-group">
+        <div class="progress-container">
+            <div class="progress-label">
+                <span>NEXUS KEYS</span>
+                <span id="score-text">0 / 3</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-rival" id="rival-bar"></div>
+                <div class="progress-bar-fill" id="player-bar"></div>
+            </div>
+        </div>
+        <button id="reset-btn" onclick="startGame()" style="font-size:0.7rem; padding:5px;">REBOOT</button>
+    </div>
+</div>
+
+<div id="main-container">
+    <div id="graphs-column">
+        <div class="graph-section">
+            <div class="graph-label" style="border-color: var(--loc-color); color: var(--loc-color);">LOCATION MAP (位置拓扑)</div>
+            <div id="viz-location"></div>
+        </div>
+        <div class="graph-section">
+            <div class="graph-label" style="border-color: var(--item-color); color: var(--item-color);">INVENTORY LINK (神经链接)</div>
+            <div id="viz-inventory"></div>
+        </div>
+        <div class="graph-section">
+            <div class="graph-label" style="border-color: var(--narrative-color); color: var(--narrative-color);">NARRATIVE PATH (因果链)</div>
+            <div id="viz-narrative"></div>
+        </div>
+    </div>
+
+    <div id="terminal-panel">
+        <div id="chat-history">
+            <div class="msg system">>> SYSTEM ONLINE. 神经三位一体系统连接中...</div>
+        </div>
+        <div id="input-area">
+            <input type="text" id="player-input" placeholder="输入指令 (e.g. 调查, 前往...)" autocomplete="off" disabled>
+            <button id="send-btn" onclick="handleInput()" disabled>SEND</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. 配置 & 状态管理
+    // ==========================================
+    const API_CONFIG = {
+        url: "https://api.mindcraft.com.cn/v1/chat/completions",
+        key: "MC-E5B8AB237AAC4EDCBFA26531D6BE0081",
+        model: "gemini-3-pro-preview"
+    };
+
+    const GRAPH_STORE = {
+        location: { nodes: null, edges: null, network: null },
+        inventory: { nodes: null, edges: null, network: null },
+        narrative: { nodes: null, edges: null, network: null }
+    };
+
+    // 游戏核心状态
+    let GAME_STATE = {
+        stage: 1,
+        stageName: "Awakening",
+        targetKeys: 3, // 本阶段需要收集的关键点数量
+        playerKeys: 0,
+        rivalKeys: 0,
+        // 关键点列表：包含 {id, name, desc, status: 'hidden'|'player'|'rival'}
+        keypoints: [],
+        isGameOver: false,
+        currentLocationId: 'loc_start'
+    };
+
+    let conversationHistory = [];
+
+    // ==========================================
+    // 2. Vis.js 初始化
+    // ==========================================
+
+    function initOneGraph(containerId, optionsOverride = {}) {
+        const nodes = new vis.DataSet([]);
+        const edges = new vis.DataSet([]);
+        const container = document.getElementById(containerId);
+
+        const defaultOptions = {
+            nodes: {
+                shape: 'dot', size: 15,
+                font: { color: '#fff', size: 12, face: 'Roboto Mono' },
+                borderWidth: 2, shadow: true
+            },
+            edges: {
+                width: 1, color: { color: '#555', highlight: '#fff' },
+                smooth: { type: 'dynamic' }
+            },
+            physics: {
+                stabilization: false,
+                barnesHut: { gravitationalConstant: -2000, springConstant: 0.04 }
+            },
+            interaction: { hover: true, zoomView: true }
+        };
+
+        const options = { ...defaultOptions, ...optionsOverride };
+        if(optionsOverride.edges) options.edges = { ...defaultOptions.edges, ...optionsOverride.edges };
+
+        const network = new vis.Network(container, { nodes, edges }, options);
+        return { nodes, edges, network };
+    }
+
+    function initAllGraphs() {
+        GRAPH_STORE.location = initOneGraph('viz-location', {
+            edges: { arrows: { to: true, from: true }, color: { color: '#4a9eff' } }
+        });
+        GRAPH_STORE.inventory = initOneGraph('viz-inventory', {
+            edges: { color: { color: '#d2a8ff' } },
+            nodes: { shape: 'box', margin: 10 }
+        });
+        GRAPH_STORE.narrative = initOneGraph('viz-narrative', {
+            edges: { arrows: 'to', color: { color: '#ffcc00' }, dashes: true },
+            layout: { hierarchical: { direction: 'UD', sortMethod: 'directed', levelSeparation: 60 } },
+            physics: { hierarchicalRepulsion: { nodeDistance: 100 } }
+        });
+    }
+
+    // ==========================================
+    // 3. 提示词工程 (核心逻辑)
+    // ==========================================
+
+    const SYSTEM_PROMPT = `
+你是一个赛博朋克解谜游戏的后端引擎 "TRINITY"。
+
+【核心机制：关键点 (Nexus Keys)】
+游戏分阶段进行。每个阶段你需要预生成一组 "Keypoints" (人物、物品、地点或信息片段)。
+这些关键点初始是 Hidden (隐藏) 的。玩家需要通过输入类似或相关的行动来 Trigger (触发) 它们。
+当玩家触发关键点时，将其状态改为 "player"。
+
+【核心机制：竞争对手 (The Rival)】
+有一个名为 "Nighthawk (夜鹰)" 的AI竞争者也在寻找这些关键点。
+每次回复时，根据剧情张力决定夜鹰是否行动（概率约 30%）。
+如果夜鹰行动成功，他会抢夺一个 Hidden 的关键点，将其状态改为 "rival"。
+夜鹰抢夺后，该关键点对玩家不可用。
+
+【指导原则】
+1. 暗示：在 narrative 中，要隐晦地暗示 Hidden 状态的关键点。例如有个隐藏关键点是"通风管道"，剧情中可以写"你感到墙角有微弱的风吹过"。
+2. 触发：如果玩家输入 "检查墙角" 或 "寻找出口"，则判定触发 "通风管道"，并将其加入 location 图，同时在 keypoint_events 中更新状态。
+3. Boss：夜鹰抢走关键点后，要在 narrative 中表现出痕迹（如"这里被人翻过了"）。
+`;
+
+    const JSON_FORMAT_INSTRUCTION = `
+【输出格式要求 - 必须严格遵守】
+你必须只输出纯JSON，不要任何markdown代码块标记，不要任何额外文字。
+JSON格式如下：
+{
+  "narrative": "主剧情文本(HTML格式，可包含<br>换行)",
+  "rival_action_text": "描述夜鹰行动的文本，如果没有行动则为null",
+  "stage_info": {
+     "current_stage": 1,
+     "stage_name": "阶段名",
+     "level_up": false
+  },
+  "keypoint_events": [
+     {"op": "create", "id": "k1", "name": "加密芯片", "desc": "包含后门的芯片", "status": "hidden"},
+     {"op": "update", "id": "k1", "status": "player"}
+  ],
+  "current_location_id": "当前位置ID字符串",
+  "game_over": false,
+  "ending_type": null,
+  "graph_ops": [
+    {"domain": "location", "op": "add_node", "id": "loc_start", "label": "起点", "desc": "描述"},
+    {"domain": "location", "op": "add_edge", "from": "loc_start", "to": "loc_next", "label": "连接"}
+  ]
+}
+注意：boolean值使用true/false，null值使用null，不要使用引号包裹。`;
+
+    // 每次请求都把当前已知的和未知的关键点状态发给 AI，让它以此为依据编写剧情
+    function getKeypointContext() {
+        // 过滤出简要信息传给 LLM
+        const summary = GAME_STATE.keypoints.map(k =>
+            `ID:${k.id} Name:${k.name} Status:${k.status} (${k.desc})`
+        ).join('\n');
+        return `[CURRENT KEYPOINT STATE]\n${summary}\n(If player action matches a Hidden key, change it to Player. If Rival acts, change a Hidden key to Rival.)`;
+    }
+
+    function getGraphContext() {
+        const snap = {};
+        ['location', 'inventory', 'narrative'].forEach(key => {
+            snap[key] = {
+                nodes: GRAPH_STORE[key].nodes.get().map(n => ({id: n.id, label: n.label})),
+                edges: GRAPH_STORE[key].edges.get().map(e => ({from: e.from, to: e.to, label: e.label}))
+            };
+        });
+        return `[GRAPH STATE]: ${JSON.stringify(snap)}`;
+    }
+
+    // ==========================================
+    // 4. LLM 通信 & 逻辑处理
+    // ==========================================
+
+    async function callLLM(userAction, isInit = false) {
+        const loading = document.getElementById('scan-effect');
+        loading.classList.add('scanning');
+
+        let userContent = "";
+
+        // 构造提示词
+        const kpContext = getKeypointContext();
+        const graphContext = getGraphContext();
+
+        if (isInit) {
+            userContent = `[INIT GAME]
+Initialize Stage 1.
+Create 3-4 Hidden Keypoints for this stage (mix of items/locations/clues).
+Create initial Graph nodes (Start Location, Player Node).
+Narrative: Player wakes up in a Cyberpunk slum.
+${kpContext}
+
+${JSON_FORMAT_INSTRUCTION}`;
+        } else {
+            userContent = `[TURN INFO]
+${graphContext}
+${kpContext}
+
+[PLAYER ACTION]: "${userAction}"
+
+Based on action, check if any HIDDEN keypoints are triggered.
+Decide if Rival (Nighthawk) acts and steals a keypoint.
+Advance plot.
+
+${JSON_FORMAT_INSTRUCTION}`;
+        }
+
+        const messages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...conversationHistory,
+            { role: "user", content: userContent }
+        ];
+
+        try {
+            const response = await fetch(API_CONFIG.url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${API_CONFIG.key}`
+                },
+                body: JSON.stringify({
+                    model: API_CONFIG.model,
+                    messages: messages,
+                    temperature: 0.8, // 稍微提高创造性
+                    response_format: { type: "json_object" }
+                })
+            });
+
+            if (!response.ok) throw new Error("Net Error");
+            const data = await response.json();
+            const cleanContent = data.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim();
+            const result = JSON.parse(cleanContent);
+
+            if (!isInit) conversationHistory.push({ role: "user", content: userAction });
+            // 只保留 narrative 以节省 token，状态由前端维护注入
+            conversationHistory.push({ role: "assistant", content: result.narrative });
+
+            // 限制历史记录长度
+            if (conversationHistory.length > 8) conversationHistory = [conversationHistory[0], ...conversationHistory.slice(-7)];
+
+            return result;
+        } catch (error) {
+            console.error(error);
+            appendLog(`System Error: ${error.message}`, 'system');
+            return null;
+        } finally {
+            loading.classList.remove('scanning');
+        }
+    }
+
+    function processGameResponse(data) {
+        if (!data) return;
+
+        // 1. 处理关键点更新 (核心逻辑)
+        if (data.keypoint_events) {
+            data.keypoint_events.forEach(event => {
+                if (event.op === 'create') {
+                    // 避免重复添加
+                    if (!GAME_STATE.keypoints.find(k => k.id === event.id)) {
+                        GAME_STATE.keypoints.push({
+                            id: event.id,
+                            name: event.name,
+                            desc: event.desc,
+                            status: event.status
+                        });
+                        console.log("New Keypoint Generated:", event.name);
+                    }
+                } else if (event.op === 'update') {
+                    const kp = GAME_STATE.keypoints.find(k => k.id === event.id);
+                    if (kp && kp.status === 'hidden') {
+                        kp.status = event.status; // player or rival
+
+                        // 特效提示
+                        if (event.status === 'player') {
+                            appendLog(`>> 关键线索捕获: [${kp.name}]`, 'keypoint');
+                            // 自动添加到物品栏或叙事图
+                            executeOp({domain: 'narrative', op: 'add_node', id: `evt_${kp.id}`, label: `发现: ${kp.name}`, color: '#00ffcc'});
+                        } else if (event.status === 'rival') {
+                            appendLog(`>> 警告: 信号截断. [${kp.name}] 被夜鹰夺取.`, 'rival');
+                        }
+                    }
+                }
+            });
+            updateScore();
+        }
+
+        // 2. 剧情输出
+        appendLog(data.narrative, 'ai');
+        if (data.rival_action_text) {
+            appendLog(`[RIVAL LOG]: ${data.rival_action_text}`, 'rival');
+        }
+
+        // 3. 阶段判断 (Level Up)
+        if (data.stage_info && data.stage_info.level_up) {
+            GAME_STATE.stage++;
+            GAME_STATE.stageName = data.stage_info.stage_name || `Stage ${GAME_STATE.stage}`;
+            // 清空旧的关键点用于下一阶段? 或者保留积累?
+            // 这里我们采取保留模式，但重置当前阶段的目标
+            appendLog(`>>> 阶段完成! 进入阶段 ${GAME_STATE.stage}: ${GAME_STATE.stageName}`, 'end');
+            // 请求 AI 生成下一阶段的新关键点 (通过下一次交互的 prompt logic，或者这里自动触发一次)
+        }
+        document.getElementById('stage-display').innerText = `STAGE ${GAME_STATE.stage}: ${GAME_STATE.stageName}`;
+
+        // 4. 更新位置 & 图谱
+        if (data.current_location_id) GAME_STATE.currentLocationId = data.current_location_id;
+        if (data.graph_ops) data.graph_ops.forEach(op => executeOp(op));
+        highlightLocationNode();
+
+        // 5. 结局
+        if (data.game_over) {
+            GAME_STATE.isGameOver = true;
+            const endMsg = data.ending_type === 'VICTORY' ? "MISSION ACCOMPLISHED" : "CRITICAL FAILURE";
+            appendLog(endMsg, 'end');
+            toggleInputs(false);
+            document.getElementById('player-input').placeholder = "CONNECTION TERMINATED.";
+        }
+    }
+
+    function updateScore() {
+        const player = GAME_STATE.keypoints.filter(k => k.status === 'player').length;
+        const rival = GAME_STATE.keypoints.filter(k => k.status === 'rival').length;
+        // 计算分母：仅计算已生成的
+        const total = GAME_STATE.keypoints.length || 1;
+
+        GAME_STATE.playerKeys = player;
+        GAME_STATE.rivalKeys = rival;
+
+        document.getElementById('score-text').innerText = `${player} / ${GAME_STATE.targetKeys}`; // 这里的targetKeys可以是动态的
+
+        // 进度条逻辑
+        const pPercent = (player / total) * 100;
+        const rPercent = (rival / total) * 100;
+
+        document.getElementById('player-bar').style.width = `${pPercent}%`;
+        document.getElementById('rival-bar').style.width = `${pPercent + rPercent}%`; // 叠加显示
+    }
+
+    // ==========================================
+    // 5. 图谱操作通用函数
+    // ==========================================
+
+    function executeOp(op) {
+        const domain = op.domain;
+        if (!GRAPH_STORE[domain]) return;
+        const { nodes, edges } = GRAPH_STORE[domain];
+
+        try {
+            if (op.op === 'add_node') {
+                if (!nodes.get(op.id)) {
+                    nodes.add({
+                        id: op.id,
+                        label: op.label,
+                        title: op.desc,
+                        color: op.color || getColorByDomain(domain)
+                    });
+                }
+            } else if (op.op === 'add_edge') {
+                const exists = edges.get({ filter: e => e.from === op.from && e.to === op.to });
+                if (exists.length === 0) {
+                    edges.add({ from: op.from, to: op.to, label: op.label });
+                }
+            } else if (op.op === 'remove_node') {
+                nodes.remove(op.id);
+            }
+        } catch (e) {
+            console.warn("Op failed:", op, e);
+        }
+    }
+
+    function getColorByDomain(domain) {
+        if (domain === 'location') return '#4a9eff';
+        if (domain === 'inventory') return '#d2a8ff';
+        if (domain === 'narrative') return '#ffcc00';
+        return '#fff';
+    }
+
+    function highlightLocationNode() {
+        const nodes = GRAPH_STORE.location.nodes;
+        const allIds = nodes.getIds();
+        const updates = allIds.map(id => {
+            const isCurrent = (id === GAME_STATE.currentLocationId);
+            return {
+                id: id,
+                color: isCurrent ? '#00ffcc' : '#4a9eff',
+                shadow: isCurrent ? { enabled: true, color: '#00ffcc', size: 20 } : { enabled: false }
+            };
+        });
+        nodes.update(updates);
+        if (GAME_STATE.currentLocationId && nodes.get(GAME_STATE.currentLocationId)) {
+            GRAPH_STORE.location.network.fit({ nodes: [GAME_STATE.currentLocationId], animation: true });
+        }
+    }
+
+    // ==========================================
+    // 6. UI & 初始化
+    // ==========================================
+
+    function appendLog(html, type) {
+        const box = document.getElementById('chat-history');
+        const div = document.createElement('div');
+        div.className = `msg ${type}`;
+        div.innerHTML = html;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    async function handleInput() {
+        if (GAME_STATE.isGameOver) return;
+        const input = document.getElementById('player-input');
+        const val = input.value.trim();
+        if (!val) return;
+
+        appendLog(val, 'user');
+        input.value = '';
+        toggleInputs(false);
+
+        const result = await callLLM(val);
+        processGameResponse(result);
+
+        if (!GAME_STATE.isGameOver) toggleInputs(true);
+    }
+
+    function toggleInputs(enabled) {
+        document.getElementById('player-input').disabled = !enabled;
+        document.getElementById('send-btn').disabled = !enabled;
+        if (enabled) document.getElementById('player-input').focus();
+    }
+
+    async function startGame() {
+        // 重置状态
+        GAME_STATE = {
+            stage: 1,
+            stageName: "Awakening",
+            targetKeys: 3,
+            playerKeys: 0,
+            rivalKeys: 0,
+            keypoints: [],
+            isGameOver: false,
+            currentLocationId: 'loc_start'
+        };
+        conversationHistory = [];
+
+        // 重置 UI
+        Object.values(GRAPH_STORE).forEach(g => {
+            if(g.nodes) g.nodes.clear();
+            if(g.edges) g.edges.clear();
+        });
+        document.getElementById('score-text').innerText = "0 / 3";
+        document.getElementById('player-bar').style.width = "0%";
+        document.getElementById('rival-bar').style.width = "0%";
+        document.getElementById('chat-history').innerHTML = '<div class="msg system">>> 初始化 TRINITY 引擎... 生成随机关键点...</div>';
+
+        toggleInputs(false);
+
+        const result = await callLLM(null, true);
+        processGameResponse(result);
+
+        toggleInputs(true);
+    }
+
+    document.getElementById('player-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleInput();
+    });
+
+    window.onload = function() {
+        initAllGraphs();
+        startGame();
+    };
+
+</script>
+</body>
+</html>

@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>城南高中 - AI开放世界Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a12;
+            --bg-card: #12121f;
+            --bg-card-hover: #1a1a2e;
+            --accent-primary: #e74c3c;
+            --accent-secondary: #f39c12;
+            --accent-mystery: #9b59b6;
+            --accent-nature: #27ae60;
+            --text-primary: #f0e6d3;
+            --text-secondary: #a0998a;
+            --text-dim: #6a6460;
+            --border-color: #2a2a3e;
+            --shadow-glow: 0 0 20px rgba(231, 76, 60, 0.3);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Serif SC', serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* 背景效果 */
+        .background-effects {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .bg-gradient {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(155, 89, 182, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(231, 76, 60, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(243, 156, 18, 0.05) 0%, transparent 70%);
+        }
+        
+        .floating-particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--accent-secondary);
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: float-particle 15s infinite ease-in-out;
+        }
+        
+        @keyframes float-particle {
+            0%, 100% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.3; }
+            90% { opacity: 0.3; }
+            100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+        }
+        
+        /* 主容器 */
+        .game-container {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            grid-template-rows: auto 1fr auto;
+            gap: 20px;
+            padding: 20px;
+            min-height: 100vh;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        /* 头部 */
+        .header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(18, 18, 31, 0.8) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .game-title {
+            font-family: 'ZCOOL XiaoWei', serif;
+            font-size: 28px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(231, 76, 60, 0.5);
+        }
+        
+        .time-display {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .day-info, .period-info {
+            padding: 8px 16px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .period-info {
+            color: var(--accent-secondary);
+        }
+        
+        /* 左侧面板 - 状态 */
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .panel {
+            background: linear-gradient(180deg, var(--bg-card) 0%, rgba(18, 18, 31, 0.9) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .panel-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        /* 角色状态 */
+        .character-avatar {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 15px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-mystery));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: var(--shadow-glow);
+        }
+        
+        .character-name {
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        
+        .character-title {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .stat-bar {
+            width: 120px;
+            height: 8px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .stat-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .stat-fill.reputation { background: linear-gradient(90deg, var(--accent-primary), #ff6b5b); }
+        .stat-fill.knowledge { background: linear-gradient(90deg, var(--accent-mystery), #c39bd3); }
+        .stat-fill.courage { background: linear-gradient(90deg, var(--accent-secondary), #f5b041); }
+        .stat-fill.social { background: linear-gradient(90deg, var(--accent-nature), #58d68d); }
+        
+        /* 物品栏 */
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        
+        .inventory-slot {
+            aspect-ratio: 1;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            text-align: center;
+            padding: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .inventory-slot:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--accent-secondary);
+        }
+        
+        .inventory-slot.has-item {
+            border-color: var(--accent-primary);
+        }
+        
+        /* 中央区域 - 地图和内容 */
+        .center-area {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        /* 校园地图 */
+        .map-container {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            min-height: 400px;
+        }
+        
+        .map-title {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .campus-map {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        .location-node {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: var(--bg-card-hover);
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            transform: translate(-50%, -50%);
+        }
+        
+        .location-node:hover {
+            transform: translate(-50%, -50%) scale(1.1);
+            border-color: var(--accent-secondary);
+            box-shadow: 0 0 15px rgba(243, 156, 18, 0.3);
+        }
+        
+        .location-node.current {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+            animation: pulse-current 2s infinite;
+        }
+        
+        .location-node.locked {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .location-node.has-npc::after {
+            content: '';
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 12px;
+            height: 12px;
+            background: var(--accent-nature);
+            border-radius: 50%;
+            border: 2px solid var(--bg-card);
+        }
+        
+        @keyframes pulse-current {
+            0%, 100% { box-shadow: 0 0 20px rgba(231, 76, 60, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(231, 76, 60, 0.8); }
+        }
+        
+        .location-icon {
+            font-size: 20px;
+            margin-bottom: 2px;
+        }
+        
+        .location-name {
+            font-size: 9px;
+            text-align: center;
+            line-height: 1.2;
+        }
+        
+        /* 地图连接线 */
+        .map-connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .map-connections line {
+            stroke: var(--border-color);
+            stroke-width: 2;
+            stroke-dasharray: 5, 5;
+        }
+        
+        /* 内容显示区 */
+        .content-display {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .content-display::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .content-display::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .content-display::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+        
+        .content-text {
+            line-height: 1.8;
+            font-size: 15px;
+        }
+        
+        .content-text .location-desc {
+            color: var(--text-secondary);
+            font-style: italic;
+            margin-bottom: 15px;
+        }
+        
+        .content-text .action-result {
+            color: var(--accent-secondary);
+            padding: 10px;
+            background: rgba(243, 156, 18, 0.1);
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .content-text .event-trigger {
+            color: var(--accent-mystery);
+            padding: 10px;
+            background: rgba(155, 89, 182, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid var(--accent-mystery);
+            margin: 10px 0;
+        }
+        
+        /* 右侧面板 */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        /* NPC列表 */
+        .npc-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .npc-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .npc-item:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--accent-nature);
+        }
+        
+        .npc-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-nature), #58d68d);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .npc-info {
+            flex: 1;
+        }
+        
+        .npc-name {
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+        
+        .npc-role {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        .npc-status {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-nature);
+            border-radius: 50%;
+        }
+        
+        /* 行动按钮 */
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .action-btn {
+            padding: 12px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .action-btn:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--accent-secondary);
+            transform: translateY(-2px);
+        }
+        
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .action-btn.primary {
+            background: linear-gradient(135deg, var(--accent-primary), #c0392b);
+            border-color: var(--accent-primary);
+        }
+        
+        .action-btn.primary:hover {
+            box-shadow: var(--shadow-glow);
+        }
+        
+        /* 对话框 */
+        .dialogue-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        
+        .dialogue-overlay.active {
+            display: flex;
+        }
+        
+        .dialogue-box {
+            width: 90%;
+            max-width: 700px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+            animation: dialogue-enter 0.3s ease;
+        }
+        
+        @keyframes dialogue-enter {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .dialogue-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .dialogue-avatar {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--accent-mystery), var(--accent-primary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+        
+        .dialogue-npc-info h3 {
+            font-size: 18px;
+            margin-bottom: 4px;
+        }
+        
+        .dialogue-npc-info p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .dialogue-content {
+            padding: 25px;
+            min-height: 150px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .dialogue-message {
+            margin-bottom: 15px;
+            animation: message-appear 0.3s ease;
+        }
+        
+        @keyframes message-appear {
+            from { transform: translateX(-10px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .dialogue-message .speaker {
+            font-size: 12px;
+            color: var(--accent-secondary);
+            margin-bottom: 5px;
+        }
+        
+        .dialogue-message .text {
+            font-size: 15px;
+            line-height: 1.7;
+        }
+        
+        .dialogue-options {
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .dialogue-option {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px 20px;
+            background: var(--bg-card-hover);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .dialogue-option:hover {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+        
+        /* 事件通知 */
+        .event-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 350px;
+            background: var(--bg-card);
+            border: 1px solid var(--accent-mystery);
+            border-radius: 12px;
+            padding: 20px;
+            transform: translateX(400px);
+            transition: transform 0.4s ease;
+            z-index: 90;
+            box-shadow: 0 0 30px rgba(155, 89, 182, 0.3);
+        }
+        
+        .event-notification.show {
+            transform: translateX(0);
+        }
+        
+        .event-type {
+            font-size: 11px;
+            color: var(--accent-mystery);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+        
+        .event-title {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .event-content {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        
+        .event-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 18px;
+        }
+        
+        /* 加载指示器 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 18, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        
+        .loading-overlay.active {
+            display: flex;
+        }
+        
+        .loading-spinner {
+            text-align: center;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        /* API配置弹窗 */
+        .config-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+        }
+        
+        .config-modal.hidden {
+            display: none;
+        }
+        
+        .config-box {
+            width: 90%;
+            max-width: 500px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 30px;
+        }
+        
+        .config-box h2 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .config-field {
+            margin-bottom: 20px;
+        }
+        
+        .config-field label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .config-field input, .config-field select {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+        }
+        
+        .config-field input:focus, .config-field select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+        
+        .config-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+        
+        .config-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .config-buttons .save-btn {
+            background: var(--accent-primary);
+            color: white;
+        }
+        
+        .config-buttons .skip-btn {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .config-note {
+            margin-top: 15px;
+            font-size: 12px;
+            color: var(--text-dim);
+            text-align: center;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 1200px) {
+            .game-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .left-panel, .right-panel {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .left-panel, .right-panel {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景效果 -->
+    <div class="background-effects">
+        <div class="bg-gradient"></div>
+        <div class="floating-particles" id="particles"></div>
+    </div>
+    
+    <!-- API配置弹窗 -->
+    <div class="config-modal" id="configModal">
+        <div class="config-box">
+            <h2>🎮 配置API</h2>
+            <div class="config-field">
+                <label>API Base URL</label>
+                <input type="text" id="apiBaseUrl" value="https://api.openai.com/v1" placeholder="API基础URL">
+            </div>
+            <div class="config-field">
+                <label>API Key</label>
+                <input type="password" id="apiKey" placeholder="输入你的API Key">
+            </div>
+            <div class="config-field">
+                <label>模型选择</label>
+                <select id="modelSelect">
+                    <option value="gpt-4o-mini">GPT-4o Mini (推荐)</option>
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    <option value="deepseek-chat">DeepSeek Chat</option>
+                </select>
+            </div>
+            <div class="config-buttons">
+                <button class="skip-btn" onclick="skipConfig()">跳过（使用预设内容）</button>
+                <button class="save-btn" onclick="saveConfig()">保存并开始</button>
+            </div>
+            <p class="config-note">💡 不配置API也可以体验基本功能，但动态生成内容将不可用</p>
+        </div>
+    </div>
+    
+    <!-- 加载指示器 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p class="loading-text" id="loadingText">正在生成内容...</p>
+        </div>
+    </div>
+    
+    <!-- 事件通知 -->
+    <div class="event-notification" id="eventNotification">
+        <button class="event-close" onclick="closeEventNotification()">×</button>
+        <div class="event-type" id="eventType">事件</div>
+        <h3 class="event-title" id="eventTitle">事件标题</h3>
+        <p class="event-content" id="eventContent">事件内容</p>
+    </div>
+    
+    <!-- 对话框 -->
+    <div class="dialogue-overlay" id="dialogueOverlay">
+        <div class="dialogue-box">
+            <div class="dialogue-header">
+                <div class="dialogue-avatar" id="dialogueAvatar">👤</div>
+                <div class="dialogue-npc-info">
+                    <h3 id="dialogueNpcName">NPC名字</h3>
+                    <p id="dialogueNpcRole">角色描述</p>
+                </div>
+            </div>
+            <div class="dialogue-content" id="dialogueContent">
+                <!-- 对话内容将动态插入 -->
+            </div>
+            <div class="dialogue-options" id="dialogueOptions">
+                <!-- 选项将动态插入 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 主游戏容器 -->
+    <div class="game-container">
+        <!-- 头部 -->
+        <header class="header">
+            <h1 class="game-title">城南高中</h1>
+            <div class="time-display">
+                <div class="day-info">第 <span id="currentDay">1</span> 天</div>
+                <div class="period-info" id="currentPeriod">上午</div>
+                <button class="action-btn" onclick="advanceTime()">⏰ 推进时间</button>
+            </div>
+        </header>
+        
+        <!-- 左侧面板 -->
+        <aside class="left-panel">
+            <!-- 角色状态 -->
+            <div class="panel">
+                <h2 class="panel-title">角色状态</h2>
+                <div class="character-avatar">🎓</div>
+                <div class="character-name">林渊</div>
+                <div class="character-title">高一新生 · 转学生</div>
+                
+                <div class="stat-item">
+                    <span class="stat-label">声望</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill reputation" id="statReputation" style="width: 50%"></div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">知识</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill knowledge" id="statKnowledge" style="width: 30%"></div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">勇气</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill courage" id="statCourage" style="width: 40%"></div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">社交</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill social" id="statSocial" style="width: 35%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 物品栏 -->
+            <div class="panel">
+                <h2 class="panel-title">物品栏</h2>
+                <div class="inventory-grid" id="inventoryGrid">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </aside>
+        
+        <!-- 中央区域 -->
+        <main class="center-area">
+            <!-- 校园地图 -->
+            <div class="map-container">
+                <span class="map-title">校园地图</span>
+                <svg class="map-connections" id="mapConnections"></svg>
+                <div class="campus-map" id="campusMap">
+                    <!-- 地点节点将动态生成 -->
+                </div>
+            </div>
+            
+            <!-- 内容显示 -->
+            <div class="content-display">
+                <div class="content-text" id="contentText">
+                    <p class="location-desc">阳光透过窗户洒进教室，这是你在城南高中的第一天。</p>
+                    <p>周围是陌生的同学和老师，一切都是新的开始。</p>
+                    <p>你坐在靠窗的位置，旁边是一个看起来很活泼的男生。</p>
+                </div>
+            </div>
+        </main>
+        
+        <!-- 右侧面板 -->
+        <aside class="right-panel">
+            <!-- 当前地点NPC -->
+            <div class="panel">
+                <h2 class="panel-title">附近的人</h2>
+                <div class="npc-list" id="npcList">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+            
+            <!-- 可用行动 -->
+            <div class="panel">
+                <h2 class="panel-title">可用行动</h2>
+                <div class="actions-grid" id="actionsGrid">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+            
+            <!-- 可前往地点 -->
+            <div class="panel">
+                <h2 class="panel-title">可前往</h2>
+                <div class="actions-grid" id="destinationsGrid">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </aside>
+    </div>
+    
+    <!-- 引入脚本 -->
+    <script src="world-data.js"></script>
+    <script src="config.js"></script>
+    <script src="open-world-engine.js"></script>
+    <script>
+        // 全局引擎实例
+        let engine = null;
+        
+        // NPC头像映射
+        const NPC_AVATARS = {
+            su_meng: '👩‍💼',
+            chen_yang: '😄',
+            lin_xiaoxue: '🌸',
+            wang_laoban: '📚',
+            liu_feng: '🏀',
+            zhao_yun: '🎨'
+        };
+        
+        // 地点图标映射
+        const LOCATION_ICONS = {
+            classroom_1a: '📖',
+            classroom_1b: '📖',
+            hallway_1f: '🚶',
+            hallway_2f: '🚶',
+            stairwell: '🪜',
+            student_council: '🏛️',
+            library: '📚',
+            library_restricted: '🔒',
+            entrance: '🚪',
+            playground: '⚽',
+            gym: '🏋️',
+            equipment_room: '📦',
+            garden: '🌺',
+            old_building: '🏚️',
+            rooftop: '🌅',
+            cafeteria: '🍜'
+        };
+        
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', () => {
+            // 生成粒子效果
+            generateParticles();
+            
+            // 检查是否有保存的API配置
+            const savedApiKey = localStorage.getItem('openworld_apikey');
+            if (savedApiKey) {
+                document.getElementById('configModal').classList.add('hidden');
+                initializeGame({
+                    apiKey: savedApiKey,
+                    apiBaseUrl: localStorage.getItem('openworld_apibase') || 'https://api.openai.com/v1'
+                });
+            }
+        });
+        
+        // 生成粒子效果
+        function generateParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 20; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 15 + 's';
+                particle.style.animationDuration = (10 + Math.random() * 10) + 's';
+                container.appendChild(particle);
+            }
+        }
+        
+        // 保存配置
+        function saveConfig() {
+            const apiKey = document.getElementById('apiKey').value;
+            const apiBaseUrl = document.getElementById('apiBaseUrl').value;
+            const model = document.getElementById('modelSelect').value;
+            
+            if (apiKey) {
+                localStorage.setItem('openworld_apikey', apiKey);
+                localStorage.setItem('openworld_apibase', apiBaseUrl);
+                localStorage.setItem('openworld_model', model);
+            }
+            
+            document.getElementById('configModal').classList.add('hidden');
+            initializeGame({
+                apiKey: apiKey,
+                apiBaseUrl: apiBaseUrl,
+                dialogueModel: model,
+                eventModel: model,
+                narratorModel: model,
+                observerModel: model,
+                criticModel: model
+            });
+        }
+        
+        // 跳过配置
+        function skipConfig() {
+            document.getElementById('configModal').classList.add('hidden');
+            initializeGame({
+                apiKey: '',
+                apiBaseUrl: ''
+            });
+        }
+        
+        // 初始化游戏
+        async function initializeGame(config) {
+            console.log('[UI] 初始化游戏...');
+            
+            engine = new OpenWorldEngine(config);
+            
+            // 设置回调
+            engine.onUpdate = handleUpdate;
+            engine.onEvent = handleEvent;
+            engine.onDialogue = handleDialogue;
+            engine.onLoading = handleLoading;
+            
+            // 初始化引擎
+            await engine.initialize();
+            
+            // 渲染初始界面
+            renderMap();
+            renderNPCList();
+            renderActions();
+            renderInventory();
+            updateStats();
+            updateTimeDisplay();
+            
+            // 显示初始位置描述
+            const locationDesc = engine.getEnvironmentDescription(engine.worldState.playerLocation);
+            updateContent(locationDesc);
+        }
+        
+        // 渲染地图
+        function renderMap() {
+            const mapContainer = document.getElementById('campusMap');
+            const connectionsContainer = document.getElementById('mapConnections');
+            
+            mapContainer.innerHTML = '';
+            connectionsContainer.innerHTML = '';
+            
+            // 地图缩放和偏移
+            const scale = 0.8;
+            const offsetX = 50;
+            const offsetY = 30;
+            
+            // 绘制连接线
+            Object.values(LOCATIONS).forEach(location => {
+                location.connectedTo.forEach(targetId => {
+                    const target = LOCATIONS[targetId];
+                    if (target && location.id < targetId) { // 避免重复绘制
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', location.position.x * scale + offsetX);
+                        line.setAttribute('y1', location.position.y * scale + offsetY);
+                        line.setAttribute('x2', target.position.x * scale + offsetX);
+                        line.setAttribute('y2', target.position.y * scale + offsetY);
+                        connectionsContainer.appendChild(line);
+                    }
+                });
+            });
+            
+            // 绘制地点节点
+            Object.values(LOCATIONS).forEach(location => {
+                const node = document.createElement('div');
+                node.className = 'location-node';
+                node.style.left = (location.position.x * scale + offsetX) + 'px';
+                node.style.top = (location.position.y * scale + offsetY) + 'px';
+                
+                // 检查是否是当前位置
+                if (location.id === engine.worldState.playerLocation) {
+                    node.classList.add('current');
+                }
+                
+                // 检查是否锁定
+                if (location.unlockChapter > engine.worldState.chapter) {
+                    node.classList.add('locked');
+                }
+                
+                // 检查是否有NPC
+                const npcsHere = engine.getNPCsAtLocation(location.id);
+                if (npcsHere.length > 0) {
+                    node.classList.add('has-npc');
+                }
+                
+                node.innerHTML = `
+                    <span class="location-icon">${LOCATION_ICONS[location.id] || '📍'}</span>
+                    <span class="location-name">${location.name.substring(0, 4)}</span>
+                `;
+                
+                node.onclick = () => moveToLocation(location.id);
+                node.title = location.name;
+                
+                mapContainer.appendChild(node);
+            });
+        }
+        
+        // 渲染NPC列表
+        function renderNPCList() {
+            const npcList = document.getElementById('npcList');
+            const npcsHere = engine.getNPCsAtLocation(engine.worldState.playerLocation);
+            
+            if (npcsHere.length === 0) {
+                npcList.innerHTML = '<p style="color: var(--text-dim); font-size: 13px; text-align: center; padding: 20px;">这里没有其他人</p>';
+                return;
+            }
+            
+            npcList.innerHTML = npcsHere.map(npc => `
+                <div class="npc-item" onclick="talkToNPC('${npc.id}')">
+                    <div class="npc-avatar">${NPC_AVATARS[npc.id] || '👤'}</div>
+                    <div class="npc-info">
+                        <div class="npc-name">${npc.name}</div>
+                        <div class="npc-role">${npc.description.substring(0, 20)}...</div>
+                    </div>
+                    <div class="npc-status"></div>
+                </div>
+            `).join('');
+        }
+        
+        // 渲染可用行动
+        function renderActions() {
+            const actionsGrid = document.getElementById('actionsGrid');
+            const destinationsGrid = document.getElementById('destinationsGrid');
+            const location = LOCATIONS[engine.worldState.playerLocation];
+            
+            // 可用行动
+            const actions = location.availableActions || ['观察'];
+            actionsGrid.innerHTML = actions.map(action => `
+                <button class="action-btn" onclick="performAction('${action}')">
+                    ${getActionIcon(action)} ${action}
+                </button>
+            `).join('');
+            
+            // 可前往地点
+            const destinations = location.connectedTo
+                .map(id => LOCATIONS[id])
+                .filter(loc => loc.unlockChapter <= engine.worldState.chapter);
+            
+            destinationsGrid.innerHTML = destinations.map(dest => `
+                <button class="action-btn" onclick="moveToLocation('${dest.id}')">
+                    ${LOCATION_ICONS[dest.id] || '📍'} ${dest.name.substring(0, 4)}
+                </button>
+            `).join('');
+        }
+        
+        // 获取行动图标
+        function getActionIcon(action) {
+            const icons = {
+                '交谈': '💬',
+                '观察': '👁️',
+                '调查': '🔍',
+                '学习': '📖',
+                '休息': '💤',
+                '运动': '🏃',
+                '阅读': '📚',
+                '用餐': '🍽️',
+                '思考': '💭',
+                '移动': '🚶'
+            };
+            return icons[action] || '✨';
+        }
+        
+        // 渲染物品栏
+        function renderInventory() {
+            const inventoryGrid = document.getElementById('inventoryGrid');
+            const items = engine.worldState.playerInventory;
+            
+            let html = '';
+            for (let i = 0; i < 9; i++) {
+                if (items[i]) {
+                    html += `<div class="inventory-slot has-item" title="${items[i]}">${items[i].substring(0, 2)}</div>`;
+                } else {
+                    html += `<div class="inventory-slot">空</div>`;
+                }
+            }
+            inventoryGrid.innerHTML = html;
+        }
+        
+        // 更新状态条
+        function updateStats() {
+            const stats = engine.worldState.playerStats;
+            document.getElementById('statReputation').style.width = stats.reputation + '%';
+            document.getElementById('statKnowledge').style.width = stats.knowledge + '%';
+            document.getElementById('statCourage').style.width = stats.courage + '%';
+            document.getElementById('statSocial').style.width = stats.social + '%';
+        }
+        
+        // 更新时间显示
+        function updateTimeDisplay() {
+            document.getElementById('currentDay').textContent = engine.worldState.currentDay;
+            document.getElementById('currentPeriod').textContent = engine.worldState.currentPeriod;
+        }
+        
+        // 更新内容显示
+        function updateContent(text, type = 'normal') {
+            const contentText = document.getElementById('contentText');
+            
+            let html = '';
+            if (type === 'location') {
+                html = `<p class="location-desc">${text}</p>`;
+            } else if (type === 'action') {
+                html = `<div class="action-result">${text}</div>`;
+            } else if (type === 'event') {
+                html = `<div class="event-trigger">${text}</div>`;
+            } else {
+                html = `<p>${text}</p>`;
+            }
+            
+            contentText.innerHTML += html;
+            contentText.scrollTop = contentText.scrollHeight;
+        }
+        
+        // 移动到地点
+        async function moveToLocation(locationId) {
+            const result = await engine.moveToLocation(locationId);
+            
+            if (result.success) {
+                renderMap();
+                renderNPCList();
+                renderActions();
+                
+                // 清空并更新内容
+                document.getElementById('contentText').innerHTML = '';
+                updateContent(result.description, 'location');
+                
+                if (result.npcs.length > 0) {
+                    const npcNames = result.npcs.map(n => n.name).join('、');
+                    updateContent(`你看到${npcNames}在这里。`);
+                }
+            } else {
+                updateContent(result.message, 'event');
+            }
+        }
+        
+        // 与NPC交谈
+        async function talkToNPC(npcId) {
+            await engine.talkToNPC(npcId);
+        }
+        
+        // 执行行动
+        async function performAction(action) {
+            await engine.performAction(action);
+        }
+        
+        // 推进时间
+        function advanceTime() {
+            const result = engine.advanceTime();
+            updateTimeDisplay();
+            renderMap();
+            renderNPCList();
+            
+            // 更新环境描述
+            const locationDesc = engine.getEnvironmentDescription(engine.worldState.playerLocation);
+            document.getElementById('contentText').innerHTML = '';
+            updateContent(locationDesc, 'location');
+            updateContent(`时间来到了${result.period}。`);
+        }
+        
+        // 处理引擎更新回调
+        function handleUpdate(data) {
+            console.log('[UI] 收到更新:', data);
+            
+            switch (data.type) {
+                case 'location_change':
+                    // 已在moveToLocation中处理
+                    break;
+                case 'action_result':
+                    updateContent(data.result, 'action');
+                    updateStats();
+                    renderInventory();
+                    break;
+                case 'time_advance':
+                    updateTimeDisplay();
+                    renderNPCList();
+                    break;
+            }
+        }
+        
+        // 处理事件回调
+        function handleEvent(event) {
+            console.log('[UI] 收到事件:', event);
+            showEventNotification(event);
+        }
+        
+        // 处理对话回调
+        function handleDialogue(data) {
+            console.log('[UI] 收到对话:', data);
+            showDialogue(data.npc, data.dialogue, data.options);
+        }
+        
+        // 处理加载回调
+        function handleLoading(isLoading, text) {
+            const overlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            
+            if (isLoading) {
+                loadingText.textContent = text || '正在生成内容...';
+                overlay.classList.add('active');
+            } else {
+                overlay.classList.remove('active');
+            }
+        }
+        
+        // 显示事件通知
+        function showEventNotification(event) {
+            const notification = document.getElementById('eventNotification');
+            document.getElementById('eventType').textContent = event.type || '事件';
+            document.getElementById('eventTitle').textContent = event.title;
+            document.getElementById('eventContent').textContent = event.content;
+            
+            notification.classList.add('show');
+            
+            // 同时更新内容区
+            updateContent(`【${event.title}】${event.content}`, 'event');
+            
+            // 5秒后自动关闭
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 5000);
+        }
+        
+        // 关闭事件通知
+        function closeEventNotification() {
+            document.getElementById('eventNotification').classList.remove('show');
+        }
+        
+        // 显示对话框
+        function showDialogue(npc, dialogues, options) {
+            const overlay = document.getElementById('dialogueOverlay');
+            
+            document.getElementById('dialogueAvatar').textContent = NPC_AVATARS[npc.id] || '👤';
+            document.getElementById('dialogueNpcName').textContent = npc.name;
+            document.getElementById('dialogueNpcRole').textContent = npc.description.substring(0, 30) + '...';
+            
+            // 渲染对话内容
+            const dialogueContent = document.getElementById('dialogueContent');
+            dialogueContent.innerHTML = dialogues.map((d, i) => `
+                <div class="dialogue-message" style="animation-delay: ${i * 0.2}s">
+                    <div class="speaker">${d.speaker}</div>
+                    <div class="text">${d.text}</div>
+                </div>
+            `).join('');
+            
+            // 渲染选项
+            const dialogueOptions = document.getElementById('dialogueOptions');
+            dialogueOptions.innerHTML = options.map(opt => `
+                <button class="dialogue-option" onclick="handleDialogueChoice('${npc.id}', '${opt.id}')">
+                    ${opt.text}
+                </button>
+            `).join('');
+            
+            overlay.classList.add('active');
+        }
+        
+        // 处理对话选择
+        async function handleDialogueChoice(npcId, choiceId) {
+            if (choiceId === 'leave') {
+                document.getElementById('dialogueOverlay').classList.remove('active');
+                return;
+            }
+            
+            // 处理对话选择
+            const response = await engine.dialogueSystem.handleDialogueChoice(npcId, choiceId);
+            
+            if (response) {
+                // 更新对话内容
+                const dialogueContent = document.getElementById('dialogueContent');
+                response.forEach((d, i) => {
+                    dialogueContent.innerHTML += `
+                        <div class="dialogue-message" style="animation-delay: ${i * 0.2}s">
+                            <div class="speaker">${d.speaker}</div>
+                            <div class="text">${d.text}</div>
+                        </div>
+                    `;
+                });
+                dialogueContent.scrollTop = dialogueContent.scrollHeight;
+            }
+            
+            updateStats();
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

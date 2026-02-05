@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STAGE_CONFIG 剧本生成器</title>
+    <script src="stage-config-generator.js"></script>
+    <style>
+        :root {
+            --bg-color: #0a0e1a;
+            --panel-bg: #141b2d;
+            --border-color: #2a3441;
+            --accent-color: #00ffcc;
+            --text-color: #d0d7de;
+            --success-color: #4ade80;
+            --error-color: #ff3366;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel h2 {
+            color: var(--accent-color);
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-color);
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        button {
+            background: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.3s;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background: #00cc99;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 255, 204, 0.3);
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .status.info {
+            background: rgba(74, 158, 255, 0.2);
+            border: 1px solid var(--loc-color);
+            color: var(--loc-color);
+        }
+
+        .status.success {
+            background: rgba(74, 222, 128, 0.2);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+        }
+
+        .status.error {
+            background: rgba(255, 51, 102, 0.2);
+            border: 1px solid var(--error-color);
+            color: var(--error-color);
+        }
+
+        .output-panel {
+            min-height: 400px;
+            max-height: 800px;
+            overflow-y: auto;
+        }
+
+        pre {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            border: 1px solid var(--border-color);
+        }
+
+        code {
+            color: var(--accent-color);
+            font-family: 'Courier New', monospace;
+        }
+
+        .example-prompts {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #888;
+        }
+
+        .example-prompts code {
+            display: block;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .example-prompts code:hover {
+            background: rgba(0, 255, 204, 0.1);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--accent-color);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 STAGE_CONFIG 剧本生成器</h1>
+
+        <div class="main-layout">
+            <!-- 左侧：输入面板 -->
+            <div class="panel">
+                <h2>生成参数</h2>
+
+                <div class="form-group">
+                    <label for="stageNumber">关卡编号：</label>
+                    <input type="number" id="stageNumber" value="1" min="1" max="10">
+                </div>
+
+                <div class="form-group">
+                    <label for="userPrompt">剧本提示词：</label>
+                    <textarea id="userPrompt" placeholder="描述你想要生成的关卡主题、背景、风格等...">请生成一个赛博朋克风格的关卡剧本，主题是"贫民窟的数据泄露"。
+
+包含以下要素：
+- 数据泄露事件
+- 加密芯片线索
+- 黑客NPC
+- 多层线索树结构</textarea>
+                    
+                    <div class="example-prompts">
+                        <strong>示例提示词：</strong>
+                        <code onclick="loadExample(0)">赛博朋克风格，主题"公司内部间谍"</code>
+                        <code onclick="loadExample(1)">悬疑风格，主题"废弃实验室的秘密"</code>
+                        <code onclick="loadExample(2)">科幻风格，主题"AI意识觉醒事件"</code>
+                    </div>
+                </div>
+
+                <button id="generateBtn" onclick="generateConfig()">🚀 生成剧本</button>
+                <button onclick="copyToClipboard()">📋 复制代码</button>
+                <button onclick="downloadConfig()">💾 保存为文件</button>
+
+                <div id="status"></div>
+            </div>
+
+            <!-- 右侧：输出面板 -->
+            <div class="panel">
+                <h2>生成结果</h2>
+                <div class="output-panel">
+                    <pre id="output"><code>生成的剧本将显示在这里...</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentConfig = null;
+
+        const examplePrompts = [
+            `请生成一个赛博朋克风格的关卡剧本，主题是"公司内部间谍"。
+包含以下要素：
+- 公司机密泄露
+- 内部间谍线索
+- 安全主管NPC
+- 多层线索树结构`,
+
+            `请生成一个悬疑风格的关卡剧本，主题是"废弃实验室的秘密"。
+包含以下要素：
+- 神秘实验记录
+- 失踪研究员线索
+- 看门人NPC
+- 复杂的线索网络`,
+
+            `请生成一个科幻风格的关卡剧本，主题是"AI意识觉醒事件"。
+包含以下要素：
+- AI异常行为
+- 觉醒程序线索
+- 技术专家NPC
+- 技术性线索树`
+        ];
+
+        function loadExample(index) {
+            document.getElementById('userPrompt').value = examplePrompts[index];
+        }
+
+        async function generateConfig() {
+            const stageNumber = parseInt(document.getElementById('stageNumber').value) || 1;
+            const userPrompt = document.getElementById('userPrompt').value.trim();
+            const btn = document.getElementById('generateBtn');
+            const statusDiv = document.getElementById('status');
+            const outputPre = document.getElementById('output');
+
+            if (!userPrompt) {
+                showStatus('请输入剧本提示词', 'error');
+                return;
+            }
+
+            // 禁用按钮并显示加载状态
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>正在生成...';
+            showStatus('正在调用LLM生成剧本，请稍候...', 'info');
+            outputPre.innerHTML = '<code>生成中...</code>';
+
+            try {
+                const result = await window.StageConfigGenerator.generateStageConfig(userPrompt, stageNumber);
+
+                if (result.success) {
+                    // 格式化输出
+                    const formattedCode = `    ${stageNumber}: ${window.StageConfigGenerator.formatConfig(result.config[stageNumber], 1)},\n`;
+                    outputPre.innerHTML = `<code>${escapeHtml(formattedCode)}</code>`;
+                    currentConfig = result.config;
+                    showStatus(`✓ 成功生成第 ${stageNumber} 关配置！`, 'success');
+                } else {
+                    // 显示原始内容和错误
+                    outputPre.innerHTML = `<code>${escapeHtml(result.rawContent || '生成失败')}\n\n错误: ${result.error || '未知错误'}</code>`;
+                    showStatus(`生成失败: ${result.error || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                outputPre.innerHTML = `<code>错误: ${error.message}</code>`;
+                showStatus(`生成出错: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🚀 生成剧本';
+            }
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            setTimeout(() => {
+                if (statusDiv.textContent === message) {
+                    statusDiv.textContent = '';
+                    statusDiv.className = '';
+                }
+            }, 5000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function copyToClipboard() {
+            const output = document.getElementById('output').textContent;
+            if (!output || output === '生成的剧本将显示在这里...' || output === '生成中...') {
+                showStatus('没有可复制的内容', 'error');
+                return;
+            }
+
+            navigator.clipboard.writeText(output).then(() => {
+                showStatus('✓ 已复制到剪贴板', 'success');
+            }).catch(err => {
+                showStatus(`复制失败: ${err.message}`, 'error');
+            });
+        }
+
+        function downloadConfig() {
+            if (!currentConfig) {
+                showStatus('请先生成剧本', 'error');
+                return;
+            }
+
+            const stageNumber = parseInt(document.getElementById('stageNumber').value) || 1;
+            const config = currentConfig[stageNumber];
+            
+            if (!config) {
+                showStatus('配置数据无效', 'error');
+                return;
+            }
+
+            const formattedCode = `${stageNumber}: ${window.StageConfigGenerator.formatConfig(config, 1)},\n`;
+            const blob = new Blob([formattedCode], { type: 'text/javascript' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `stage-${stageNumber}-config.js`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showStatus(`✓ 已保存为 stage-${stageNumber}-config.js`, 'success');
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

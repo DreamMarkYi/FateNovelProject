@@ -14,6 +14,8 @@ import exDay from '../views/MinimalistPageDayOnly.vue'
 import ChapterSelectPage from '../views/ChapterSelectPage.vue'
 import TerminalChapterSelect from '../views/TerminalChapterSelect.vue'
 import ChapterNodeEditor from '../views/ChapterNodeEditor.vue'
+import BattleSimulatorPage from '../views/BattleSimulatorPage.vue'
+import VocabularyPage from '../views/VocabularyPage.vue'
 
 
 const router = createRouter({
@@ -72,6 +74,18 @@ const router = createRouter({
       path: '/doodle-story',
       name: 'DoodleStory',
       component: () => import('@/views/DoodleStoryPage.vue'),
+      meta: { public: true }
+    },
+    {
+      path: '/battle-simulator',
+      name: 'battle-simulator',
+      component: BattleSimulatorPage,
+      meta: { public: true }
+    },
+    {
+      path: '/vocabulary',
+      name: 'vocabulary',
+      component: VocabularyPage,
       meta: { public: true }
     },
     

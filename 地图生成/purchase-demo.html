@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>购买系统完整演示</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="knowledge5-assets/js/worldgen-llm.js"></script>
+    <script src="knowledge5-assets/js/item-filter-llm.js"></script>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --accent-color: #00d4ff;
+            --text-color: #c9d1d9;
+            --border-color: #30363d;
+            --success-color: #4CAF50;
+            --warning-color: #ff9800;
+            --error-color: #f44336;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #8b949e;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            color: var(--accent-color);
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title .step-number {
+            background: var(--accent-color);
+            color: #000;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-color);
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            background: #0d1117;
+            border: 1px solid var(--border-color);
+            color: white;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .two-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .two-columns {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        button {
+            padding: 12px 24px;
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        button:hover:not(:disabled) {
+            box-shadow: 0 0 15px var(--accent-color);
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .llm-output {
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            margin-bottom: 15px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .item-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            padding: 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .item-card:hover {
+            border-color: var(--accent-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+        }
+
+        .item-card.selected {
+            border-color: var(--success-color);
+            background: rgba(76, 175, 80, 0.1);
+        }
+
+        .item-card h4 {
+            margin: 0 0 10px 0;
+            color: #fff;
+            font-size: 1em;
+        }
+
+        .item-card .price {
+            color: var(--warning-color);
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .item-card .base-price {
+            color: #888;
+            font-size: 0.9em;
+            text-decoration: line-through;
+            margin-right: 8px;
+        }
+
+        .item-card .price-modifier {
+            font-size: 0.8em;
+            color: var(--accent-color);
+            margin-top: 5px;
+        }
+
+        .upload-section {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px dashed var(--accent-color);
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .btn-upload {
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+            background-color: transparent;
+            padding: 8px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            width: auto;
+        }
+
+        .upload-btn-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .filtered-items-section {
+            margin-top: 15px;
+        }
+
+        .filtered-item {
+            background: rgba(0, 212, 255, 0.1);
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .purchase-summary {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid var(--success-color);
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+
+        .purchase-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: var(--card-bg);
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .remove-btn {
+            background: var(--error-color);
+            padding: 5px 10px;
+            font-size: 0.8em;
+            width: auto;
+        }
+
+        .total-price {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: var(--warning-color);
+            text-align: right;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid var(--border-color);
+        }
+
+        .player-money {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: rgba(255, 152, 0, 0.1);
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+
+        .status-success {
+            background: rgba(76, 175, 80, 0.2);
+            color: var(--success-color);
+        }
+
+        .status-error {
+            background: rgba(244, 67, 54, 0.2);
+            color: var(--error-color);
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🛒 购买系统完整演示</h1>
+    <p class="subtitle">展示物品过滤 → 定价 → 购买结算的完整流程</p>
+
+    <!-- CSV上传 -->
+    <div class="upload-section">
+        <p style="margin-top:0; color:#8b949e">第一步：加载物品清单 (CSV)</p>
+        <div class="upload-btn-wrapper">
+            <button class="btn-upload">选择 CSV 文件</button>
+            <input type="file" id="csvFileInput" accept=".csv" />
+        </div>
+        <div id="fileInfo" style="margin-top:10px; font-size:0.9em; color:#fff;"></div>
+    </div>
+
+    <!-- 输入表单 -->
+    <div class="section">
+        <div class="section-title">
+            <span class="step-number">0</span>
+            <span>📝 测试参数</span>
+        </div>
+
+        <div class="form-group">
+            <label>玩家查询：</label>
+            <input type="text" id="userQuery" placeholder="例如：我想买一把枪" value="我想买一把枪" />
+        </div>
+
+        <div class="two-columns">
+            <div>
+                <div class="form-group">
+                    <label>NPC名称：</label>
+                    <input type="text" id="npcName" value="黑市武器商" />
+                </div>
+                <div class="form-group">
+                    <label>NPC职业：</label>
+                    <input type="text" id="npcOccupation" value="黑市武器商" />
+                </div>
+            </div>
+            <div>
+                <div class="form-group">
+                    <label>NPC性格：</label>
+                    <input type="text" id="npcPersonality" value="谨慎" />
+                </div>
+                <div class="form-group">
+                    <label>NPC描述：</label>
+                    <textarea id="npcDesc">一个神秘的黑市武器商人，专门出售违禁武器</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="two-columns">
+            <div class="form-group">
+                <label>玩家金钱（信用点）：</label>
+                <input type="number" id="playerMoney" value="1000" min="0" />
+            </div>
+            <div class="form-group">
+                <label>玩家社会状态：</label>
+                <input type="text" id="playerSocial" value="普通" />
+            </div>
+        </div>
+
+        <button onclick="startProcess()" id="processBtn">
+            <span id="btnText">🚀 开始处理</span>
+            <div class="loader" id="loader"></div>
+        </button>
+    </div>
+
+    <!-- LLM #1 输出 -->
+    <div class="section" id="llm1Section" style="display:none;">
+        <div class="section-title">
+            <span class="step-number">1</span>
+            <span>🤖 LLM #1: 物品过滤LLM</span>
+        </div>
+        <div style="margin-bottom:10px; color:#8b949e;">将自然语言查询转换为过滤条件</div>
+
+        <div style="margin-bottom:10px;">
+            <strong>思维链推理过程：</strong>
+        </div>
+        <div class="llm-output" id="llm1Thinking">等待中...</div>
+
+        <div style="margin-top:15px; margin-bottom:10px;">
+            <strong>过滤逻辑JSON：</strong>
+        </div>
+        <div class="llm-output" id="llm1Filters">等待中...</div>
+
+        <div class="filtered-items-section" id="filteredItemsSection" style="display:none;">
+            <div style="margin-top:15px; margin-bottom:10px;">
+                <strong>过滤后的物品列表：</strong>
+            </div>
+            <div class="items-grid" id="filteredItemsGrid"></div>
+        </div>
+    </div>
+
+    <!-- LLM #2 输出 -->
+    <div class="section" id="llm2Section" style="display:none;">
+        <div class="section-title">
+            <span class="step-number">2</span>
+            <span>💼 LLM #2: 商人定价LLM</span>
+        </div>
+        <div style="margin-bottom:10px; color:#8b949e;">为每个物品计算动态价格</div>
+
+        <div style="margin-bottom:10px;">
+            <strong>思维链推理过程：</strong>
+        </div>
+        <div class="llm-output" id="llm2Thinking">等待中...</div>
+
+        <div style="margin-top:15px; margin-bottom:10px;">
+            <strong>定价结果JSON：</strong>
+        </div>
+        <div class="llm-output" id="llm2Pricing">等待中...</div>
+    </div>
+
+    <!-- 物品选择界面 -->
+    <div class="section" id="itemSelectionSection" style="display:none;">
+        <div class="section-title">
+            <span class="step-number">3</span>
+            <span>🛍️ 选择要购买的物品</span>
+        </div>
+
+        <div class="player-money">
+            <span>💰 当前金钱：<strong id="currentMoney">1000</strong> 信用点</span>
+            <span id="moneyStatus"></span>
+        </div>
+
+        <div class="items-grid" id="pricedItemsGrid"></div>
+    </div>
+
+    <!-- 购买结算 -->
+    <div class="section" id="purchaseSection" style="display:none;">
+        <div class="section-title">
+            <span class="step-number">4</span>
+            <span>💳 购买结算</span>
+        </div>
+
+        <div class="purchase-summary">
+            <div style="margin-bottom:15px; font-weight:bold; color:#fff;">已选择的物品：</div>
+            <div id="selectedItemsList"></div>
+            <div class="total-price">
+                <div>总价：<span id="totalPrice">0</span> 信用点</div>
+                <div style="font-size:0.9em; color:#8b949e; margin-top:5px;">
+                    剩余：<span id="remainingMoney">1000</span> 信用点
+                </div>
+            </div>
+            <button onclick="confirmPurchase()" id="confirmBtn" style="margin-top:15px;">
+                确认购买
+            </button>
+        </div>
+    </div>
+
+    <!-- 购买结果 -->
+    <div class="section" id="resultSection" style="display:none;">
+        <div class="section-title">
+            <span class="step-number">✓</span>
+            <span>✅ 购买完成</span>
+        </div>
+        <div id="purchaseResult"></div>
+    </div>
+</div>
+
+<script>
+    let itemFilter = null;
+    let filteredItems = [];
+    let pricedItems = [];
+    let selectedItems = [];
+    let playerMoney = 1000;
+
+    // CSV文件上传
+    document.getElementById('csvFileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('fileInfo').textContent = `正在读取: ${file.name}...`;
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                if (results.data && results.data.length > 0) {
+                    itemFilter = new ItemFilterLLM();
+                    itemFilter.processCSVData(results.data);
+                    document.getElementById('fileInfo').textContent = `✅ 成功加载: ${file.name} (${results.data.length} 条数据)`;
+                    document.getElementById('processBtn').disabled = false;
+                } else {
+                    alert("CSV 文件为空或格式错误");
+                }
+            },
+            error: function(err) {
+                alert("解析错误: " + err.message);
+            }
+        });
+    });
+
+    async function startProcess() {
+        if (!itemFilter) {
+            alert("请先加载 CSV 数据！");
+            return;
+        }
+
+        const userQuery = document.getElementById('userQuery').value.trim();
+        if (!userQuery) {
+            alert("请输入玩家查询！");
+            return;
+        }
+
+        // 获取输入参数
+        const npcInfo = {
+            id: 'npc_test_01',
+            name: document.getElementById('npcName').value || '未知',
+            occupation: document.getElementById('npcOccupation').value || '未知',
+            personality: document.getElementById('npcPersonality').value || '未知',
+            desc: document.getElementById('npcDesc').value || ''
+        };
+
+        const playerStatus = {
+            money: parseInt(document.getElementById('playerMoney').value) || 100,
+            social: document.getElementById('playerSocial').value.split(',').map(s => s.trim()) || ['普通'],
+            physical: ['健康']
+        };
+
+        playerMoney = playerStatus.money;
+        selectedItems = [];
+        filteredItems = [];
+        pricedItems = [];
+
+        // 更新UI
+        document.getElementById('currentMoney').textContent = playerMoney;
+        document.getElementById('processBtn').disabled = true;
+        document.getElementById('btnText').textContent = '⏳ 处理中...';
+        document.getElementById('loader').style.display = 'block';
+
+        // 显示所有输出区域
+        document.getElementById('llm1Section').style.display = 'block';
+        document.getElementById('llm2Section').style.display = 'block';
+        document.getElementById('itemSelectionSection').style.display = 'none';
+        document.getElementById('purchaseSection').style.display = 'none';
+        document.getElementById('resultSection').style.display = 'none';
+
+        try {
+            // ========== LLM #1: 物品过滤LLM ==========
+            document.getElementById('llm1Thinking').textContent = '正在调用LLM #1...';
+            document.getElementById('llm1Filters').textContent = '等待中...';
+
+            const queryLogic = await itemFilter.fetchQueryLogic(userQuery, npcInfo);
+
+            // 显示思维链
+            if (queryLogic.thinking) {
+                document.getElementById('llm1Thinking').textContent = JSON.stringify(queryLogic.thinking, null, 2);
+            } else {
+                document.getElementById('llm1Thinking').textContent = '无思维链数据';
+            }
+
+            // 显示过滤逻辑
+            const filtersOnly = { filters: queryLogic.filters };
+            document.getElementById('llm1Filters').textContent = JSON.stringify(filtersOnly, null, 2);
+
+            // 执行过滤
+            const filtered = itemFilter.executeFilter(queryLogic);
+            console.log(filtered);
+            filteredItems = filtered;
+
+            // 显示过滤后的物品
+            displayFilteredItems(filteredItems);
+
+            // ========== LLM #2: 商人定价LLM ==========
+            document.getElementById('llm2Thinking').textContent = '正在调用LLM #2...';
+            document.getElementById('llm2Pricing').textContent = '等待中...';
+
+            const pricingResult = await itemFilter.callMerchantLLM(
+                filteredItems,
+                npcInfo,
+                playerStatus,
+                []
+            );
+
+            // 显示思维链
+            if (pricingResult.thinking) {
+                document.getElementById('llm2Thinking').textContent = JSON.stringify(pricingResult.thinking, null, 2);
+            } else {
+                document.getElementById('llm2Thinking').textContent = '无思维链数据';
+            }
+
+            // 显示定价结果
+            const pricingOnly = { items: pricingResult.items };
+            document.getElementById('llm2Pricing').textContent = JSON.stringify(pricingOnly, null, 2);
+
+            // 保存定价结果
+            pricedItems = pricingResult.items || [];
+
+            // 显示物品选择界面
+            displayPricedItems(pricedItems);
+            document.getElementById('itemSelectionSection').style.display = 'block';
+
+        } catch (error) {
+            console.error(error);
+            alert("处理失败: " + error.message);
+        } finally {
+            document.getElementById('processBtn').disabled = false;
+            document.getElementById('btnText').textContent = '🚀 开始处理';
+            document.getElementById('loader').style.display = 'none';
+        }
+    }
+
+    function displayFilteredItems(items) {
+        const container = document.getElementById('filteredItemsGrid');
+        container.innerHTML = '';
+
+        if (items.length === 0) {
+            container.innerHTML = '<div style="grid-column: 1/-1; color:#888; text-align:center; padding:20px;">没有匹配的物品</div>';
+            return;
+        }
+
+        items.slice(0, 20).forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'filtered-item';
+            card.innerHTML = `
+                    <strong>${item.name}</strong><br>
+                    <span style="color:#888;">ID: ${item.id}</span> |
+                    <span style="color:#ffab00;">¥${item.price}</span> |
+                    <span style="color:#666;">${item.weight}kg</span><br>
+                    <span style="color:#00d4ff; font-size:0.8em;">${item.tags || '无标签'}</span>
+                `;
+            container.appendChild(card);
+        });
+
+        document.getElementById('filteredItemsSection').style.display = 'block';
+    }
+
+    function displayPricedItems(items) {
+        const container = document.getElementById('pricedItemsGrid');
+        container.innerHTML = '';
+
+        if (items.length === 0) {
+            container.innerHTML = '<div style="grid-column: 1/-1; color:#888; text-align:center; padding:20px;">没有可购买的物品</div>';
+            return;
+        }
+
+        items.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'item-card';
+            card.dataset.index = index;
+            card.onclick = () => toggleItemSelection(index);
+
+            const hasDiscount = item.final_price < item.base_price;
+            const hasMarkup = item.final_price > item.base_price;
+
+            card.innerHTML = `
+                    <h4>${item.item_name}</h4>
+                    <div>
+                        ${hasDiscount ? `<span class="base-price">¥${item.base_price}</span>` : ''}
+                        <span class="price">¥${item.final_price}</span>
+                        ${hasMarkup ? `<span style="color:#f44336; font-size:0.8em;">↑</span>` : ''}
+                        ${hasDiscount ? `<span style="color:#4CAF50; font-size:0.8em;">↓</span>` : ''}
+                    </div>
+                    <div class="price-modifier">${item.price_modifier || '无调整'}</div>
+                    <div style="font-size:0.8em; color:#666; margin-top:5px;">ID: ${item.item_id}</div>
+                `;
+            container.appendChild(card);
+        });
+    }
+
+    function toggleItemSelection(index) {
+        const item = pricedItems[index];
+        const card = document.querySelector(`.item-card[data-index="${index}"]`);
+
+        const existingIndex = selectedItems.findIndex(si => si.item_id === item.item_id);
+
+        if (existingIndex >= 0) {
+            // 取消选择
+            selectedItems.splice(existingIndex, 1);
+            card.classList.remove('selected');
+        } else {
+            // 选择物品
+            selectedItems.push({
+                ...item,
+                quantity: 1
+            });
+            card.classList.add('selected');
+        }
+
+        updatePurchaseSummary();
+    }
+
+    function updatePurchaseSummary() {
+        const container = document.getElementById('selectedItemsList');
+        container.innerHTML = '';
+
+        if (selectedItems.length === 0) {
+            container.innerHTML = '<div style="color:#888; text-align:center; padding:20px;">未选择任何物品</div>';
+            document.getElementById('purchaseSection').style.display = 'none';
+            return;
+        }
+
+        let total = 0;
+        selectedItems.forEach((item, index) => {
+            const cost = item.final_price * (item.quantity || 1);
+            total += cost;
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'purchase-item';
+            itemDiv.innerHTML = `
+                    <div>
+                        <strong>${item.item_name}</strong><br>
+                        <span style="font-size:0.9em; color:#888;">数量: ${item.quantity || 1}</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="price">¥${cost.toFixed(2)}</div>
+                        <div style="font-size:0.8em; color:#888;">单价: ¥${item.final_price}</div>
+                    </div>
+                `;
+            container.appendChild(itemDiv);
+        });
+
+        document.getElementById('totalPrice').textContent = total.toFixed(2);
+        const remaining = playerMoney - total;
+        document.getElementById('remainingMoney').textContent = remaining.toFixed(2);
+
+        // 更新金钱状态
+        const moneyStatus = document.getElementById('moneyStatus');
+        if (remaining < 0) {
+            moneyStatus.innerHTML = '<span class="status-badge status-error">💰 余额不足</span>';
+        } else if (remaining < 100) {
+            moneyStatus.innerHTML = '<span class="status-badge status-error">⚠️ 余额较低</span>';
+        } else {
+            moneyStatus.innerHTML = '<span class="status-badge status-success">✓ 余额充足</span>';
+        }
+
+        document.getElementById('purchaseSection').style.display = 'block';
+    }
+
+    function confirmPurchase() {
+        const total = selectedItems.reduce((sum, item) => sum + (item.final_price * (item.quantity || 1)), 0);
+
+        if (total > playerMoney) {
+            alert('余额不足，无法完成购买！');
+            return;
+        }
+
+        if (selectedItems.length === 0) {
+            alert('请至少选择一个物品！');
+            return;
+        }
+
+        // 执行购买
+        playerMoney -= total;
+        document.getElementById('currentMoney').textContent = playerMoney.toFixed(2);
+
+        // 显示购买结果
+        const resultContainer = document.getElementById('purchaseResult');
+        let html = '<div style="color:#4CAF50; font-size:1.1em; margin-bottom:15px;">✅ 购买成功！</div>';
+
+        html += '<div style="margin-bottom:15px;"><strong>购买的物品：</strong></div>';
+        selectedItems.forEach(item => {
+            const cost = item.final_price * (item.quantity || 1);
+            html += `
+                    <div style="padding:10px; background:var(--card-bg); border-radius:4px; margin-bottom:10px;">
+                        <strong>${item.item_name}</strong> × ${item.quantity || 1}<br>
+                        <span style="color:#888;">单价: ¥${item.final_price}</span> |
+                        <span style="color:#ffab00;">小计: ¥${cost.toFixed(2)}</span>
+                    </div>
+                `;
+        });
+
+        html += `
+                <div style="margin-top:15px; padding:15px; background:rgba(76,175,80,0.1); border-radius:4px;">
+                    <div style="font-size:1.2em; font-weight:bold; color:#4CAF50;">
+                        总消费: ¥${total.toFixed(2)}
+                    </div>
+                    <div style="margin-top:10px;">
+                        剩余金钱: <strong>¥${playerMoney.toFixed(2)}</strong> 信用点
+                    </div>
+                </div>
+            `;
+
+        resultContainer.innerHTML = html;
+        document.getElementById('resultSection').style.display = 'block';
+
+        // 滚动到结果
+        document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+    }
+</script>
+</body>
+</html>

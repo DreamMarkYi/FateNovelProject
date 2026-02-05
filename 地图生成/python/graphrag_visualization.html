@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GraphRAG 知识图谱可视化</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px dashed #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f0f0f0;
+        }
+
+        .upload-area {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 20px 0;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-button {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-input-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .file-name {
+            margin-top: 15px;
+            color: #666;
+            font-size: 1em;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status-message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .status-info {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-success {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+
+        .status-error {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .status-processing {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .visualization-section {
+            margin-top: 30px;
+        }
+
+        .visualization-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .visualization-header h2 {
+            color: #333;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        #graph-container {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            background: #fafafa;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .node {
+            cursor: pointer;
+            stroke: #fff;
+            stroke-width: 2px;
+        }
+
+        .link {
+            stroke: #999;
+            stroke-opacity: 0.6;
+            stroke-width: 2px;
+        }
+
+        .node-label {
+            font-size: 12px;
+            pointer-events: none;
+            text-anchor: middle;
+            fill: #333;
+            font-weight: bold;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 5px;
+            pointer-events: none;
+            font-size: 12px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .legend {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .legend-item {
+            display: inline-block;
+            margin-right: 20px;
+            margin-bottom: 10px;
+        }
+
+        .legend-color {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔮 GraphRAG 知识图谱可视化</h1>
+            <p>上传文档，自动构建并可视化知识图谱</p>
+        </div>
+
+        <div class="content">
+            <div class="upload-section">
+                <div class="upload-area">
+                    <h3>📁 上传文档文件</h3>
+                    <p style="margin: 15px 0; color: #666;">支持 Markdown (.md) 格式文件</p>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="fileInput" accept=".md,.txt" />
+                        <div class="file-input-button">选择文件</div>
+                    </div>
+                    <div class="file-name" id="fileName"></div>
+                    <div class="button-group">
+                        <button class="btn btn-primary" id="processBtn" disabled>开始构建图谱</button>
+                        <button class="btn btn-primary" id="refreshBtn" disabled>刷新图谱</button>
+                    </div>
+                    <div id="statusMessage"></div>
+                </div>
+            </div>
+
+            <div class="visualization-section" id="visualizationSection" style="display: none;">
+                <div class="visualization-header">
+                    <h2>📊 知识图谱可视化</h2>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="nodeCount">0</div>
+                            <div class="stat-label">实体节点</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="edgeCount">0</div>
+                            <div class="stat-label">关系边</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="graph-container"></div>
+                <div class="legend">
+                    <h4>图例</h4>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #667eea;"></span>
+                        <span>实体节点</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #999;"></span>
+                        <span>关系连线</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let uploadedFilePath = null;
+        let graphData = null;
+        let simulation = null;
+
+        // 文件选择
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('fileName').textContent = `已选择: ${file.name}`;
+                uploadFile(file);
+            }
+        });
+
+        // 上传文件
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showStatus('正在上传文件...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    uploadedFilePath = data.filepath;
+                    showStatus('文件上传成功！', 'success');
+                    document.getElementById('processBtn').disabled = false;
+                } else {
+                    showStatus(`上传失败: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`上传错误: ${error.message}`, 'error');
+            }
+        }
+
+        // 处理文件并构建图谱
+        document.getElementById('processBtn').addEventListener('click', async function() {
+            if (!uploadedFilePath) {
+                showStatus('请先上传文件', 'error');
+                return;
+            }
+
+            showStatus('正在构建图谱，请稍候...', 'processing');
+            document.getElementById('processBtn').disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/process`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ filepath: uploadedFilePath })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    // 开始轮询状态
+                    pollStatus();
+                } else {
+                    showStatus(`处理失败: ${data.error}`, 'error');
+                    document.getElementById('processBtn').disabled = false;
+                }
+            } catch (error) {
+                showStatus(`处理错误: ${error.message}`, 'error');
+                document.getElementById('processBtn').disabled = false;
+            }
+        });
+
+        // 轮询状态
+        async function pollStatus() {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/status`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(interval);
+                        showStatus('图谱构建完成！', 'success');
+                        document.getElementById('refreshBtn').disabled = false;
+                        loadGraphData();
+                    }
+                } catch (error) {
+                    console.error('状态检查错误:', error);
+                }
+            }, 2000); // 每2秒检查一次
+        }
+
+        // 刷新图谱
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+            loadGraphData();
+        });
+
+        // 加载图谱数据
+        async function loadGraphData() {
+            showStatus('正在加载图谱数据...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/graph-data`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    graphData = data;
+                    document.getElementById('visualizationSection').style.display = 'block';
+                    visualizeGraph(data);
+                    showStatus('图谱加载成功！', 'success');
+                } else {
+                    showStatus(`加载失败: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`加载错误: ${error.message}`, 'error');
+            }
+        }
+
+        // 可视化图谱
+        function visualizeGraph(data) {
+            const container = document.getElementById('graph-container');
+            container.innerHTML = '';
+
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            const svg = d3.select('#graph-container')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            // 更新统计信息
+            document.getElementById('nodeCount').textContent = data.nodes.length;
+            document.getElementById('edgeCount').textContent = data.edges.length;
+
+            // 创建力导向图
+            const links = data.edges.map(d => ({ ...d }));
+            const nodes = data.nodes.map(d => ({ ...d }));
+
+            // 颜色比例尺
+            const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+            // 创建力导向布局
+            simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(30));
+
+            // 绘制连线
+            const link = svg.append('g')
+                .selectAll('line')
+                .data(links)
+                .enter()
+                .append('line')
+                .attr('class', 'link')
+                .attr('stroke-width', 2);
+
+            // 绘制节点
+            const node = svg.append('g')
+                .selectAll('circle')
+                .data(nodes)
+                .enter()
+                .append('circle')
+                .attr('class', 'node')
+                .attr('r', 10)
+                .attr('fill', d => color(d.type))
+                .call(drag(simulation));
+
+            // 添加标签
+            const label = svg.append('g')
+                .selectAll('text')
+                .data(nodes)
+                .enter()
+                .append('text')
+                .attr('class', 'node-label')
+                .text(d => d.label.length > 15 ? d.label.substring(0, 15) + '...' : d.label)
+                .attr('dy', 25);
+
+            // 添加工具提示
+            const tooltip = d3.select('#tooltip');
+
+            node.on('mouseover', function(event, d) {
+                tooltip.style('display', 'block')
+                    .html(`<strong>${d.label}</strong><br/>类型: ${d.type}<br/>${d.description || ''}`)
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY + 10) + 'px');
+            })
+            .on('mouseout', function() {
+                tooltip.style('display', 'none');
+            });
+
+            // 更新位置
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+
+                node
+                    .attr('cx', d => d.x)
+                    .attr('cy', d => d.y);
+
+                label
+                    .attr('x', d => d.x)
+                    .attr('y', d => d.y);
+            });
+        }
+
+        // 拖拽功能
+        function drag(simulation) {
+            function dragstarted(event) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                event.subject.fx = event.subject.x;
+                event.subject.fy = event.subject.y;
+            }
+
+            function dragged(event) {
+                event.subject.fx = event.x;
+                event.subject.fy = event.y;
+            }
+
+            function dragended(event) {
+                if (!event.active) simulation.alphaTarget(0);
+                event.subject.fx = null;
+                event.subject.fy = null;
+            }
+
+            return d3.drag()
+                .on('start', dragstarted)
+                .on('drag', dragged)
+                .on('end', dragended);
+        }
+
+        // 显示状态消息
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.innerHTML = type === 'processing' 
+                ? `<span class="loading"></span> ${message}`
+                : message;
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+

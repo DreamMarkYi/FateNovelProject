@@ -8,7 +8,9 @@
     "dev": "nodemon src/app.js",
     "init-mysql": "node src/scripts/initDatabase.js",
     "init-mongodb": "node src/scripts/initMongoDB.js",
-    "init-db": "npm run init-mysql && npm run init-mongodb"
+    "init-db": "npm run init-mysql && npm run init-mongodb",
+    "init-battle-characters": "node src/scripts/initBattleCharacters.js",
+    "add-character": "node src/scripts/addBattleCharacter.js"
   },
   "keywords": [
     "novel",
@@ -30,6 +32,7 @@
     "marked": "^11.1.0",
     "mongoose": "^8.0.3",
     "mysql2": "^3.6.5",
+    "node-fetch": "^2.7.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

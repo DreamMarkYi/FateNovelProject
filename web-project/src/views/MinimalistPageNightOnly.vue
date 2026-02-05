@@ -128,7 +128,7 @@ const continueGame = () => {
 
 const selectChapter = () => {
   console.log('章节选择');
-  router.push('/chapter-select');
+  router.push('/terminal-chapter-select');
 };
 
 const enterDaySide = () => {

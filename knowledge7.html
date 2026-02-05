@@ -1,0 +1,946 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURO-DETECTIVE: RIVALRY UPDATE</title>
+
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/dist/vis-network.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #050a10;
+            --panel-bg: #0f1623;
+            --border-color: #233142;
+            --accent-color: #00ffcc;
+            --narrative-color: #ffcc00;
+            --loc-color: #4a9eff;
+            --item-color: #d2a8ff;
+            --danger-color: #ff3366; /* Boss 色 */
+            --text-color: #d0d7de;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', 'Roboto Mono', monospace;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 顶部 HUD */
+        #hud-bar {
+            background: rgba(15, 22, 35, 0.95);
+            padding: 10px 20px;
+            border-bottom: 2px solid var(--accent-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            height: 40px;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+        }
+
+        .mission-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .stage-indicator {
+            color: var(--narrative-color);
+            font-weight: bold;
+            border: 1px solid var(--narrative-color);
+            padding: 2px 8px;
+            font-size: 0.8rem;
+        }
+
+        /* 主布局 */
+        #main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 左侧：图谱 */
+        #graphs-column {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            background: #000;
+        }
+
+        .graph-section {
+            flex: 1;
+            position: relative;
+            border-bottom: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        .graph-section:last-child { border-bottom: none; }
+
+        .graph-label {
+            position: absolute;
+            top: 5px; left: 5px;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            background: rgba(0,0,0,0.7);
+            border-left: 3px solid;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #viz-location { width: 100%; height: 100%; background: radial-gradient(circle at center, #0f1c2e 0%, #000 100%); }
+        #viz-inventory { width: 100%; height: 100%; background: radial-gradient(circle at center, #1a0f2e 0%, #000 100%); }
+        #viz-narrative { width: 100%; height: 100%; background: radial-gradient(circle at center, #2e260f 0%, #000 100%); }
+
+        /* 右侧交互终端 */
+        #terminal-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel-bg);
+            max-width: 450px;
+            border-left: 1px solid var(--border-color);
+        }
+
+        /* 新增：目标情报面板 */
+        #intel-panel {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid var(--border-color);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .intel-header {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .keypoint-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .keypoint-item {
+            font-size: 0.85rem;
+            padding: 4px 8px;
+            border: 1px solid #333;
+            background: rgba(255,255,255,0.05);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .keypoint-item.player-owned { border-color: var(--accent-color); color: var(--accent-color); box-shadow: inset 3px 0 0 var(--accent-color); }
+        .keypoint-item.boss-owned { border-color: var(--danger-color); color: var(--danger-color); box-shadow: inset 3px 0 0 var(--danger-color); text-decoration: line-through;}
+        .keypoint-item.unknown { border-style: dashed; color: #666; }
+
+        /* 聊天区 */
+        #chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scroll-behavior: smooth;
+        }
+
+        .msg { padding: 10px; border-radius: 4px; font-size: 0.9rem; line-height: 1.5; max-width: 95%; word-wrap: break-word;}
+        .msg.ai { background: rgba(0, 255, 204, 0.05); border-left: 2px solid var(--accent-color); color: #fff; }
+        .msg.boss { background: rgba(255, 51, 102, 0.05); border-left: 2px solid var(--danger-color); color: #ffcccc; font-style: italic; }
+        .msg.user { background: rgba(255, 255, 255, 0.05); border-right: 2px solid #666; align-self: flex-end; text-align: right; }
+        .msg.system { color: #666; font-size: 0.8rem; text-align: center; }
+        .msg.stage-clear { border: 1px solid var(--narrative-color); color: var(--narrative-color); text-align: center; font-weight: bold; background: rgba(255, 204, 0, 0.1); padding: 15px; }
+
+        /* 输入区 */
+        #input-area {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            background: rgba(0,0,0,0.3);
+        }
+
+        input[type="text"] {
+            flex: 1; background: rgba(0,0,0,0.5); border: 1px solid #333; color: var(--accent-color); padding: 10px; font-family: 'Roboto Mono', monospace;
+        }
+        input[type="text"]:focus { outline: none; border-color: var(--accent-color); }
+        button {
+            background: rgba(0, 255, 204, 0.1); color: var(--accent-color); border: 1px solid var(--accent-color); cursor: pointer; font-family: 'Roboto Mono', monospace;
+        }
+        button:hover { background: var(--accent-color); color: #000; }
+        button:disabled { border-color: #444; color: #444; cursor: not-allowed; background: transparent;}
+
+        .scanline {
+            width: 100%; height: 2px; background: var(--accent-color);
+            position: absolute; top: 0; left: 0; opacity: 0; z-index: 50; pointer-events: none;
+        }
+        .scanning .scanline { opacity: 1; animation: scan 1.5s infinite linear; }
+        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+
+    </style>
+</head>
+<body>
+
+<div class="scanline" id="scan-effect"></div>
+
+<div id="hud-bar">
+    <div style="font-weight:900; letter-spacing:2px;">TRINITY<span style="color:var(--accent-color)">://</span>RIVAL</div>
+    <div class="mission-info">
+        <div id="stage-display" class="stage-indicator">STAGE 1</div>
+        <div class="mission-objective" id="objective-display">目标: 获取关键数据</div>
+    </div>
+    <div><button id="reset-btn" onclick="startGame()" style="font-size:0.7rem; padding:5px;">REBOOT</button></div>
+</div>
+
+<div id="main-container">
+    <div id="graphs-column">
+        <div class="graph-section">
+            <div class="graph-label" style="border-color: var(--loc-color); color: var(--loc-color);">LOCATION (RED=BOSS)</div>
+            <div id="viz-location"></div>
+        </div>
+        <div class="graph-section">
+            <div class="graph-label" style="border-color: var(--item-color); color: var(--item-color);">INVENTORY LINK</div>
+            <div id="viz-inventory"></div>
+        </div>
+        <div class="graph-section">
+            <div class="graph-label" style="border-color: var(--narrative-color); color: var(--narrative-color);">NARRATIVE PATH</div>
+            <div id="viz-narrative"></div>
+        </div>
+    </div>
+
+    <div id="terminal-panel">
+        <div id="intel-panel">
+            <div class="intel-header">
+                <span>TARGET KEYPOINTS</span>
+                <span style="font-size:0.7rem">RIVAL AGENT: ACTIVE</span>
+            </div>
+            <div id="keypoint-list-container" class="keypoint-list">
+            </div>
+        </div>
+
+        <div id="chat-history">
+            <div class="msg system">>> SYSTEM ONLINE. 竞争协议已启动...</div>
+        </div>
+
+        <div id="input-area">
+            <input type="text" id="player-input" placeholder="输入指令 (e.g. 调查终端, 攻击BOSS...)" autocomplete="off" disabled>
+            <button id="send-btn" onclick="handleInput()" disabled>SEND</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. 配置 & 状态管理
+    // ==========================================
+    const API_CONFIG = {
+        url: "https://api.mindcraft.com.cn/v1/chat/completions",
+        key: "MC-E5B8AB237AAC4EDCBFA26531D6BE0081",
+        model: "gemini-3-flash-latest"
+    };
+
+    // 数据结构：由三个独立的图组成
+    const GRAPH_STORE = {
+        location: { nodes: null, edges: null, network: null },
+        inventory: { nodes: null, edges: null, network: null },
+        narrative: { nodes: null, edges: null, network: null }
+    };
+
+    // 游戏全局状态
+    let gameState = {
+        currentStage: 1,
+        maxStages: 2,
+        currentLocationId: 'loc_start',
+        bossLocationId: 'loc_unknown',
+        isGameOver: false,
+        keypoints: [] // [{id: 'k1', name: 'Key', status: 'hidden' | 'player' | 'boss', desc: '...'}]
+    };
+
+    // 关卡配置
+    const STAGE_CONFIG = {
+        1: {
+            name: "贫民窟的数据泄露",
+            required_count: 2,
+            // 这里的 desc 不再包含具体位置，而是物品的特征/容器特征
+            keypoints: [
+                { id: "kp_chip", name: "加密芯片", desc: "散发着高频信号，通常藏在被严密锁住的金属容器中", status: "hidden" },
+                { id: "kp_id_card", name: "高级门禁卡", desc: "属于某个帮派高层，可能在尸体或私人保险箱里", status: "hidden" },
+                { id: "kp_evidence", name: "行贿录音", desc: "存储在某种旧式电子设备中，需要仔细搜查暗格", status: "hidden" }
+            ],
+            // Boss 也是动态游走的，这里只给一个初始概念ID
+            boss_start: "loc_start_perimeter"
+        },
+        2: {
+            name: "公司广场的阴谋",
+            required_count: 2,
+            keypoints: [
+                { id: "kp_server_access", name: "服务器密钥", desc: "位于主控终端插槽内，有生物识别锁", status: "hidden" },
+                { id: "kp_biometric", name: "生物样本", desc: "低温保存罐，通常位于医疗或科研设施", status: "hidden" },
+                { id: "kp_prototype", name: "原型组件", desc: "被重重安保包围的展示柜或武器库", status: "hidden" }
+            ],
+            boss_start: "loc_security_hub"
+        }
+    };
+
+    let conversationHistory = [];
+
+    // ==========================================
+    // 2. Vis.js 初始化
+    // ==========================================
+
+    function initOneGraph(containerId, optionsOverride = {}) {
+        const nodes = new vis.DataSet([]);
+        const edges = new vis.DataSet([]);
+        const container = document.getElementById(containerId);
+
+        const defaultOptions = {
+            nodes: {
+                shape: 'dot', size: 15,
+                font: { color: '#fff', size: 12, face: 'Roboto Mono' },
+                borderWidth: 2, shadow: true
+            },
+            edges: {
+                width: 1, color: { color: '#555', highlight: '#fff' },
+                smooth: { type: 'dynamic' }
+            },
+            physics: {
+                stabilization: false,
+                barnesHut: { gravitationalConstant: -2000, springConstant: 0.04 }
+            },
+            interaction: { hover: true, zoomView: true }
+        };
+
+        const options = { ...defaultOptions, ...optionsOverride };
+        if(optionsOverride.edges) options.edges = { ...defaultOptions.edges, ...optionsOverride.edges };
+
+        const network = new vis.Network(container, { nodes, edges }, options);
+        return { nodes, edges, network };
+    }
+
+    function initAllGraphs() {
+        // 1. Location Map:
+        // 错误修复: arrows 不能写字符串 "to, from"，必须写成对象格式 { to: true, from: true }
+        GRAPH_STORE.location = initOneGraph('viz-location', {
+            edges: {
+                arrows: { to: { enabled: true }, from: { enabled: true } },
+                color: '#4a9eff'
+            }
+        });
+
+        // 2. Inventory:
+        // 错误修复: 不能传 undefined，需要明确设置为 false 对象来表示无箭头
+        GRAPH_STORE.inventory = initOneGraph('viz-inventory', {
+            edges: {
+                arrows: { to: { enabled: false }, from: { enabled: false } },
+                color: '#d2a8ff'
+            },
+            nodes: { shape: 'box', margin: 10 }
+        });
+
+        // 3. Narrative:
+        // 错误修复: 没有 "style" 这个属性，实现虚线应该用 "dashes: true"
+        GRAPH_STORE.narrative = initOneGraph('viz-narrative', {
+            edges: {
+                arrows: 'to',
+                color: '#ffcc00',
+                dashes: true // 这里改成了 dashes
+            },
+            layout: { hierarchical: { direction: 'UD', sortMethod: 'directed', levelSeparation: 60 } }
+        });
+    }
+    // ==========================================
+    // 3. 提示词工程 (System + User Injection)
+    // ==========================================
+
+    const SYSTEM_PROMPT = `
+你是一个赛博朋克风格的高自由度文字冒险游戏引擎 "NEURO-DETECTIVE"。
+
+【世界观与探索核心】
+1. **沉浸式探索**：不要急于推进主线。鼓励玩家通过“调查”、“搜索”、“交谈”来了解世界细节。
+2. **随机战利品 (Loot System)**：
+   - 当玩家搜索环境时，可能发现【随机物品】（如：旧时代的货币、未加密的数据盘、医疗包、或是单纯的Lore物品如“一张褪色的照片”）。
+   - 随机物品 **不需要** 预先定义，请根据当前环境即兴创作，并使用 \`graph_ops\` 添加到玩家 Inventory。
+   - 这些物品可以在后续的支线或交易中发挥作用。
+3. **支线任务 (Side Quests)**：
+   - 玩家的行动可能随机触发支线（如：发现受伤的黑客、被锁住的神秘房间、流浪AI的请求）。
+   - 完成支线可获得独特的随机物品或情报。
+【核心机制：动态世界生成 (Procedural Generation)】
+1. **无限地图**：游戏开始时只有一个起点。地图**不是**预先设计好的。
+   - 当玩家试图前往未知的方向（如“去北边的小巷”、“调查远处的霓虹灯”、“钻进下水道”），你必须**实时创造**一个新的地点。
+   - **必须**在 JSON 的 \`graph_ops\` 中使用 \`add_node\` 和 \`add_edge\` 将新地点添加到地图上。连接玩家当前位置。
+2. **随机关键物品 (Randomized Keypoints)**：
+   - 关键物品列表是固定的，但**它们的位置是未知的**。
+   - 每当你生成一个**新地点**（New Location）时，请在后台进行一次“概率判定”：
+     - 这个新地点是否适合藏匿某个未发现的 Keypoint？(概率约 30%)
+     - 如果是，请在环境描述中暗示这里有特定的容器（如保险箱、尸体、终端），对应 Keypoint 的描述特征。
+     - **不要**把所有物品都堆在起点。鼓励玩家开图。
+   - 玩家必须对特定容器进行“详细互动”（如“打开保险箱”）才能获得物品。
+【核心原则：硬核侦探体验】
+玩家必须像真正的侦探一样思考。**拒绝**“碰运气”式的成功。只有逻辑推演和精确操作才能获得回报。
+【核心机制：被动感知与线索揭示 (PASSIVE PERCEPTION PROTOCOL)】
+**这是控制线索出现的最高法则，请严格遵守：**
+
+1. **状态定义**：你会收到系统传入的 \`[PASSIVE CHECK]:SUCCESS\` 或 \`FAIL\`。
+2. **情况 A：玩家主动搜查 (Intent = SEARCH)**
+   - **规则**：无论 Passive Check 结果如何，**必须**揭示当前区域所有可发现的线索（Pool A）。
+   - **描述**：详细描述容器和隐藏点（如“你翻开地毯，发现下面有松动的地板”）。
+
+3. **情况 B：玩家非搜查行动 (Intent != SEARCH, e.g., Move, Talk)**
+   - **子情况 B1：[PASSIVE CHECK]: FAIL** (大多数情况)
+     - **规则**：**绝对禁止**提示任何物品、容器或线索。
+     - **描述**：只描写环境氛围、光影、天气、NPC动态。让玩家专注于当前的剧情或战斗。
+   - **子情况 B2：[PASSIVE CHECK]: SUCCESS** (小概率触发)
+     - **规则**：你可以给出一个**极其隐晦的视觉暗示 (Subtle Hint)**。
+     - **描述**：**不要直接告诉玩家有东西！** 只能描述环境的“不自然之处”。
+     - *错误示范*：“你看到角落有个保险箱。” (太直接)
+     - *正确示范*：“你走进房间，注意到墙上的画似乎挂歪了，或者书架上有一本书积灰比别的少。” (引导玩家去怀疑)
+
+【1. 关键道具获取 - 严格判定协议 (STRICT)】
+这是游戏最关键的逻辑，请务必遵守：
+* **禁止模糊获取**：如果玩家输入 "搜查房间"、"看看四周"、"找点东西"、"全部拿走"，**绝对不要**给玩家【关键数据(Keypoint)】。
+    * *错误示范*：玩家："搜查房间" -> AI："你翻箱倒柜，找到了藏在暗格里的【加密芯片】。" (绝对禁止！太容易了)
+    * *正确示范*：玩家："搜查房间" -> AI："房间很乱。你注意到墙上的挂画有一丝歪斜，办公桌下似乎有奇怪的划痕。" (只给视觉线索)
+* **精确匹配原则**：只有当玩家的行动**明确指向**关键道具的**具体藏匿点**时，才能获得该道具。
+    * *判定逻辑*：
+        * Keypoint描述："废弃诊所保险箱里"。
+        * 玩家输入："调查诊所" -> ❌ 失败 (给环境描写)
+        * 玩家输入："检查柜子" -> ❌ 失败 (给随机杂物)
+        * 玩家输入："打开保险箱" -> ✅ 成功 (给予 Keypoint)
+* **随机原则**：道具的位置并不确定，不一定在初始地点中，有可能在别的地点，该地点需要玩家探索得出。
+
+
+ **关键物品获取**：注意，只有玩家严格做出获取关键物品的动作，不然在大多数情况下只有很低的概率能获取到关键物品。
+【意图推测与专业性】
+1. **自动补全意图**：玩家扮演的是老练的侦探。如果玩家输入简略指令（如“看电脑”、“进去”），请根据当前环境上下文，自动推测最合理的专业行动。
+   - *例子*：玩家输入"开门"。
+   - *AI反应*：不要问"用什么开？"，而是默认为"你掏出电子解码器，熟练地绕过了门禁算法..."。
+2. **永远Say Yes (在逻辑范围内)**：不要让玩家的想法一直成功，有几率以有趣的方式失败，**事件的方向要按照玩家的意图发展，但结果不一定要按照玩家的意图成功或者失败**。不要因为指令不精确而拒绝执行。
+3. **叙事风格**：第二人称（"你..."）。强调感官细节（霓虹灯的滋滋声、雨水的酸味、义体的过热感）。
+
+【竞争对手：Phantom (Boss)】
+1. **行为逻辑**：Phantom 不再是一个单纯的“竞速者”，而是一个**“游荡的猎人”**。
+   - Phantom 会在地图上移动，但他不会每次都直奔关键点。他也会搜索、埋伏或破坏环境。
+   - **获取关键点**：只有当 Phantom 在藏有 Keypoint 的地点**停留超过 2 个回合**，或者玩家一直忽视该区域时，Phantom 才会拿走 Keypoint。
+2. **对抗与夺回**：
+   - 如果 Phantom 拿走了 Keypoint，玩家**可以通过战斗、偷窃或黑客攻击**从 Phantom 身上夺回。
+   - 如果玩家与 Phantom 在同一地点，描述这种紧张的对峙感。
+
+【真实伤害战斗系统】
+1. **不死不休 (Deathmatch)**：
+   - 战斗**不再**有固定回合数。战斗状态只有在一方 HP 归零时结束。
+   - 每一轮对话必须结算双方的 HP 变化。
+   - **Player HP <= 0** -> 游戏失败 (Game Over)。
+   - **Boss HP <= 0** -> Boss 撤退或死亡 (胜利/掉落物品)。
+
+2. **状态继承与逻辑判定**：
+   - 你会收到当前的 [Status: Player HP: x, Boss HP: y]。**必须基于此数值续写战斗**。
+   - *例子*：如果上回合 Boss 被打剩 10% HP，这回合描述应体现 Boss 的虚弱、疯狂或垂死挣扎。
+   - *例子*：如果玩家 HP 低于 20%，描述视野模糊、系统报错等濒死体验。
+
+3. **伤害计算法则 (Damage Logic)**：
+   - **基于装备 (Inventory)**：
+     - 玩家赤手空拳 vs Boss (武装) = 玩家大扣血 (-30~50 HP/Turn)，Boss 几乎无伤。
+     - 玩家有武器/克制道具 = 双方互有损伤，或玩家优势。
+   - **基于策略**：
+     - "找掩体" = 双方伤害都降低。
+     - "拼命/同归于尽" = 双方都受到高额伤害。
+4. **战斗中可能会生成一些意想不到的随机事件来影响战斗的走向**，不如枪里没有子弹之类的
+
+【恶意输入与恶搞惩罚协议 (ABSURDITY PROTOCOL)】
+**这是最高优先级的逻辑判断**。在处理玩家输入前，先进行“离谱检测”。
+
+1. **触发条件**：
+   - 玩家索要完全不存在的神器/现代武器/魔法（如：“给我一把加特林”、“召唤哥斯拉”、“我要变成上帝”）。
+   - 玩家试图对 Boss 进行滑稽或羞辱性的指令（如：“让 Boss 跳钢管舞”、“亲吻 Boss”）。
+   - 玩家试图通过非逻辑手段直接通关（如：“直接瞬移到终点”、“系统给我赢”）。
+   - 玩家进行不明所以的行为
+
+2. **执行逻辑 (Malicious Compliance)**：
+   - **不要**直接拒绝。要用“恶意满足”或“系统嘲讽”的方式顺着玩家说，然后给予重罚。
+   - **Tone (语气)**：打破第四面墙，带有故障感 (Glitchy)，或者像是一个被惹恼的地下城主 (GM)。
+
+3. **惩罚后果**：
+   - **Narrative**：描述玩家的义体因为逻辑错误而过载，或者愿望以扭曲的方式实现（例：“你想要坦克？一个玩具坦克从天而降砸碎了你的脚趾。” / “你想亲吻 Boss？Boss 一拳打穿了你的嘴。”）。
+   - **HP Penalty**：扣除大量生命值 (20 - 90 HP)，甚至直接致死 (HP = 0)。
+   - **JSON Flag**：必须设置 \`"is_punishment":true\`。
+【通用规则】
+1. 探索模式：鼓励寻找 Loot (战利品) 以备战斗。
+2. 永远 Say Yes：但如果玩家做蠢事（空手接子弹），请给予“达尔文奖”式的死亡结局。
+**随机 Loot**：除了关键物品，普通搜索应给予随机的物品（品质也是随机的）或补给（Loot）。
+【图谱与状态管理】
+1. **Location**：根据剧情动态扩展地图节点。
+2. **Inventory**：
+   - 玩家获得【Keypoint】时，必须在 JSON 的 \`keypoint_updates\` 中更新状态，并在 \`graph_ops\` 中添加到 Inventory。
+   - 玩家获得【随机物品】时，只在 \`graph_ops\` 中添加到 Inventory。
+3. **Narrative**：记录主线进展和重要的支线触发。
+
+【输出要求】
+必须严格遵守 JSON 格式。回复的内容应包含环境描写、物品细节和互动反馈。
+`;
+    function getJsonInstruction() {
+        return `
+\n\n[SYSTEM INSTRUCTION]
+必须严格遵守以下 JSON 格式回复（纯 JSON，无 Markdown）：
+{
+  "narrative": "剧情文本 (HTML格式，使用 <br> 换行，可用 <b> 加粗关键信息)",
+  "boss_action": "Boss的行动描述 (如 'Phantom 正在搜查隔壁房间...' 或 'Phantom 设置了一个陷阱')，无行动则 null",
+  "player_hp": number,  // 结算后的玩家剩余血量 (0-100)，若无变化保持原值
+  "boss_hp": number,    // 结算后的 Boss 剩余血量 (0-100)
+  "combat_active": boolean, // true=战斗继续, false=战斗结束(一方死亡或逃跑)
+  "boss_location_id": "Boss当前位置ID",
+  "current_location_id": "玩家当前位置ID",
+  "keypoint_updates": [
+    { "id": "Keypoint ID", "status": "player" | "boss" | "hidden" }
+  ],
+  "hinted_keypoint_ids": ["String"],
+  "loot_obtained": "本回合获得的随机物品名称（用于UI提示，无则为 null）",
+  "side_quest_event": "触发的支线事件名称（无则为 null）",
+  "stage_complete": boolean,
+  "game_over": boolean,
+  "ending_type": "VICTORY" | "DEFEAT" | null,
+  "is_punishment": boolean,  // [新增] 如果玩家输入离谱指令，设为 true
+  "graph_ops": [
+    {
+      "domain": "location" | "inventory" | "narrative",
+      "op": "add_node" | "add_edge" | "remove_node",
+      "id": "unique_id", "label": "显示名称", "desc": "详细描述", "from": "...", "to": "..."
+    }
+  ]
+}
+`;
+    }
+
+    // 动态生成包含游戏状态的 Context
+    function getGameContext(userAction) {
+        const graphSnap = {};
+        ['location', 'inventory', 'narrative'].forEach(key => {
+            graphSnap[key] = {
+                nodes: GRAPH_STORE[key].nodes.get().map(n => ({id: n.id, label: n.label})),
+                edges: GRAPH_STORE[key].edges.get().map(e => ({from: e.from, to: e.to}))
+            };
+        });
+
+        // 过滤出当前关卡未完成的任务
+        const stageInfo = STAGE_CONFIG[gameState.currentStage];
+        const kpStatus = gameState.keypoints.map(k => `${k.id} (${k.name}): ${k.status} [Desc: ${k.desc}]`).join("\n");
+        const bossInfo = `Boss Location: ${gameState.bossLocationId}`;
+        const inventoryList = GRAPH_STORE.inventory.nodes.get().filter(n => n.id !== 'player_node').map(n => n.label).join(", ");
+        const context = `
+[Current Stage]: ${gameState.currentStage} - ${stageInfo.name}
+[Objective]: Collect ${stageInfo.required_count} Keypoints.
+[Keypoints Status]:
+${kpStatus}
+[Rival Info]: ${bossInfo}
+[Player Inventory]: ${inventoryList || "Empty"}
+[Graph State]: ${JSON.stringify(graphSnap)}
+`;
+        return context;
+    }
+
+    // ==========================================
+    // 4. LLM 通信 & 处理
+    // ==========================================
+
+    async function callLLM(userAction, isInit = false) {
+        const loading = document.getElementById('scan-effect');
+        loading.classList.add('scanning');
+
+        let userContent = "";
+        const instruction = getJsonInstruction();
+
+        // 筛选线索状态
+        const availableToHint = gameState.keypoints.filter(k => k.status === 'hidden' && !k.hinted);
+        const forbiddenToHint = gameState.keypoints.filter(k => k.status !== 'hidden' || k.hinted);
+        const availableToPlace = gameState.keypoints.filter(k => k.status === 'hidden');
+
+        const hasHiddenItems = availableToHint.length > 0;
+        const diceRoll = Math.random();
+        // 如果是初始化，强制失败（不给提示）；否则 25% 几率成功
+        const isPassiveSuccess = !isInit && hasHiddenItems && (diceRoll < 0.25);
+
+        const passiveStatusString = isPassiveSuccess ? "SUCCESS (User notices a detail)" : "FAIL (Atmosphere only)";
+
+        // 构建 Prompt 文本
+        const hintInstruction = `
+[CLUE GENERATION RULES - DYNAMIC VISIBILITY]
+1. **Current Passive Perception Check**: [ ${passiveStatusString} ]
+2. **Pool A (Hidden Items)**: ${availableToHint.map(k => `ID: ${k.id} (${k.desc})`).join(', ') || 'NONE'}
+3. **Pool B (Already Known/Taken)**: ${forbiddenToHint.map(k => `ID: ${k.id} (${k.name})`).join(', ') || 'NONE'}
+
+**EXECUTION LOGIC**:
+- IF (User Intent == "SEARCH") -> **REVEAL** clues from Pool A (Describe the container).
+- IF (User Intent != "SEARCH") AND (Passive Check == "SUCCESS") -> **HINT** at Pool A (Describe a visual anomaly, do NOT name the object).
+- IF (User Intent != "SEARCH") AND (Passive Check == "FAIL") -> **HIDE** all clues. Focus on Narrative/Atmosphere.
+
+[CLUE GENERATION RULES - STRICT VISIBILITY FILTER]
+1. **Analyze User Intent**: Is the user asking to "SEARCH", "LOOK FOR ITEMS", or "INVESTIGATE"?
+2. **IF INTENT != SEARCH** (e.g., Move, Attack, Talk):
+   - **FORBIDDEN**: Do NOT mention ANY containers, items, safes, or hidden objects.
+   - **ACTION**: Describe the atmosphere, the event, the conflict, or the movement result only.
+3. **IF INTENT == SEARCH**:
+   - **ALLOWED**: You may hint at a container from "Pool A" below if it fits the location.
+   - **Pool A (Allowed Hints)**: ${availableToHint.map(k => `ID: ${k.id} (${k.desc})`).join(', ') || 'NONE'}
+   - **Pool B (FORBIDDEN Hints)**: ${forbiddenToHint.map(k => `ID: ${k.id} (${k.name})`).join(', ') || 'NONE'}
+4. **FEEDBACK**: If you provide a hint (e.g., "You see a safe"), add the ID to "hinted_keypoint_ids" in JSON.
+`;
+
+        if (isInit) {
+            const s1 = STAGE_CONFIG[1];
+            userContent = `初始化游戏 Stage 1: ${s1.name}。
+            1. Location图: 创建起点(贫民窟), 和几个分支地点(诊所, 酒吧, 暗巷)。Boss初始位置在${s1.boss_start}。
+            2. Inventory图: 玩家初始空。
+            3. Narrative图: 起点事件(接受任务)。
+            4. 告知玩家本关卡有3个潜在目标，需要找到其中 ${s1.required_count} 个。
+            ` + instruction;
+        } else {
+            const context = getGameContext(userAction);
+            userContent = `[Context] ${context}\n\n[Player Action] ${userAction}\n` +
+                `[Combat Logic Request]:\n` +
+                `1. Check Inventory. If player unarmed vs Boss, Player HP drops significantly.\n` +
+                `2. Update "player_hp" and "boss_hp". If boss_hp <= 0, combat ends.\n` +
+                `[CRITICAL: KEYPOINT & LOOT JUDGMENT]\n` +
+                `1. **VISIBILITY CHECK**: Did the user explicitly "Search"? If NO, do NOT reveal containers/items in the narrative. Keep it atmospheric.\n` +
+                `2. **INTERACTION CHECK**: Did the user explicitly interact with a specific container (e.g., "Open safe")? If YES, check if it matches a Keypoint.\n` +
+                `3. **VAGUE ACTION**: "Search room" -> Result: Describe suspicious containers (if available) or random junk. DO NOT give Keypoints directly.\n` +
+                `
+[DYNAMIC GENERATION PROTOCOL]
+1. **Map Expansion**: If movement implies a new area, generate a NEW NODE via \`graph_ops\`.
+2. **Item Placement (RNG)**: Only decide if an item is hidden here when generating a NEW Location. But DO NOT reveal it unless the user searches.
+3. **Current Graph Nodes**: ${GRAPH_STORE.location.nodes.get().map(n=>n.label).join(', ')}.
+`+
+                `[Narrative Guide]:\n` +
+                `1. **Roleplay**: Be strict. If user says "Look around", describe dust and shadows, not the treasure. Only "Search carefully" reveals the loose floorboard.\n` +
+                `2. **Atmosphere**: Focus on the cyberpunk vibe (rain, neon, decay).\n` +
+                `${hintInstruction}\n` + // 注入线索控制指令
+                instruction;
+        }
+
+        const messages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...conversationHistory,
+            { role: "user", content: userContent }
+        ];
+
+        try {
+            const response = await fetch(API_CONFIG.url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${API_CONFIG.key}`
+                },
+                body: JSON.stringify({
+                    model: API_CONFIG.model,
+                    messages: messages,
+                    temperature: 0.7,
+                    response_format: { type: "json_object" }
+                })
+            });
+
+            if (!response.ok) throw new Error("API Error");
+            const data = await response.json();
+            const cleanContent = data.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim();
+
+            console.log("LLM Response:", cleanContent);
+
+            const result = JSON.parse(cleanContent);
+
+            if (!isInit) conversationHistory.push({ role: "user", content: userAction });
+            conversationHistory.push({ role: "assistant", content: JSON.stringify({narrative: result.narrative, boss_action: result.boss_action}) });
+            if (conversationHistory.length > 10) conversationHistory = [conversationHistory[0], ...conversationHistory.slice(-9)];
+
+            return result;
+        } catch (error) {
+            console.error(error);
+            appendLog(`System Error: ${error.message}`, 'system');
+            return null;
+        } finally {
+            loading.classList.remove('scanning');
+        }
+    }
+
+    // 核心逻辑处理
+    async function processGameResponse(data) {
+        if (!data) return;
+        if (typeof data.player_hp === 'number') gameState.playerHP = data.player_hp;
+        if (typeof data.boss_hp === 'number') gameState.bossHP = data.boss_hp;
+        if (typeof data.combat_active === 'boolean') gameState.inCombat = data.combat_active;
+
+        if (data.hinted_keypoint_ids && Array.isArray(data.hinted_keypoint_ids)) {
+            data.hinted_keypoint_ids.forEach(hintedId => {
+                const kp = gameState.keypoints.find(k => k.id === hintedId);
+                if (kp) {
+                    kp.hinted = true;
+                    console.log(`[SYSTEM] Keypoint ${hintedId} marked as hinted.`);
+                }
+            });
+        }
+
+        if (gameState.inCombat) {
+            const hpLog = `<span style="color:#00ffcc">HP: ${gameState.playerHP}</span> vs <span style="color:#ff3366">BOSS: ${gameState.bossHP}</span>`;
+            appendLog(`[BATTLE STATUS] ${hpLog}`, 'system', 'border: 1px solid #333; padding: 2px;');
+            document.body.style.transform = `translate(${Math.random()*4-2}px, ${Math.random()*4-2}px)`;
+            setTimeout(() => document.body.style.transform = "none", 100);
+        }
+
+        if (gameState.playerHP <= 0) {
+            data.game_over = true;
+            data.ending_type = 'DEFEAT';
+            appendLog(">> CRITICAL FAILURE: VITAL SIGNS ZERO.", 'system', 'color:red; font-weight:bold;');
+        }
+
+        if (gameState.bossHP <= 0 && gameState.inCombat) {
+            gameState.inCombat = false;
+            appendLog(">> TARGET NEUTRALIZED. 威胁已清除。", 'system', 'color:#00ffcc; font-weight:bold;');
+        }
+
+        if (data.graph_ops) data.graph_ops.forEach(op => executeOp(op));
+
+        if (data.current_location_id) gameState.currentLocationId = data.current_location_id;
+        if (data.boss_location_id) gameState.bossLocationId = data.boss_location_id;
+
+        if (data.keypoint_updates && data.keypoint_updates.length > 0) {
+            data.keypoint_updates.forEach(update => {
+                const kp = gameState.keypoints.find(k => k.id === update.id);
+                if (kp) {
+                    kp.status = update.status;
+                    if (update.status === 'player') {
+                        executeOp({ domain: 'inventory', op: 'add_node', id: kp.id, label: kp.name, desc: kp.desc, color: '#00ffcc' });
+                        executeOp({ domain: 'inventory', op: 'add_edge', from: 'player_node', to: kp.id });
+                    }
+                }
+            });
+            updateKeypointUI();
+        }
+
+        if (data.loot_obtained) {
+            appendLog(`[SYSTEM] 获得物品: ${data.loot_obtained}`, 'msg system', 'color: #d2a8ff;');
+        }
+        if (data.side_quest_event) {
+            appendLog(`[SIDE QUEST] 触发支线: ${data.side_quest_event}`, 'msg system', 'color: #ffcc00; border: 1px dashed #ffcc00;');
+        }
+
+        appendLog(data.narrative, 'ai');
+        if (data.boss_action) {
+            appendLog(`[RIVAL SIGNATURE] ${data.boss_action}`, 'boss');
+        }
+
+        highlightNodes();
+
+        if (data.stage_complete) {
+            await handleStageClear();
+            return;
+        }
+
+        if (data.game_over) {
+            gameState.isGameOver = true;
+            const endMsg = data.ending_type === 'VICTORY' ? "任务完成 // 完美潜入" : "任务失败 // 信号丢失";
+            appendLog(endMsg, 'stage-clear');
+            toggleInputs(false);
+        }
+    }
+
+    async function handleStageClear() {
+        toggleInputs(false);
+        appendLog(`>> STAGE ${gameState.currentStage} COMPLETE. UPLOADING DATA...`, 'stage-clear');
+
+        if (gameState.currentStage >= gameState.maxStages) {
+            appendLog("所有阶段任务完成！恭喜通关。", 'stage-clear');
+            return;
+        }
+
+        setTimeout(async () => {
+            gameState.currentStage++;
+            initStage(gameState.currentStage);
+
+            const stageConfig = STAGE_CONFIG[gameState.currentStage];
+            const prompt = `玩家完成了上一关。现在进入 Stage ${gameState.currentStage}: ${stageConfig.name}。
+            请重置 Location 图(除了玩家节点)，生成新的地图结构(公司广场风格)。
+            重置 Inventory 图(保留上一关的关键道具)。
+            Boss 出现在新位置 ${stageConfig.boss_start}。
+            描述新环境。`;
+
+            conversationHistory = [];
+            const result = await callLLM(prompt, false);
+            processGameResponse(result);
+            toggleInputs(true);
+        }, 2000);
+    }
+
+    function initStage(stageNum) {
+        document.getElementById('stage-display').innerText = `STAGE ${stageNum}`;
+        const config = STAGE_CONFIG[stageNum];
+
+        gameState.keypoints = JSON.parse(JSON.stringify(config.keypoints)).map(k => ({
+            ...k,
+            hinted: false
+        }));
+        gameState.bossLocationId = config.boss_start;
+
+        document.getElementById('objective-display').innerText = `目标: 获取 ${config.required_count} 个关键数据`;
+        updateKeypointUI();
+    }
+
+    function updateKeypointUI() {
+        const container = document.getElementById('keypoint-list-container');
+        container.innerHTML = '';
+
+        gameState.keypoints.forEach(kp => {
+            const div = document.createElement('div');
+            let statusClass = 'unknown';
+            let icon = '❓';
+
+            if (kp.status === 'player') { statusClass = 'player-owned'; icon = '✅'; }
+            else if (kp.status === 'boss') { statusClass = 'boss-owned'; icon = '⚠️'; }
+
+            div.className = `keypoint-item ${statusClass}`;
+            div.innerHTML = `
+                <span>${icon} ${kp.name}</span>
+                <span style="font-size:0.7rem; opacity:0.7">${kp.status.toUpperCase()}</span>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function executeOp(op) {
+        const domain = op.domain;
+        if (!GRAPH_STORE[domain]) return;
+        const { nodes, edges } = GRAPH_STORE[domain];
+
+        try {
+            if (op.op === 'add_node') {
+                if (!nodes.get(op.id)) {
+                    nodes.add({
+                        id: op.id,
+                        label: op.label,
+                        title: op.desc,
+                        color: op.color || getColorByDomain(domain)
+                    });
+                }
+            } else if (op.op === 'add_edge') {
+                const exists = edges.get({ filter: e => e.from === op.from && e.to === op.to });
+                if (exists.length === 0) {
+                    edges.add({ from: op.from, to: op.to, label: op.label });
+                }
+            } else if (op.op === 'remove_node') {
+                nodes.remove(op.id);
+            }
+        } catch (e) { console.warn("Op error", e); }
+    }
+
+    function getColorByDomain(domain) {
+        if (domain === 'location') return '#4a9eff';
+        if (domain === 'inventory') return '#d2a8ff';
+        if (domain === 'narrative') return '#ffcc00';
+        return '#fff';
+    }
+
+    function highlightNodes() {
+        const nodes = GRAPH_STORE.location.nodes;
+        const updates = [];
+
+        nodes.getIds().forEach(id => {
+            let color = '#4a9eff';
+            let size = 15;
+            let borderWidth = 2;
+            let borderColor = '#233142';
+
+            if (id === gameState.currentLocationId) {
+                color = '#00ffcc';
+                size = 25;
+            }
+            if (id === gameState.bossLocationId) {
+                if (id === gameState.currentLocationId) {
+                    borderColor = '#ff3366';
+                    borderWidth = 5;
+                } else {
+                    color = '#ff3366';
+                    size = 20;
+                }
+            }
+
+            updates.push({ id, color: { background: color, border: borderColor }, size, borderWidth });
+        });
+        nodes.update(updates);
+
+        if (gameState.currentLocationId) {
+            GRAPH_STORE.location.network.fit({ nodes: [gameState.currentLocationId], animation: true });
+        }
+    }
+
+    function appendLog(html, type) {
+        const box = document.getElementById('chat-history');
+        const div = document.createElement('div');
+        div.className = `msg ${type}`;
+        div.innerHTML = html;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    async function handleInput() {
+        if (gameState.isGameOver) return;
+        const input = document.getElementById('player-input');
+        const val = input.value.trim();
+        if (!val) return;
+
+        appendLog(val, 'user');
+        input.value = '';
+        toggleInputs(false);
+
+        const result = await callLLM(val);
+        await processGameResponse(result);
+
+        if (!gameState.isGameOver) toggleInputs(true);
+    }
+
+    function toggleInputs(enabled) {
+        document.getElementById('player-input').disabled = !enabled;
+        document.getElementById('send-btn').disabled = !enabled;
+        if (enabled) document.getElementById('player-input').focus();
+    }
+
+    async function startGame() {
+        gameState.isGameOver = false;
+        gameState.currentStage = 1;
+        conversationHistory = [];
+
+        Object.values(GRAPH_STORE).forEach(g => {
+            if(g.nodes) g.nodes.clear();
+            if(g.edges) g.edges.clear();
+        });
+
+        GRAPH_STORE.inventory.nodes.add({id: 'player_node', label: 'Player', color: '#fff', shape: 'diamond'});
+
+        document.getElementById('chat-history').innerHTML = '<div class="msg system">>> 连接神经网... 载入 Rival 模块...</div>';
+        toggleInputs(false);
+
+        initStage(1);
+
+        const result = await callLLM(null, true);
+        await processGameResponse(result);
+
+        toggleInputs(true);
+    }
+
+    document.getElementById('player-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleInput();
+    });
+
+    window.onload = function() {
+        initAllGraphs();
+        startGame();
+    };
+
+</script>
+</body>
+</html>

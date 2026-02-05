@@ -1,0 +1,1065 @@
+/* ============================================
+   冻京NECRO风格 - 赛博朋克/战术机能UI重构
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Teko:wght@400;600&display=swap');
+
+:root {
+    /* 配色方案 - 冻京NECRO风格 */
+    --bg-color: #050505;              /* 深邃黑 */
+    --bg-secondary: #0a0a0a;          /* 深灰黑 */
+    --bg-panel: #1a1a1a;              /* 面板基底 */
+    --bg-panel-dark: #0f0f0f;         /* 深色面板 */
+    
+    --border-color: #333333;          /* 边框灰 */
+    --border-bright: #00ffcc;         /* 荧光青 */
+    --border-danger: #ff0055;         /* 热粉色 - 强调色 */
+    --border-warning: #ffcc00;       /* 警示黄 */
+    --border-green: #00ff33;          /* 电路绿 */
+    
+    --accent-color: #00ffcc;          /* 主色：荧光青 */
+    --danger-color: #ff0055;          /* 强调色：热粉色 */
+    --warning-color: #ffcc00;         /* 辅助色：警示黄 */
+    --info-color: #00ff33;            /* 信息色：电路绿 */
+    
+    --text-color: #d0d7de;            /* 主文本 */
+    --text-dim: #888888;              /* 次要文本 */
+    --text-bright: #ffffff;           /* 高亮文本 */
+    
+    /* 特效 */
+    --glow-cyan: 0 0 10px rgba(0, 255, 204, 0.3), 0 0 20px rgba(0, 255, 204, 0.2);
+    --glow-magenta: 0 0 10px rgba(255, 0, 85, 0.4), 0 0 20px rgba(255, 0, 85, 0.3);
+    --glow-yellow: 0 0 10px rgba(255, 204, 0, 0.3), 0 0 20px rgba(255, 204, 0, 0.2);
+}
+
+/* 全局扫描线效果 */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 255, 204, 0.03) 2px,
+        rgba(0, 255, 204, 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+    mix-blend-mode: overlay;
+}
+
+/* 噪点纹理 */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(circle at 1px 1px, rgba(0, 255, 204, 0.15) 1px, transparent 0);
+    background-size: 20px 20px;
+    pointer-events: none;
+    z-index: 9998;
+    opacity: 0.1;
+}
+
+body {
+    background: linear-gradient(135deg, var(--bg-color) 0%, var(--bg-secondary) 100%);
+    color: var(--text-color);
+    font-family: 'Chakra Petch', 'Share Tech Mono', monospace;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+/* ============================================
+   顶部 HUD - 战术终端风格
+   ============================================ */
+#hud-bar {
+    background: linear-gradient(180deg, rgba(10, 10, 10, 0.98) 0%, rgba(5, 5, 5, 0.95) 100%);
+    padding: 12px 24px;
+    border-bottom: 3px solid var(--border-bright);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+    height: 50px;
+    box-shadow: var(--glow-cyan);
+    position: relative;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 20px) 0,
+        100% 100%,
+        0 100%
+    );
+}
+
+/* 状态栏信息通过HTML中的decorative-label显示 */
+
+#hud-bar > div:first-child {
+    font-weight: 700;
+    letter-spacing: 3px;
+    font-size: 1.2rem;
+    font-family: 'Teko', sans-serif;
+    text-transform: uppercase;
+    color: var(--text-bright);
+    text-shadow: var(--glow-cyan);
+    position: relative;
+}
+
+#hud-bar > div:first-child::before {
+    content: '01';
+    position: absolute;
+    left: -30px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.mission-info {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-left: 40px;
+}
+
+.stage-indicator {
+    color: var(--warning-color);
+    font-weight: 600;
+    border: 2px solid var(--warning-color);
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 8px) 0,
+        100% 8px,
+        100% 100%,
+        8px 100%,
+        0 calc(100% - 8px)
+    );
+    box-shadow: var(--glow-yellow);
+    background: rgba(255, 204, 0, 0.05);
+}
+
+.mission-objective {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+}
+
+/* ============================================
+   主布局容器
+   ============================================ */
+#main-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background: var(--bg-color);
+}
+
+/* ============================================
+   左侧：三大战术面板
+   ============================================ */
+#graphs-column {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    border-right: 2px solid var(--border-color);
+    background: var(--bg-color);
+    position: relative;
+}
+
+.graph-section {
+    flex: 1;
+    position: relative;
+    border-bottom: 2px solid var(--border-color);
+    overflow: hidden;
+    background: var(--bg-panel-dark);
+}
+
+.graph-section:last-child {
+    border-bottom: none;
+}
+
+/* 战术雷达区 - Location (Boss) */
+.graph-section:first-child {
+    border-left: 3px solid var(--border-danger);
+    position: relative;
+}
+
+.graph-section:first-child::before {
+    content: '◉';
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    font-size: 1.5rem;
+    color: var(--danger-color);
+    opacity: 0.3;
+    z-index: 1;
+    animation: pulse 2s infinite;
+}
+
+.graph-section:first-child::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(circle at 30% 30%, rgba(255, 0, 85, 0.1) 0%, transparent 50%),
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 20px,
+            rgba(255, 0, 85, 0.05) 20px,
+            rgba(255, 0, 85, 0.05) 21px
+        );
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* 装备装载区 - Inventory */
+.graph-section:nth-child(2) {
+    border-left: 3px solid var(--accent-color);
+    background: 
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 10px,
+            rgba(0, 255, 204, 0.02) 10px,
+            rgba(0, 255, 204, 0.02) 20px
+        );
+}
+
+/* 数据流区 - Narrative */
+.graph-section:last-child {
+    border-left: 3px solid var(--warning-color);
+    background: 
+        linear-gradient(
+            90deg,
+            rgba(255, 204, 0, 0.05) 0%,
+            transparent 100%
+        );
+}
+
+.graph-label {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    background: rgba(0, 0, 0, 0.85);
+    border-left: 3px solid;
+    z-index: 10;
+    pointer-events: none;
+    font-family: 'Share Tech Mono', monospace;
+    font-weight: 600;
+    letter-spacing: 1px;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 6px) 0,
+        100% 6px,
+        100% 100%,
+        6px 100%,
+        0 calc(100% - 6px)
+    );
+    box-shadow: 0 0 8px rgba(0, 255, 204, 0.3);
+}
+
+/* 可视化区域 */
+#viz-location,
+#viz-inventory,
+#viz-narrative {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, rgba(10, 10, 10, 0.5) 0%, var(--bg-color) 100%);
+}
+
+/* ============================================
+   右侧：终端面板
+   ============================================ */
+#terminal-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-panel);
+    max-width: 450px;
+    border-left: 2px solid var(--border-color);
+    position: relative;
+}
+
+#terminal-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 1px,
+            rgba(0, 255, 204, 0.02) 1px,
+            rgba(0, 255, 204, 0.02) 2px
+        );
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.3;
+}
+
+/* 情报面板 */
+#intel-panel {
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.5);
+    border-bottom: 2px solid var(--border-color);
+    max-height: 150px;
+    overflow-y: auto;
+    position: relative;
+    z-index: 1;
+}
+
+.intel-header {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+}
+
+.intel-header::before {
+    content: 'INTEL';
+    position: absolute;
+    left: -30px;
+    top: 15px;
+    font-size: 0.6rem;
+    color: var(--accent-color);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    opacity: 0.5;
+}
+
+.keypoint-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.keypoint-item {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.03);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin: 3px 0;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 4px) 0,
+        100% 4px,
+        100% 100%,
+        4px 100%,
+        0 calc(100% - 4px)
+    );
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.keypoint-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--accent-color);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.keypoint-item:hover {
+    border-color: var(--accent-color);
+    box-shadow: var(--glow-cyan);
+    background: rgba(0, 255, 204, 0.05);
+}
+
+.keypoint-item:hover::before {
+    opacity: 1;
+}
+
+/* 线索状态样式 */
+.clue-rumored {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed var(--border-color);
+    color: var(--text-dim);
+}
+
+.clue-hinted {
+    background: rgba(255, 204, 0, 0.1);
+    border: 1px solid var(--warning-color);
+    color: var(--warning-color);
+    box-shadow: 0 0 5px rgba(255, 204, 0, 0.2);
+}
+
+.clue-found {
+    background: rgba(0, 255, 204, 0.1);
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    box-shadow: 0 0 5px rgba(0, 255, 204, 0.2);
+}
+
+.clue-verified {
+    background: rgba(0, 255, 204, 0.15);
+    border: 2px solid var(--accent-color);
+    color: var(--accent-color);
+    font-weight: bold;
+    box-shadow: var(--glow-cyan);
+}
+
+.clue-icon {
+    font-size: 1rem;
+    min-width: 20px;
+}
+
+.clue-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.clue-progress {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-left: auto;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.empty-investigation {
+    padding: 15px;
+    text-align: center;
+    color: var(--text-dim);
+    font-style: italic;
+    border: 1px dashed var(--border-color);
+    margin: 5px 0;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 4px) 0,
+        100% 4px,
+        100% 100%,
+        4px 100%,
+        0 calc(100% - 4px)
+    );
+}
+
+.investigation-phase {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    background: rgba(255, 204, 0, 0.15);
+    border: 1px solid var(--warning-color);
+    color: var(--warning-color);
+    margin-bottom: 8px;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 4px) 0,
+        100% 4px,
+        100% 100%,
+        4px 100%,
+        0 calc(100% - 4px)
+    );
+    box-shadow: 0 0 5px rgba(255, 204, 0, 0.2);
+}
+
+/* 保留旧样式用于兼容 */
+.keypoint-item.player-owned {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    box-shadow: inset 3px 0 0 var(--accent-color), var(--glow-cyan);
+}
+
+.keypoint-item.boss-owned {
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+    box-shadow: inset 3px 0 0 var(--danger-color), var(--glow-magenta);
+    text-decoration: line-through;
+}
+
+.keypoint-item.unknown {
+    border-style: dashed;
+    color: var(--text-dim);
+}
+
+/* ============================================
+   聊天区 - 数据流样式
+   ============================================ */
+#chat-history {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    scroll-behavior: smooth;
+    position: relative;
+    z-index: 1;
+    background: var(--bg-panel-dark);
+}
+
+#chat-history::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(
+        180deg,
+        var(--accent-color) 0%,
+        transparent 50%,
+        var(--accent-color) 100%
+    );
+    opacity: 0.3;
+}
+
+.msg {
+    padding: 12px 15px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    max-width: 95%;
+    word-wrap: break-word;
+    position: relative;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 6px) 0,
+        100% 6px,
+        100% 100%,
+        6px 100%,
+        0 calc(100% - 6px)
+    );
+    font-family: 'Chakra Petch', sans-serif;
+}
+
+.msg.ai {
+    background: rgba(0, 255, 204, 0.08);
+    border-left: 3px solid var(--accent-color);
+    color: var(--text-bright);
+    box-shadow: 0 0 8px rgba(0, 255, 204, 0.15);
+}
+
+.msg.boss {
+    background: rgba(255, 0, 85, 0.1);
+    border-left: 3px solid var(--danger-color);
+    color: #ffcccc;
+    font-style: italic;
+    box-shadow: var(--glow-magenta);
+}
+
+.msg.user {
+    background: rgba(255, 255, 255, 0.05);
+    border-right: 3px solid var(--text-dim);
+    align-self: flex-end;
+    text-align: right;
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% 100%,
+        0 100%,
+        0 calc(100% - 6px)
+    );
+}
+
+.msg.system {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    border: 1px dashed var(--border-color);
+    background: transparent;
+    clip-path: none;
+}
+
+.msg.stage-clear {
+    border: 2px solid var(--warning-color);
+    color: var(--warning-color);
+    text-align: center;
+    font-weight: bold;
+    background: rgba(255, 204, 0, 0.1);
+    padding: 15px;
+    box-shadow: var(--glow-yellow);
+}
+
+.msg.dice-result {
+    background: rgba(100, 100, 100, 0.1);
+    border: 1px dashed var(--border-color);
+    padding: 6px 10px;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin: 5px auto;
+    max-width: 90%;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.msg.dice-result.allowed {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    box-shadow: 0 0 5px rgba(0, 255, 204, 0.2);
+}
+
+.msg.dice-result.denied {
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+    box-shadow: 0 0 5px rgba(255, 0, 85, 0.2);
+}
+
+/* ============================================
+   输入区 - 命令行终端
+   ============================================ */
+#input-area {
+    padding: 15px;
+    border-top: 2px solid var(--border-color);
+    display: flex;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    position: relative;
+    z-index: 1;
+}
+
+#input-area::before {
+    content: 'SYSTEM // COMMAND >_';
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    color: var(--accent-color);
+    font-family: 'Share Tech Mono', monospace;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0.6;
+}
+
+input[type="text"] {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid var(--border-color);
+    color: var(--accent-color);
+    padding: 10px 10px 10px 180px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 6px) 0,
+        100% 6px,
+        100% 100%,
+        6px 100%,
+        0 calc(100% - 6px)
+    );
+    transition: all 0.3s ease;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: var(--glow-cyan);
+    background: rgba(0, 0, 0, 0.9);
+}
+
+input[type="text"]::placeholder {
+    color: var(--text-dim);
+    opacity: 0.5;
+}
+
+/* 闪烁光标效果 */
+input[type="text"]:focus::after {
+    content: '_';
+    animation: blink 1s infinite;
+}
+
+button {
+    background: rgba(0, 255, 204, 0.1);
+    color: var(--accent-color);
+    border: 2px solid var(--accent-color);
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-weight: 600;
+    padding: 10px 20px;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 6px) 0,
+        100% 6px,
+        100% 100%,
+        6px 100%,
+        0 calc(100% - 6px)
+    );
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+}
+
+button:hover:not(:disabled) {
+    background: var(--accent-color);
+    color: #000;
+    box-shadow: var(--glow-cyan);
+    transform: translateY(-1px);
+}
+
+button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+button:disabled {
+    border-color: var(--border-color);
+    color: var(--text-dim);
+    cursor: not-allowed;
+    background: transparent;
+    opacity: 0.5;
+}
+
+/* HUD按钮特殊样式 */
+#hud-bar button {
+    background: rgba(0, 255, 204, 0.05);
+    border: 1px solid var(--accent-color);
+    padding: 6px 12px;
+    font-size: 0.7rem;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 4px) 0,
+        100% 4px,
+        100% 100%,
+        4px 100%,
+        0 calc(100% - 4px)
+    );
+}
+
+#hud-bar button:hover:not(:disabled) {
+    background: var(--accent-color);
+    color: #000;
+    box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+}
+
+/* ============================================
+   LLM 控制台
+   ============================================ */
+#llm-console {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-color);
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    border-left: 2px solid var(--border-color);
+}
+
+#llm-console.hidden {
+    display: none;
+}
+
+.llm-console-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 24px;
+    background: rgba(10, 10, 10, 0.98);
+    border-bottom: 2px solid var(--border-bright);
+    box-shadow: var(--glow-cyan);
+}
+
+.llm-console-title {
+    font-weight: 700;
+    letter-spacing: 2px;
+    font-family: 'Teko', sans-serif;
+    font-size: 1.1rem;
+    color: var(--text-bright);
+    text-transform: uppercase;
+}
+
+.llm-console-actions button {
+    padding: 8px 16px;
+    font-size: 0.75rem;
+}
+
+.llm-console-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 10px 24px;
+    background: rgba(0, 0, 0, 0.5);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.llm-console-tab {
+    padding: 8px 14px;
+    font-size: 0.75rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-panel-dark);
+    color: var(--text-color);
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 4px) 0,
+        100% 4px,
+        100% 100%,
+        4px 100%,
+        0 calc(100% - 4px)
+    );
+    transition: all 0.2s ease;
+}
+
+.llm-console-tab:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.llm-console-tab.active {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    background: rgba(0, 255, 204, 0.1);
+    box-shadow: 0 0 8px rgba(0, 255, 204, 0.3);
+}
+
+.llm-console-body {
+    flex: 1;
+    padding: 20px 24px;
+    overflow: hidden;
+    background: var(--bg-panel-dark);
+}
+
+.llm-console-page {
+    display: none;
+    height: 100%;
+    gap: 12px;
+}
+
+.llm-console-page.active {
+    display: flex;
+    flex-direction: row;
+}
+
+.llm-console-section {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.llm-console-section.compact {
+    flex: 0.7;
+    min-width: 250px;
+}
+
+.llm-console-section.large {
+    flex: 1.6;
+    min-width: 300px;
+}
+
+.llm-console-section-title {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+}
+
+.llm-console-io {
+    flex: 1;
+    min-height: 0;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+    overflow-y: auto;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: 'Share Tech Mono', monospace;
+    clip-path: polygon(
+        0 0,
+        calc(100% - 4px) 0,
+        100% 4px,
+        100% 100%,
+        4px 100%,
+        0 calc(100% - 4px)
+    );
+}
+
+.llm-console-entry {
+    margin: 0 0 12px 0;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--border-color);
+    color: var(--text-color);
+}
+
+/* ============================================
+   地图信息面板
+   ============================================ */
+#map-info-panel {
+    border: 2px solid var(--accent-color);
+    padding: 12px;
+    margin: 10px;
+    background: rgba(0, 20, 0, 0.5);
+    clip-path: polygon(
+        0 0,
+        calc(100% - 8px) 0,
+        100% 8px,
+        100% 100%,
+        8px 100%,
+        0 calc(100% - 8px)
+    );
+    box-shadow: var(--glow-cyan);
+    position: relative;
+    z-index: 2;
+}
+
+/* ============================================
+   扫描线动画
+   ============================================ */
+.scanline {
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        var(--accent-color),
+        transparent
+    );
+    position: fixed;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    z-index: 10000;
+    pointer-events: none;
+    box-shadow: 0 0 10px var(--accent-color);
+}
+
+.scanning .scanline {
+    opacity: 1;
+    animation: scan 1.5s infinite linear;
+}
+
+@keyframes scan {
+    0% {
+        top: 0%;
+        opacity: 1;
+    }
+    100% {
+        top: 100%;
+        opacity: 0.3;
+    }
+}
+
+/* ============================================
+   脉冲动画
+   ============================================ */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.3;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(1.1);
+    }
+}
+
+/* ============================================
+   故障干扰效果（Chromatic Aberration）
+   ============================================ */
+@keyframes glitch {
+    0%, 100% {
+        text-shadow: 
+            0 0 0 var(--accent-color),
+            0 0 0 var(--danger-color);
+    }
+    20% {
+        text-shadow: 
+            -2px 0 0 var(--accent-color),
+            2px 0 0 var(--danger-color);
+    }
+    40% {
+        text-shadow: 
+            2px 0 0 var(--accent-color),
+            -2px 0 0 var(--danger-color);
+    }
+    60% {
+        text-shadow: 
+            0 0 0 var(--accent-color),
+            0 0 0 var(--danger-color);
+    }
+}
+
+.glitch-text {
+    animation: glitch 0.3s infinite;
+}
+
+/* ============================================
+   滚动条样式
+   ============================================ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-panel-dark);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border: 1px solid var(--bg-panel-dark);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
+    box-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+}
+
+/* ============================================
+   装饰性元素
+   ============================================ */
+.decorative-label {
+    position: absolute;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    opacity: 0.6;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+#hud-bar .decorative-label {
+    font-size: 0.65rem;
+    opacity: 0.8;
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+    .mission-info {
+        margin-left: 0;
+    }
+    
+    #hud-bar > div:last-child > div:first-child {
+        display: none;
+    }
+}

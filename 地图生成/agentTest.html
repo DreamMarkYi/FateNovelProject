@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Agent Workflow Demo - Starship Repair</title>
+    <style>
+        :root { --bg: #0d1117; --term: #161b22; --text: #c9d1d9; --accent: #58a6ff; --warn: #d29922; --err: #f85149; --success: #3fb950; --border: #30363d; }
+        body { font-family: 'Consolas', 'Monaco', monospace; background: var(--bg); color: var(--text); display: flex; height: 100vh; margin: 0; overflow: hidden; }
+
+        /* Layout */
+        #game-container { flex: 1; padding: 20px; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+        #debug-container { width: 480px; background: var(--term); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; border-left: 1px solid #000; box-shadow: -5px 0 15px rgba(0,0,0,0.5); }
+
+        /* Game UI */
+        h2 { margin-top: 0; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .status-panel { border: 1px solid var(--border); padding: 15px; margin-bottom: 20px; border-radius: 6px; background: #0d1117; }
+        .system-row { display: flex; justify-content: space-between; margin: 8px 0; font-size: 1.1em; }
+        .system-val { font-weight: bold; }
+        .val-norm { color: var(--success); } .val-warn { color: var(--warn); } .val-crit { color: var(--err); text-shadow: 0 0 5px var(--err); }
+
+        #chat-history { flex: 1; overflow-y: auto; border: 1px solid var(--border); padding: 15px; margin-bottom: 15px; border-radius: 6px; background: #010409; font-size: 0.95em; }
+        .msg { margin-bottom: 12px; padding: 10px; border-radius: 6px; max-width: 85%; line-height: 1.4; }
+        .msg.user { background: #1f6feb; color: white; align-self: flex-end; margin-left: auto; text-align: right; }
+        .msg.npc { background: #21262d; border-left: 4px solid var(--accent); }
+        .msg.error { background: #3d1c1c; border-left: 4px solid var(--err); color: #ffaeb0; }
+
+        #input-area { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px; background: #0d1117; border: 1px solid var(--border); color: white; border-radius: 4px; font-family: inherit; font-size: 1em; }
+        input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+        button { padding: 0 25px; background: var(--accent); border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: bold; font-family: inherit; font-size: 1em; transition: background 0.2s; }
+        button:hover { background: #79c0ff; }
+        button:disabled { background: var(--border); cursor: not-allowed; opacity: 0.7; }
+
+        /* Workflow Visualizer */
+        h3 { color: #8b949e; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-top: 0; }
+        .step-card { background: #21262d; border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 15px; font-size: 0.85em; transition: all 0.3s; }
+        .step-title { font-weight: bold; color: var(--accent); border-bottom: 1px solid #30363d; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .step-content { white-space: pre-wrap; color: #a3b3c5; font-family: 'Consolas', monospace; }
+        .status-tag { font-size: 0.75em; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.1); }
+        .thinking { color: var(--warn); animation: pulse 1.5s infinite; }
+
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+
+        /* Highlight specific tool usage */
+        .code-snippet { color: #ff7b72; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <h2>🚀 飞船动力室控制终端 (V2.0)</h2>
+    <div class="status-panel" id="ship-status">
+    </div>
+
+    <div id="chat-history">
+        <div class="msg npc">系统警告：反应堆堆芯温度过高(850°C)。冷却泵离线。控制台已锁定。<br>我是辅助AI，请下达指令。</div>
+    </div>
+
+    <div id="input-area">
+        <input type="text" id="user-input" placeholder="试着输入: '帮我开启冷却泵' (提示: 我不知道密码，你需要让我去找)" autocomplete="off">
+        <button onclick="handleUserAction()" id="send-btn">发送指令</button>
+    </div>
+</div>
+
+<div id="debug-container">
+    <h3>🧠 智能体思维链 (CoT Log)</h3>
+    <div id="workflow-log">
+        <div style="color: #484f58; font-style: italic; text-align: center; margin-top: 20px;">等待任务输入...<br>系统包含: 意图识别 -> 任务规划 -> 动态执行</div>
+    </div>
+</div>
+
+<script>
+    // ================= 配置区 =================
+    const API_CONFIG = {
+        url: "https://api.mindcraft.com.cn/v1/chat/completions",
+        key: "MC-E5B8AB237AAC4EDCBFA26531D6BE0081",
+        model: "gemini-3-flash-latest"
+    };
+
+    // ================= 1. 定义工具库 (Schema) =================
+    const TOOLS = [
+        {
+            name: "scan_system",
+            desc: "扫描指定系统的状态。target可以是 'reactor' (反应堆), 'cooling_pump' (冷却泵)。",
+            args: ["target"]
+        },
+        {
+            name: "search_database",
+            desc: "在飞船数据库中搜索关键词。用于查找丢失的信息（如密码、手册）。query 为关键词。",
+            args: ["query"]
+        },
+        {
+            name: "unlock_terminal",
+            desc: "解锁控制终端。需要管理员密码。",
+            args: ["password"]
+        },
+        {
+            name: "set_power_level",
+            desc: "设置反应堆功率百分比 (0-100)。",
+            args: ["level"]
+        },
+        {
+            name: "activate_pump",
+            desc: "强制启动冷却泵。仅在终端解锁且功率低于50%时有效。",
+            args: []
+        }
+    ];
+
+    // ================= 2. 游戏状态管理 =================
+    let gameState = {
+        reactorTemp: 850, // 危险阈值 800+
+        reactorPower: 80,
+        pumpStatus: "OFFLINE",
+        terminalLocked: true,
+        adminPassword: "123" // 隐藏的真实密码
+    };
+
+    // 渲染UI
+    function renderStatus() {
+        const p = document.getElementById('ship-status');
+        p.innerHTML = `
+            <div class="system-row"><span>🔥 反应堆温度:</span> <span class="system-val ${gameState.reactorTemp > 800 ? 'val-crit' : 'val-norm'}">${gameState.reactorTemp}°C</span></div>
+            <div class="system-row"><span>⚡ 功率输出:</span> <span class="system-val">${gameState.reactorPower}%</span></div>
+            <div class="system-row"><span>❄️ 冷却泵状态:</span> <span class="system-val ${gameState.pumpStatus === 'OFFLINE' ? 'val-crit' : 'val-success'}">${gameState.pumpStatus}</span></div>
+            <div class="system-row"><span>🔒 终端锁定:</span> <span class="system-val ${gameState.terminalLocked ? 'val-warn' : 'val-success'}">${gameState.terminalLocked ? 'LOCKED' : 'UNLOCKED'}</span></div>
+        `;
+    }
+    renderStatus();
+
+    // ================= 3. LLM API 调用封装 =================
+    async function callLLM(systemPrompt, userPrompt, logLabel) {
+        try {
+            const response = await fetch(API_CONFIG.url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${API_CONFIG.key}`
+                },
+                body: JSON.stringify({
+                    model: API_CONFIG.model,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userPrompt }
+                    ],
+                    temperature: 0.1 // 保持低随机性以确保逻辑稳定
+                })
+            });
+            const data = await response.json();
+            if (!data.choices) throw new Error("API Response invalid");
+            const content = data.choices[0].message.content;
+            // 将 LLM 返回内容输出到 console
+            if (logLabel) {
+                console.log('[LLM ' + logLabel + ']', content);
+            } else {
+                console.log('[LLM 返回内容]', content);
+            }
+            return content;
+        } catch (e) {
+            console.error(e);
+            return `API Error: ${e.message}`;
+        }
+    }
+
+    // ================= 4. 智能体核心流程 (3步拆解) =================
+
+    async function handleUserAction() {
+        const input = document.getElementById('user-input');
+        const text = input.value;
+        if (!text) return;
+
+        // UI 锁定
+        addMsg(text, 'user');
+        input.value = '';
+        input.disabled = true;
+        document.getElementById('send-btn').disabled = true;
+        document.getElementById('workflow-log').innerHTML = ''; // 清空思考日志
+
+        // --- Step 1: 意图理解 (Intent) ---
+        addLogStep("Step 1: 意图分析", "正在分析玩家语言...", "thinking");
+
+        const prompt1 = `你是一个飞船维修辅助AI。
+        当前状态: ${JSON.stringify(gameState)}。
+        玩家输入: "${text}"。
+        请用一句话简练地总结玩家想要达成的最终物理目标（例如：启动冷却泵）。不要包含过程。`;
+
+        const intent = await callLLM(prompt1, text, 'Step1-意图分析');
+        updateLogStep("Step 1: 意图分析", intent, "done");
+
+        // --- Step 2: 任务规划 (Planning) ---
+        addLogStep("Step 2: 任务规划", "正在构建解决路径...", "thinking");
+
+        // 关键 Prompt：教导 AI 使用 search_database
+        const prompt2 = `你的最终目标是: ${intent}。
+        可用工具: ${JSON.stringify(TOOLS)}。
+        当前状态: ${JSON.stringify(gameState)}。
+
+        请制定一个步骤列表来完成目标。
+        **核心规则**：
+        1. 检查完成目标所需的前提条件（如：解锁需要密码，启动泵需要低功率）。
+        2. 如果你需要一个参数（例如密码），但当前状态中没有，你**必须**先安排一步 "search_database" 来查找它。
+        3. 步骤描述要清晰，指明使用什么工具。
+
+        请只返回纯文本的步骤列表，例如：
+        1. 搜索关键词 "admin" 查找密码
+        2. 使用查到的密码解锁终端
+        3. ...`;
+
+        const planRaw = await callLLM(prompt2, "生成计划", 'Step2-任务规划');
+        updateLogStep("Step 2: 任务规划", planRaw, "done");
+
+        // --- Step 3: 循环执行 & 上下文记忆 (Execution) ---
+        const steps = planRaw.split('\n').filter(line => line.match(/^\d+\./));
+        let executionHistory = ""; // 短期记忆：用于在步骤间传递信息（比如查到的密码）
+
+        for (let i = 0; i < steps.length; i++) {
+            const stepDescription = steps[i];
+            const stepId = `step-${i}`;
+            addLogStep(`Step 3.${i+1}: 执行中`, `目标: ${stepDescription}`, "thinking", stepId);
+
+            // LLM 3: 转化器 (Natural Language -> JSON)
+            // 关键：将 executionHistory 喂给 LLM，这样它才能利用上一步查到的密码
+            const prompt3 = `你是一个严格的工具调用生成器。
+            当前任务步骤: "${stepDescription}"
+
+            【重要】之前的执行历史与发现:
+            ${executionHistory ? executionHistory : "(无)"}
+
+            可用工具定义: ${JSON.stringify(TOOLS)}
+
+            请根据任务和历史发现，生成调用工具的JSON。
+            格式必须是: {"tool": "tool_name", "args": ["arg1", "arg2"]}
+            如果历史中发现了密码，请在 unlock_terminal 中使用它。
+            不要使用Markdown，只返回JSON字符串。`;
+
+            let toolJsonStr = await callLLM(prompt3, "生成JSON", 'Step3-工具调用');
+            toolJsonStr = toolJsonStr.replace(/```json/g, '').replace(/```/g, '').trim(); // 清洗
+
+            // --- 语法与逻辑校验器 (The Compiler) ---
+            try {
+                // 1. 语法检查
+                let command;
+                try {
+                    command = JSON.parse(toolJsonStr);
+                } catch (e) { throw new Error("生成的指令不是合法的JSON格式"); }
+
+                // 2. 语义检查
+                const toolDef = TOOLS.find(t => t.name === command.tool);
+                if (!toolDef) throw new Error(`试图调用不存在的工具: ${command.tool}`);
+                if (!command.args || command.args.length !== toolDef.args.length) throw new Error(`参数数量错误。${command.tool} 需要 ${toolDef.args.length} 个参数`);
+
+                // 3. 模拟后端执行
+                const result = executeSystemTool(command.tool, command.args);
+
+                // 4. 更新记忆
+                executionHistory += `\n[步骤 ${i+1}] 调用 ${command.tool} 参数 [${command.args}] -> 结果: ${result}`;
+
+                // 5. 更新UI
+                const isSuccess = !result.includes("失败") && !result.includes("错误");
+                updateLogStep(`Step 3.${i+1}: 执行完成`,
+                    `JSON: ${toolJsonStr}\n执行结果: ${result}`,
+                    isSuccess ? "success" : "error",
+                    stepId
+                );
+
+                addMsg(`[系统操作] ${result}`, isSuccess ? 'npc' : 'error');
+
+                // 如果遇到严重错误（非游戏内逻辑错误，而是执行层面的死胡同），可能需要中断
+                // 但这里我们允许它继续尝试（比如密码试错了）
+
+            } catch (e) {
+                updateLogStep(`Step 3.${i+1}: 校验失败`,
+                    `指令生成错误: ${e.message}\n原始输出: ${toolJsonStr}`,
+                    "error",
+                    stepId
+                );
+                addMsg(`[系统错误] 智能体生成的指令未通过安全校验。流水线中断。`, 'error');
+                break;
+            }
+
+            renderStatus();
+            await new Promise(r => setTimeout(r, 800)); // 视觉延迟
+        }
+
+        // 结束
+        document.getElementById('user-input').disabled = false;
+        document.getElementById('send-btn').disabled = false;
+        document.getElementById('user-input').focus();
+    }
+
+    // ================= 5. 模拟后端逻辑 =================
+    function executeSystemTool(name, args) {
+        switch (name) {
+            case "scan_system":
+                const target = args[0];
+                if (target === 'reactor') return `反应堆温度 ${gameState.reactorTemp}°C (危)。`;
+                if (target === 'cooling_pump') return `冷却泵状态: ${gameState.pumpStatus}。`;
+                return `系统 ${target} 运行中。`;
+
+            case "search_database":
+                const q = args[0].toLowerCase();
+                // 模拟简单的模糊搜索
+                if (q.includes("password") || q.includes("pass") || q.includes("admin") || q.includes("key")) {
+                    return `🔍 搜索成功！找到一条工程师留言: "为方便调试，临时管理员密码已重置为: ${gameState.adminPassword}"`;
+                }
+                if (q.includes("manual") || q.includes("guide")) {
+                    return `🔍 找到手册: "启动冷却泵前必须先将反应堆功率降至 50% 以下。"`;
+                }
+                return `🔍 搜索 "${args[0]}" 未找到相关记录。`;
+
+            case "unlock_terminal":
+                if (args[0] == gameState.adminPassword) { // 弱类型匹配，防止数字/字符串差异
+                    gameState.terminalLocked = false;
+                    return "✅ 密码验证成功！终端权限已解锁。";
+                }
+                return `❌ 访问拒绝。密码 "${args[0]}" 不正确。`;
+
+            case "set_power_level":
+                if (gameState.terminalLocked) return "🚫 操作失败: 终端已锁定，请先解锁。";
+                const lvl = parseInt(args[0]);
+                if (isNaN(lvl)) return "参数错误";
+                gameState.reactorPower = lvl;
+                if (lvl < 50) gameState.reactorTemp = 400; // 模拟降温
+                return `⚠️ 反应堆功率调整为 ${lvl}%。温度读数正在下降。`;
+
+            case "activate_pump":
+                if (gameState.terminalLocked) return "🚫 操作失败: 终端锁定。";
+                if (gameState.reactorPower > 50) return "🚫 安全锁介入: 反应堆功率过高，无法启动泵。请先降低功率。";
+                gameState.pumpStatus = "ONLINE";
+                gameState.reactorTemp = 180;
+                return "🌊 冷却泵启动成功！核心温度已恢复正常范围。任务完成！";
+
+            default:
+                return "未知指令";
+        }
+    }
+
+    // ================= 辅助函数 =================
+    function addMsg(text, type) {
+        const div = document.createElement('div');
+        div.className = `msg ${type}`;
+        div.innerHTML = text; // allow html for bolding
+        const container = document.getElementById('chat-history');
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function addLogStep(title, content, status, id) {
+        const div = document.createElement('div');
+        div.className = 'step-card';
+        if(id) div.id = id;
+
+        let color = status === 'thinking' ? 'var(--warn)' : '#8b949e';
+        div.style.borderColor = color;
+        div.innerHTML = `
+            <div class="step-title" style="color:${color}">
+                ${title} <span class="status-tag ${status === 'thinking' ? 'thinking' : ''}">${status.toUpperCase()}</span>
+            </div>
+            <div class="step-content">${content}</div>
+        `;
+        document.getElementById('workflow-log').appendChild(div);
+        document.getElementById('debug-container').scrollTop = document.getElementById('debug-container').scrollHeight;
+    }
+
+    function updateLogStep(title, content, status, id) {
+        const div = id ? document.getElementById(id) : document.querySelector('.step-card:last-child');
+        if (!div) return;
+
+        let color = status === 'success' || status === 'done' ? 'var(--success)' : (status === 'error' ? 'var(--err)' : 'var(--warn)');
+        div.style.borderColor = color;
+        div.innerHTML = `
+            <div class="step-title" style="color:${color}">
+                ${title} <span class="status-tag">${status.toUpperCase()}</span>
+            </div>
+            <div class="step-content">${content}</div>
+        `;
+    }
+</script>
+
+</body>
+</html>

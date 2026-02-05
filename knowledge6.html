@@ -1,0 +1,844 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOVE-WAR: CAMPUS RIVALRY</title>
+
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/dist/vis-network.min.js"></script>
+
+    <style>
+        :root {
+            /* 校园风配色 */
+            --bg-color: #f0f4f8;          /* 浅蓝灰背景 */
+            --panel-bg: #ffffff;          /* 纯白面板 */
+            --border-color: #d1d9e6;      /* 柔和边框 */
+            --accent-color: #ff6b9d;      /* 恋爱粉 (玩家) */
+            --narrative-color: #78a9ff;   /* 剧情蓝 */
+            --loc-color: #4cd137;         /* 地点绿 */
+            --item-color: #fbc531;        /* 物品黄 */
+            --rival-color: #e1b12c;       /* 黄毛金 (Rival) */
+            --text-color: #2f3640;        /* 深灰字 */
+            --shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 顶部 HUD */
+        #hud-bar {
+            background: var(--panel-bg);
+            padding: 10px 20px;
+            border-bottom: 3px solid var(--accent-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            height: 50px;
+            box-shadow: var(--shadow);
+        }
+
+        .title-text {
+            font-weight: 900;
+            font-size: 1.2rem;
+            color: var(--accent-color);
+            letter-spacing: 1px;
+        }
+
+        .mission-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            background: #fdf2f5;
+            padding: 5px 15px;
+            border-radius: 20px;
+            border: 1px solid var(--accent-color);
+        }
+
+        .stage-indicator {
+            color: var(--accent-color);
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        /* 主布局 */
+        #main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 左侧：图谱 */
+        #graphs-column {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            background: #f8faff;
+        }
+
+        .graph-section {
+            flex: 1;
+            position: relative;
+            border-bottom: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        .graph-section:last-child { border-bottom: none; }
+
+        .graph-label {
+            position: absolute;
+            top: 10px; left: 10px;
+            font-size: 0.8rem;
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 15px;
+            border: 1px solid #ccc;
+            z-index: 10;
+            pointer-events: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            font-weight: bold;
+        }
+
+        #viz-location { width: 100%; height: 100%; background: radial-gradient(circle at center, #fff 0%, #f0f4f8 100%); }
+        #viz-inventory { width: 100%; height: 100%; background: radial-gradient(circle at center, #fff 0%, #fffbe6 100%); }
+        #viz-narrative { width: 100%; height: 100%; background: radial-gradient(circle at center, #fff 0%, #e8f4ff 100%); }
+
+        /* 右侧交互终端 */
+        #terminal-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel-bg);
+            max-width: 450px;
+            border-left: 1px solid var(--border-color);
+            box-shadow: -5px 0 15px rgba(0,0,0,0.03);
+        }
+
+        /* 顶部状态面板 (Love Meter) */
+        #intel-panel {
+            padding: 15px;
+            background: #fff;
+            border-bottom: 1px solid var(--border-color);
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        .intel-header {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+        }
+
+        .love-meter-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .love-bar-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8rem;
+        }
+        .progress-bg {
+            flex: 1; height: 10px; background: #eee; border-radius: 5px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; transition: width 0.5s ease;
+        }
+
+        .keypoint-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .keypoint-item {
+            font-size: 0.85rem;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #eee;
+            background: #fafafa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .keypoint-item.player-owned { border-color: var(--accent-color); color: var(--accent-color); background: #fff0f5; }
+        .keypoint-item.boss-owned { border-color: var(--rival-color); color: var(--rival-color); background: #fffdf0; text-decoration: line-through;}
+        .keypoint-item.unknown { border-style: dashed; color: #999; }
+
+        /* 聊天区 */
+        #chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scroll-behavior: smooth;
+            background: #fff;
+        }
+
+        .msg { padding: 12px 15px; border-radius: 12px; font-size: 0.95rem; line-height: 1.6; max-width: 90%; word-wrap: break-word; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        /* 玩家消息 */
+        .msg.user { background: var(--accent-color); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        /* AI/女主消息 */
+        .msg.ai { background: #f1f2f6; border-left: 4px solid var(--accent-color); color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
+        /* 黄毛消息 */
+        .msg.boss { background: #fffbe6; border-left: 4px solid var(--rival-color); color: #8a6d3b; font-style: italic; font-size: 0.9rem; }
+        /* 系统消息 */
+        .msg.system { color: #888; font-size: 0.8rem; text-align: center; background: none; box-shadow: none; }
+        .msg.stage-clear { border: 2px solid var(--accent-color); color: var(--accent-color); text-align: center; font-weight: bold; background: #fff0f5; padding: 20px; }
+
+        /* 输入区 */
+        #input-area {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            background: #fff;
+        }
+
+        input[type="text"] {
+            flex: 1; background: #f8f9fa; border: 2px solid #eee; color: #333; padding: 12px; border-radius: 8px; font-family: inherit; transition: all 0.2s;
+        }
+        input[type="text"]:focus { outline: none; border-color: var(--accent-color); background: #fff; }
+        button {
+            background: var(--accent-color); color: #fff; border: none; cursor: pointer; font-family: inherit; font-weight: bold; padding: 0 20px; border-radius: 8px; transition: 0.2s;
+        }
+        button:hover { background: #ff4785; transform: translateY(-1px); }
+        button:disabled { background: #ccc; cursor: not-allowed; transform: none;}
+
+    </style>
+</head>
+<body>
+
+<div id="hud-bar">
+    <div class="title-text">❤️ 校园恋爱大作战</div>
+    <div class="mission-info">
+        <div id="stage-display" class="stage-indicator">CHAPTER 1</div>
+        <div id="objective-display" style="font-size:0.8rem; color:#666;">目标: 寻找礼物攻略女主</div>
+    </div>
+    <div><button id="reset-btn" onclick="startGame()" style="font-size:0.7rem; padding:8px 12px; background:#666;">重置游戏</button></div>
+</div>
+
+<div id="main-container">
+    <div id="graphs-column">
+        <div class="graph-section">
+            <div class="graph-label" style="color: var(--loc-color);">📍 校园地图 (红色=黄毛)</div>
+            <div id="viz-location"></div>
+        </div>
+        <div class="graph-section">
+            <div class="graph-label" style="color: var(--item-color);">🎒 背包物品</div>
+            <div id="viz-inventory"></div>
+        </div>
+        <div class="graph-section">
+            <div class="graph-label" style="color: var(--narrative-color);">📅 恋爱日记</div>
+            <div id="viz-narrative"></div>
+        </div>
+    </div>
+
+    <div id="terminal-panel">
+        <div id="intel-panel">
+            <div class="intel-header">
+                <span>❤️ 恋爱进度 (Love Meter)</span>
+            </div>
+
+            <div class="love-meter-container">
+                <div class="love-bar-wrapper">
+                    <span style="width:60px; font-weight:bold; color:var(--accent-color)">YOU</span>
+                    <div class="progress-bg"><div id="bar-player" class="progress-fill" style="width: 0%; background: var(--accent-color);"></div></div>
+                    <span id="val-player">0%</span>
+                </div>
+                <div class="love-bar-wrapper">
+                    <span style="width:60px; font-weight:bold; color:var(--rival-color)">黄毛</span>
+                    <div class="progress-bg"><div id="bar-boss" class="progress-fill" style="width: 0%; background: var(--rival-color);"></div></div>
+                    <span id="val-boss">0%</span>
+                </div>
+            </div>
+
+            <div style="border-top:1px dashed #eee; margin:10px 0;"></div>
+
+            <div class="intel-header">
+                <span>🎁 关键礼物/事件线索</span>
+            </div>
+            <div id="keypoint-list-container" class="keypoint-list">
+            </div>
+        </div>
+
+        <div id="chat-history">
+            <div class="msg system">>> 游戏加载中... 恋爱引擎启动...</div>
+        </div>
+
+        <div id="input-area">
+            <input type="text" id="player-input" placeholder="输入行动 (e.g. 去图书馆, 寻找礼物, 阻止黄毛...)" autocomplete="off" disabled>
+            <button id="send-btn" onclick="handleInput()" disabled>发送</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. 配置 & 状态管理
+    // ==========================================
+    const API_CONFIG = {
+        url: "https://api.mindcraft.com.cn/v1/chat/completions",
+        key: "MC-E5B8AB237AAC4EDCBFA26531D6BE0081",
+        model: "gemini-3-flash-latest"
+    };
+
+    const GRAPH_STORE = {
+        location: { nodes: null, edges: null, network: null },
+        inventory: { nodes: null, edges: null, network: null },
+        narrative: { nodes: null, edges: null, network: null }
+    };
+
+    // 游戏状态：HP 变为 好感度 (0-100)
+    let gameState = {
+        currentStage: 1,
+        maxStages: 2,
+        currentLocationId: 'loc_school_gate',
+        bossLocationId: 'loc_unknown',
+        isGameOver: false,
+        playerAffection: 10,  // 初始好感
+        bossAffection: 10,    // 黄毛初始好感
+        keypoints: []
+    };
+
+    // 关卡配置：改为校园主题
+    const STAGE_CONFIG = {
+        1: {
+            name: "放学后的邀约",
+            required_count: 2,
+            // 关键物品变成了“礼物”或者“触发事件的关键道具”
+            keypoints: [
+                { id: "kp_milk_tea", name: "限定奶茶", desc: "在小卖部排长队才能买到的限量饮料", status: "hidden" },
+                { id: "kp_notebook", name: "借出的笔记", desc: "她遗落在某个教室课桌里的粉色笔记本", status: "hidden" },
+                { id: "kp_concert_ticket", name: "多余的门票", desc: "在某个社团活动室里，可能被压在书堆下", status: "hidden" }
+            ],
+            boss_start: "loc_corridor" // 走廊
+        },
+        2: {
+            name: "文化祭的告白",
+            required_count: 2,
+            keypoints: [
+                { id: "kp_costume", name: "演出服配件", desc: "被遗忘在更衣室或仓库角落的丝带", status: "hidden" },
+                { id: "kp_secret_photo", name: "绝密合照", desc: "摄影部暗房里冲洗出来的抓拍照片", status: "hidden" },
+                { id: "kp_handmade_cookie", name: "失败的饼干", desc: "家政教室烤箱旁，虽然焦了但心意满满", status: "hidden" }
+            ],
+            boss_start: "loc_rooftop_stairs"
+        }
+    };
+
+    let conversationHistory = [];
+
+    // ==========================================
+    // 2. Vis.js 初始化 (风格微调)
+    // ==========================================
+
+    function initOneGraph(containerId, optionsOverride = {}) {
+        const nodes = new vis.DataSet([]);
+        const edges = new vis.DataSet([]);
+        const container = document.getElementById(containerId);
+
+        const defaultOptions = {
+            nodes: {
+                shape: 'dot', size: 15,
+                font: { color: '#333', size: 12, face: 'Microsoft YaHei' },
+                borderWidth: 2, shadow: false,
+                color: { background: '#fff', border: '#ccc' }
+            },
+            edges: {
+                width: 2, color: { color: '#ddd', highlight: '#aaa' },
+                smooth: { type: 'dynamic' }
+            },
+            physics: {
+                stabilization: false,
+                barnesHut: { gravitationalConstant: -2000, springConstant: 0.04 }
+            },
+            interaction: { hover: true, zoomView: true }
+        };
+
+        const options = { ...defaultOptions, ...optionsOverride };
+        if(optionsOverride.edges) options.edges = { ...defaultOptions.edges, ...optionsOverride.edges };
+
+        const network = new vis.Network(container, { nodes, edges }, options);
+        return { nodes, edges, network };
+    }
+
+    function initAllGraphs() {
+        // 1. 地图：双向箭头
+        GRAPH_STORE.location = initOneGraph('viz-location', {
+            edges: {
+                arrows: { to: { enabled: true }, from: { enabled: true } },
+                color: '#4cd137'
+            },
+            nodes: { color: { background: '#e6f7ff', border: '#1890ff' } }
+        });
+
+        // 2. 背包：修正错误 -> arrows 不能是 false，必须是对象
+        GRAPH_STORE.inventory = initOneGraph('viz-inventory', {
+            edges: {
+                // 修正点：使用对象明确禁用箭头，而不是用 false
+                arrows: { to: { enabled: false } },
+                color: '#fbc531'
+            },
+            nodes: { shape: 'box', margin: 10, color: { background: '#fffbe6', border: '#faad14' } }
+        });
+
+        // 3. 剧情：单向箭头
+        GRAPH_STORE.narrative = initOneGraph('viz-narrative', {
+            edges: {
+                arrows: 'to',
+                color: '#78a9ff',
+                dashes: true
+            },
+            layout: { hierarchical: { direction: 'UD', sortMethod: 'directed', levelSeparation: 60 } },
+            nodes: { shape: 'box', color: { background: '#f0f5ff', border: '#adc6ff' } }
+        });
+    }
+    // ==========================================
+    // 3. 提示词工程 (Galgame 版)
+    // ==========================================
+
+    const SYSTEM_PROMPT = `
+你是一个日式校园Galgame（恋爱模拟游戏）的后端引擎。
+
+【核心剧情设定】
+玩家（主角）正在追求学校里的校花“Aoi”。
+但是！有一个令人讨厌的“黄毛”（Rival，金发帅哥，有点轻浮，名字叫Kenta）也在追求她。
+你的目标是：帮助玩家通过探索和互动，提升Aoi的好感度，并阻止黄毛得逞。
+
+【核心玩法机制】
+1. **探索与随机生成**：
+   - 玩家在校园内移动。地图是**动态生成**的。
+   - 如果玩家要去“从未去过的地方”（如：旧校舍、天台、器材室），请使用 \`graph_ops\` 动态添加新地点。
+   - 不要把所有东西都堆在校门口。鼓励玩家探索校园。
+
+2. **关键道具 (Love Items)**：
+   - 为了大幅提升好感度，玩家需要找到特定的关键物品（定义在 Prompt 中）。
+   - **严格判定**：只有当玩家**明确检查**了正确的容器/位置时，才能获得物品。
+     - *玩家说*：“随便看看” -> *你回复*：“教室有点乱，课桌抽屉里似乎塞着什么东西。”（仅给提示）
+     - *玩家说*：“检查抽屉” -> *你回复*：“你找到了Aoi丢失的笔记！获得【借出的笔记】。”（给予物品）
+
+3. **黄毛 (Rival) 的行为逻辑**：
+   - 黄毛 Kenta 会在地图上游荡，寻找 Aoi 或 关键物品。
+   - **非战斗原则**：黄毛**绝对不会**主动攻击玩家（这是法治社会）。
+   - **NTR 威胁**：黄毛的行动是“搭讪 Aoi”、“耍帅”、“送礼物”。如果黄毛和玩家在同一地点，他会嘲讽玩家。
+   - 如果黄毛在一个地点停留太久，他可能会拿走关键物品，或者大幅提升他对 Aoi 的好感度。
+
+4. **战斗 = 争执/竞争**：
+   - 玩家可以选择“攻击”黄毛（实际上是推搡、言语羞辱、揭短、或者在体育/学习上挑战他）。
+   - **后果**：
+     - 这会让黄毛感到挫败，降低他的行动效率，或者让他暂时离开当前区域。
+     - **黄毛的好感度惩罚**：玩家的攻击性行为会让黄毛对玩家产生恐惧或厌恶（虽然这不重要），但更重要的是，这可能打断黄毛对 Aoi 的攻势。
+     - **注意**：如果玩家表现得太暴力，Aoi 可能会觉得玩家很粗鲁（导致玩家好感度微降）。请把握平衡。
+
+5. **好感度系统 (Love Meter)**：
+   - 取代 HP 系统。
+   - \`player_hp\` = **女主对玩家的好感度** (0-100)。
+   - \`boss_hp\` = **女主对黄毛的好感度** (0-100)。
+   - **胜负判定**：如果玩家好感度达到 100，或在阶段结束时远超黄毛，则胜利。如果黄毛好感度先满，或玩家好感度归零（被讨厌），则失败（NTR结局）。
+
+【输出要求】
+必须严格遵守 JSON 格式。文本风格要轻小说化，带有校园青春气息（可以使用颜文字）。
+`;
+
+    function getJsonInstruction() {
+        return `
+\n\n[SYSTEM INSTRUCTION]
+必须严格遵守以下 JSON 格式回复（纯 JSON）：
+{
+  "narrative": "剧情文本 (HTML格式, 描述环境、女主反应、黄毛动态)",
+  "rival_action": "黄毛的行动 (如 'Kenta正在给Aoi讲笑话' 或 'Kenta前往了食堂')，无则 null",
+  "player_affection": number,  // 结算后女主对玩家的好感 (0-100)
+  "boss_affection": number,    // 结算后女主对黄毛的好感 (0-100)
+  "rival_mood": "NORMAL" | "ANGRY" | "SCARED", // 黄毛的状态，被玩家攻击后会变
+  "boss_location_id": "黄毛当前位置ID",
+  "current_location_id": "玩家当前位置ID",
+  "keypoint_updates": [
+    { "id": "Keypoint ID", "status": "player" | "boss" | "hidden" }
+  ],
+  "hinted_keypoint_ids": ["String"],
+  "loot_obtained": "本回合获得的普通物品（如'一包纸巾'，无则 null）",
+  "event_trigger": "触发的特殊事件名（无则 null）",
+  "stage_complete": boolean,
+  "game_over": boolean,
+  "ending_type": "VICTORY" | "DEFEAT" | null,
+  "graph_ops": [
+    {
+      "domain": "location" | "inventory" | "narrative",
+      "op": "add_node" | "add_edge" | "remove_node",
+      "id": "unique_id", "label": "显示名称", "desc": "详细描述", "from": "...", "to": "..."
+    }
+  ]
+}
+`;
+    }
+
+    function getGameContext(userAction) {
+        // 简化图数据以节省 Token
+        const graphSnap = {
+            location: GRAPH_STORE.location.nodes.get().map(n => n.label),
+            inventory: GRAPH_STORE.inventory.nodes.get().filter(n => n.id !== 'player_node').map(n => n.label)
+        };
+
+        const stageInfo = STAGE_CONFIG[gameState.currentStage];
+        const kpStatus = gameState.keypoints.map(k => `${k.id} (${k.name}): ${k.status} [Desc: ${k.desc}]`).join("\n");
+
+        return `
+[Current Chapter]: ${stageInfo.name}
+[Objective]: Find ${stageInfo.required_count} Gifts for Aoi.
+[Items Status]:
+${kpStatus}
+[Rival Location]: ${gameState.bossLocationId}
+[Player Inventory]: ${graphSnap.inventory.join(", ") || "Empty"}
+[Map Known]: ${graphSnap.location.join(", ")}
+[Love Meters]: Player: ${gameState.playerAffection}/100, Rival: ${gameState.bossAffection}/100
+`;
+    }
+
+    async function callLLM(userAction, isInit = false) {
+        const loading = document.getElementById('hud-bar');
+        loading.style.borderBottomColor = '#ccc'; // visual cue
+
+        let userContent = "";
+        const instruction = getJsonInstruction();
+
+        // 线索逻辑
+        const availableToHint = gameState.keypoints.filter(k => k.status === 'hidden' && !k.hinted);
+        const hintInstruction = `
+[CLUE RULES]
+Allowed Hints (Pool A): ${availableToHint.map(k => `ID: ${k.id} (${k.desc})`).join(', ') || 'NONE'}
+RULE: 只能暗示 Pool A 中的物品。不要直接给物品。
+如果玩家进行了针对性互动（如"打开柜子"），且该位置有物品，则给予物品。
+`;
+
+        if (isInit) {
+            const s1 = STAGE_CONFIG[1];
+            userContent = `初始化游戏 Stage 1: ${s1.name}。
+            1. Location: 起点(校门口), 创建几个分支(教学楼, 操场, 小卖部)。
+            2. Boss (Kenta) 初始在 ${s1.boss_start}。
+            3. Narrative: 玩家刚放学，看到 Kenta 正准备去找 Aoi。
+            4. 告知玩家本章目标。
+            ` + instruction;
+        } else {
+            const context = getGameContext(userAction);
+            userContent = `[Context] ${context}\n\n[Player Action] ${userAction}\n` +
+                `[Logic]:\n` +
+                `1. 分析玩家行动。如果是移动，生成新地点（如果需要）。\n` +
+                `2. 如果是战斗/争执：不要 Game Over。描述玩家如何羞辱或阻碍黄毛。大幅降低黄毛的好感度增长速度，或者让他好感度倒退，甚至让他逃跑。\n` +
+                `3. 如果玩家太暴力，Player Affection 也要微降 (Aoi 不喜欢暴力)。\n` +
+                `4. 更新好感度：\n` +
+                `   - 只有送出关键礼物或触发浪漫事件，Player Affection 才会大幅增加。\n` +
+                `   - 黄毛每回合都会自动尝试增加一点 Boss Affection，除非被玩家干扰。\n` +
+                `5. 严格判定物品获取 (同上)。\n` +
+                hintInstruction + instruction;
+        }
+
+        const messages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...conversationHistory,
+            { role: "user", content: userContent }
+        ];
+
+        try {
+            const response = await fetch(API_CONFIG.url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${API_CONFIG.key}`
+                },
+                body: JSON.stringify({
+                    model: API_CONFIG.model,
+                    messages: messages,
+                    temperature: 0.8,
+                    response_format: { type: "json_object" }
+                })
+            });
+
+            if (!response.ok) throw new Error("API Error");
+            const data = await response.json();
+            const cleanContent = data.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim();
+            const result = JSON.parse(cleanContent);
+
+            if (!isInit) conversationHistory.push({ role: "user", content: userAction });
+            // 保存历史
+            conversationHistory.push({ role: "assistant", content: JSON.stringify({narrative: result.narrative}) });
+            if (conversationHistory.length > 8) conversationHistory = [conversationHistory[0], ...conversationHistory.slice(-7)];
+
+            return result;
+        } catch (error) {
+            console.error(error);
+            appendLog(`System Error: ${error.message}`, 'system');
+            return null;
+        } finally {
+            loading.style.borderBottomColor = 'var(--accent-color)';
+        }
+    }
+
+    async function processGameResponse(data) {
+        if (!data) return;
+
+        // 1. 同步好感度
+        if (typeof data.player_affection === 'number') gameState.playerAffection = data.player_affection;
+        if (typeof data.boss_affection === 'number') gameState.bossAffection = data.boss_affection;
+        updateLoveMeter();
+
+        // 2. 线索标记
+        if (data.hinted_keypoint_ids) {
+            data.hinted_keypoint_ids.forEach(id => {
+                const kp = gameState.keypoints.find(k => k.id === id);
+                if (kp) kp.hinted = true;
+            });
+        }
+
+        // 3. 结局判定
+        if (gameState.bossAffection >= 100) {
+            data.game_over = true;
+            data.ending_type = 'DEFEAT'; // NTR
+        } else if (gameState.playerAffection >= 100) {
+            data.game_over = true;
+            data.ending_type = 'VICTORY'; // 纯爱
+        }
+
+        // 4. 图谱操作
+        if (data.graph_ops) data.graph_ops.forEach(op => executeOp(op));
+
+        // 5. 位置与物品更新
+        if (data.current_location_id) gameState.currentLocationId = data.current_location_id;
+        if (data.boss_location_id) gameState.bossLocationId = data.boss_location_id;
+
+        if (data.keypoint_updates) {
+            data.keypoint_updates.forEach(update => {
+                const kp = gameState.keypoints.find(k => k.id === update.id);
+                if (kp) {
+                    kp.status = update.status;
+                    if (update.status === 'player') {
+                        executeOp({ domain: 'inventory', op: 'add_node', id: kp.id, label: kp.name, title: kp.desc, color: '#fbc531' });
+                        executeOp({ domain: 'inventory', op: 'add_edge', from: 'player_node', to: kp.id });
+                    }
+                }
+            });
+            updateKeypointUI();
+        }
+
+        // 6. UI 反馈
+        if (data.loot_obtained) appendLog(`[获得物品] ${data.loot_obtained}`, 'msg system', 'color:#fbc531');
+        if (data.event_trigger) appendLog(`[特殊事件] ${data.event_trigger} ❤️`, 'msg system', 'color:#ff6b9d; font-weight:bold;');
+
+        appendLog(data.narrative, 'ai');
+        if (data.rival_action) {
+            appendLog(`[黄毛动态] ${data.rival_action}`, 'boss');
+        }
+
+        highlightNodes();
+
+        // 关卡/游戏结束逻辑
+        if (data.stage_complete) {
+            await handleStageClear();
+            return;
+        }
+
+        if (data.game_over) {
+            gameState.isGameOver = true;
+            const endMsg = data.ending_type === 'VICTORY'
+                ? "🎉 告白成功！Aoi 接受了你的心意！(Happy End)"
+                : "💔 你来晚了一步... Aoi 和 Kenta 走了。(Bad End)";
+            appendLog(endMsg, 'stage-clear');
+            toggleInputs(false);
+        }
+    }
+
+    // 更新好感度条
+    function updateLoveMeter() {
+        const pBar = document.getElementById('bar-player');
+        const bBar = document.getElementById('bar-boss');
+
+        pBar.style.width = `${gameState.playerAffection}%`;
+        document.getElementById('val-player').innerText = `${gameState.playerAffection}%`;
+
+        bBar.style.width = `${gameState.bossAffection}%`;
+        document.getElementById('val-boss').innerText = `${gameState.bossAffection}%`;
+    }
+
+    async function handleStageClear() {
+        toggleInputs(false);
+        appendLog(`>> 章节完成！好感度得以保留。正在进入下一章...`, 'stage-clear');
+
+        if (gameState.currentStage >= gameState.maxStages) {
+            appendLog("所有章节结束！最终结算中...", 'stage-clear');
+            // 简单比较
+            if (gameState.playerAffection > gameState.bossAffection) {
+                appendLog("🎉 最终胜利！你赢得了她的芳心！", 'stage-clear');
+            } else {
+                appendLog("💔 最终失败！她选择了黄毛...", 'stage-clear');
+            }
+            return;
+        }
+
+        setTimeout(async () => {
+            gameState.currentStage++;
+            initStage(gameState.currentStage);
+
+            conversationHistory = [];
+            // 保留好感度，重置位置
+            gameState.currentLocationId = "loc_school_gate"; // 假设新的一天从校门开始
+
+            const prompt = `进入 Stage ${gameState.currentStage}。请重置地图（保留Inventory）。描述新的一天开始。`;
+            const result = await callLLM(prompt, false);
+            processGameResponse(result);
+            toggleInputs(true);
+        }, 2000);
+    }
+
+    function initStage(stageNum) {
+        document.getElementById('stage-display').innerText = `CHAPTER ${stageNum}`;
+        const config = STAGE_CONFIG[stageNum];
+        gameState.keypoints = JSON.parse(JSON.stringify(config.keypoints)).map(k => ({...k, hinted: false}));
+        gameState.bossLocationId = config.boss_start;
+        document.getElementById('objective-display').innerText = `目标: ${config.name}`;
+        updateKeypointUI();
+    }
+
+    function updateKeypointUI() {
+        const container = document.getElementById('keypoint-list-container');
+        container.innerHTML = '';
+        gameState.keypoints.forEach(kp => {
+            const div = document.createElement('div');
+            let statusClass = 'unknown';
+            let icon = '❓';
+            if (kp.status === 'player') { statusClass = 'player-owned'; icon = '🎁'; }
+            else if (kp.status === 'boss') { statusClass = 'boss-owned'; icon = '⚠️'; }
+            div.className = `keypoint-item ${statusClass}`;
+            div.innerHTML = `<span>${icon} ${kp.name}</span>`;
+            container.appendChild(div);
+        });
+    }
+
+    // 辅助函数：执行图谱操作
+    function executeOp(op) {
+        const domain = op.domain;
+        if (!GRAPH_STORE[domain]) return;
+        const { nodes, edges } = GRAPH_STORE[domain];
+
+        if (op.op === 'add_node') {
+            if (!nodes.get(op.id)) {
+                let color = '#fff';
+                if (domain === 'location') color = '#e6f7ff';
+                if (domain === 'inventory') color = '#fffbe6';
+                if (domain === 'narrative') color = '#f0f5ff';
+                nodes.add({ id: op.id, label: op.label, title: op.desc, color: op.color || { background: color } });
+            }
+        } else if (op.op === 'add_edge') {
+            const exists = edges.get({ filter: e => e.from === op.from && e.to === op.to });
+            if (exists.length === 0) edges.add({ from: op.from, to: op.to });
+        } else if (op.op === 'remove_node') {
+            nodes.remove(op.id);
+        }
+    }
+
+    function highlightNodes() {
+        const nodes = GRAPH_STORE.location.nodes;
+        const updates = [];
+        nodes.getIds().forEach(id => {
+            let bgColor = '#e6f7ff';
+            let borderColor = '#1890ff';
+            let size = 15;
+
+            if (id === gameState.currentLocationId) {
+                bgColor = '#ffadd2'; // 玩家位置 (粉)
+                borderColor = '#eb2f96';
+                size = 25;
+            }
+            if (id === gameState.bossLocationId) {
+                // 如果在同一位置，显示冲突色
+                if (id === gameState.currentLocationId) {
+                    borderColor = '#faad14'; // 冲突黄
+                    size = 30;
+                } else {
+                    bgColor = '#fff1b8'; // 黄毛位置 (黄)
+                    borderColor = '#fadb14';
+                    size = 20;
+                }
+            }
+            updates.push({ id, color: { background: bgColor, border: borderColor }, size });
+        });
+        nodes.update(updates);
+        if (gameState.currentLocationId) GRAPH_STORE.location.network.fit({ nodes: [gameState.currentLocationId], animation: true });
+    }
+
+    function appendLog(html, type, styleOverride = '') {
+        const box = document.getElementById('chat-history');
+        const div = document.createElement('div');
+        div.className = `msg ${type}`;
+        if(styleOverride) div.style.cssText = styleOverride;
+        div.innerHTML = html;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    async function handleInput() {
+        if (gameState.isGameOver) return;
+        const input = document.getElementById('player-input');
+        const val = input.value.trim();
+        if (!val) return;
+        appendLog(val, 'user');
+        input.value = '';
+        toggleInputs(false);
+        const result = await callLLM(val);
+        await processGameResponse(result);
+        if (!gameState.isGameOver) toggleInputs(true);
+    }
+
+    function toggleInputs(enabled) {
+        document.getElementById('player-input').disabled = !enabled;
+        document.getElementById('send-btn').disabled = !enabled;
+        if (enabled) document.getElementById('player-input').focus();
+    }
+
+    async function startGame() {
+        gameState.isGameOver = false;
+        gameState.currentStage = 1;
+        gameState.playerAffection = 10;
+        gameState.bossAffection = 10;
+        conversationHistory = [];
+        Object.values(GRAPH_STORE).forEach(g => { if(g.nodes) g.nodes.clear(); if(g.edges) g.edges.clear(); });
+        GRAPH_STORE.inventory.nodes.add({id: 'player_node', label: '我的书包', shape: 'box'});
+
+        document.getElementById('chat-history').innerHTML = '<div class="msg system">>> 正在读取存档... 回到那个夏天...</div>';
+        toggleInputs(false);
+        initStage(1);
+        const result = await callLLM(null, true);
+        await processGameResponse(result);
+        toggleInputs(true);
+    }
+
+    document.getElementById('player-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleInput();
+    });
+
+    window.onload = function() {
+        initAllGraphs();
+        startGame();
+    };
+
+</script>
+</body>
+</html>

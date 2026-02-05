@@ -24,6 +24,8 @@ const startChoiceRoutes = require('./routes/mongo/startChoiceRoutes');
 const startPageScriptRoutes = require('./routes/mongo/startPageScriptRoutes');
 const miscMessageRoutes = require('./routes/mongo/miscMessageRoutes');
 const characterCardRoutes = require('./routes/mongo/characterCardRoutes');
+const doodleStoryRoutes = require('./routes/mongo/doodleStoryRoutes');
+const battleSimulatorRoutes = require('./routes/battleSimulatorRoutes');
 
 const app = express();
 
@@ -36,9 +38,9 @@ app.use(cors({
   credentials: true
 }));
 
-// 请求体解析
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 请求体解析 - 增加限制以支持大型战斗数据
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 压缩响应
 app.use(compression());
@@ -73,6 +75,8 @@ app.use('/api/mongo/start-choices', startChoiceRoutes);
 app.use('/api/mongo/start-page-script', startPageScriptRoutes);
 app.use('/api/mongo/misc-messages', miscMessageRoutes);
 app.use('/api/mongo/character-cards', characterCardRoutes);
+app.use('/api/mongo/doodle-stories', doodleStoryRoutes);
+app.use('/api/battle-simulator', battleSimulatorRoutes);
 
 // 健康检查
 app.get('/health', (req, res) => {
@@ -120,7 +124,9 @@ app.get('/', (req, res) => {
         saveGame: '/api/mongo/game-saves/player/:playerId/slot/:saveSlot',
         startChoices: '/api/mongo/start-choices',
         createPlayer: '/api/mongo/start-choices/create-player',
-        startStatistics: '/api/mongo/start-choices/statistics'
+        startStatistics: '/api/mongo/start-choices/statistics',
+        doodleStories: '/api/mongo/doodle-stories',
+        activeDoodleStories: '/api/mongo/doodle-stories/active'
       }
     }
   });
@@ -191,6 +197,7 @@ async function startServer() {
       console.log(`  GET  /api/mongo/sowaka-stories/current - 获取当前Sowaka故事`);
       console.log(`  GET  /api/mongo/novel-scripts/:scriptId - 获取剧本脚本`);
       console.log(`  GET  /api/mongo/game-saves/player/:playerId - 获取玩家存档`);
+      console.log(`  GET  /api/mongo/doodle-stories/active - 获取激活的涂鸦故事`);
       console.log('\n详细API文档: http://localhost:${config.port}/');
       console.log('='.repeat(60));
     });

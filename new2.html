@@ -1,0 +1,438 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moonlight Grail - Battle Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        moon: {
+                            base: '#020617',
+                            card: '#0f172a',
+                            border: '#334155',
+                            highlight: '#818cf8',
+                            text: '#e2e8f0',
+                            glow: 'rgba(129, 140, 248, 0.5)'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Cinzel"', '"Noto Serif SC"', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Noto Serif SC', serif;
+            background-color: #020617;
+            background-image:
+                    radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 20%);
+            color: #e2e8f0;
+            overflow-x: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #818cf8; }
+
+        /* 卡牌区域 */
+        #moveListContainer {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding: 1rem 0.5rem 2rem 0.5rem;
+            scroll-behavior: smooth;
+            align-items: stretch;
+            min-height: 220px;
+        }
+
+        /* 卡牌样式 */
+        .move-card {
+            flex: 0 0 160px;
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            user-select: none;
+        }
+        .move-card:hover {
+            transform: translateY(-15px) scale(1.05);
+            border-color: #818cf8;
+            box-shadow: 0 0 15px rgba(129, 140, 248, 0.4);
+            z-index: 10;
+        }
+        .move-card.selected {
+            transform: translateY(-20px) scale(1.05);
+            border-color: #c7d2fe;
+            background: linear-gradient(145deg, #312e81, #1e1b4b);
+            box-shadow: 0 0 25px rgba(165, 180, 252, 0.6);
+            z-index: 20;
+        }
+
+        /* 文本区域 */
+        .nasu-text p {
+            margin-bottom: 0.8em;
+            line-height: 1.8;
+            text-shadow: 0 0 2px rgba(0,0,0,0.8);
+        }
+
+        /* 玻璃面板 */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        /* 图像容器样式 */
+        .portrait-frame {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #334155;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+        .portrait-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40%;
+            background: linear-gradient(to top, rgba(15, 23, 42, 1), transparent);
+            pointer-events: none;
+        }
+
+        .loader {
+            border-top-color: #818cf8;
+            animation: spinner 1s linear infinite;
+        }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 隐藏原生文件输入框 */
+        input[type="file"] { display: none; }
+    </style>
+</head>
+<body class="bg-moon-base text-moon-text">
+
+<nav class="h-12 border-b border-moon-border bg-black/40 flex items-center justify-between px-6 z-50">
+    <div class="flex items-center gap-4">
+        <h1 class="font-serif font-bold text-lg text-moon-highlight tracking-widest" style="text-shadow: 0 0 10px rgba(129,140,248,0.5)">MOONLIGHT GRAIL</h1>
+        <span class="text-[10px] uppercase text-gray-500 tracking-[0.3em]">Turn <span id="currentTimelineCount">0</span></span>
+    </div>
+
+    <div class="flex items-center gap-3">
+        <details class="relative group">
+            <summary class="list-none cursor-pointer text-xs text-gray-400 hover:text-white transition flex items-center gap-1">
+                SYSTEM
+            </summary>
+            <div class="absolute right-0 top-full mt-2 w-72 bg-gray-900 border border-moon-border p-4 rounded shadow-2xl z-50">
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500">API Key</label>
+                        <input type="password" id="apiKey" class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs" value="MC-E5B8AB237AAC4EDCBFA26531D6BE0081">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500">Base URL</label>
+                        <input type="text" id="baseUrl" class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs" value="https://api.mindcraft.com.cn/v1">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500">Model</label>
+                        <input type="text" id="modelName" class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs" value="">
+                    </div>
+                </div>
+            </div>
+        </details>
+        <button onclick="saveAllMemories()" class="text-xs border border-moon-border px-2 py-1 rounded hover:bg-moon-highlight hover:text-black transition">SAVE</button>
+        <button onclick="document.getElementById('loadInput').click()" class="text-xs border border-moon-border px-2 py-1 rounded hover:bg-moon-highlight hover:text-black transition">LOAD</button>
+        <input type="file" id="loadInput" accept=".json" onchange="loadMemories(this)">
+    </div>
+</nav>
+
+<main class="flex-grow flex flex-col p-4 gap-4 overflow-hidden relative">
+
+    <section class="flex-grow flex gap-4 min-h-0">
+
+        <div class="w-72 flex-none glass-panel rounded-lg p-3 flex flex-col relative overflow-hidden group">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-transparent z-10"></div>
+
+            <div class="portrait-frame w-full aspect-[3/4] rounded bg-gray-900 mb-3 relative">
+                <img id="enemyPortrait" src="./web-project/public/栩.jpg" class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" alt="Enemy">
+                <div class="portrait-overlay"></div>
+                <div class="absolute top-2 left-2 bg-black/60 backdrop-blur px-2 py-1 rounded border border-red-500/30">
+                    <span class="text-xs text-red-400 font-bold tracking-widest">ENEMY</span>
+                </div>
+            </div>
+
+            <div class="w-full mb-2 relative z-10">
+                <div class="font-bold text-white text-lg font-serif mb-1" id="enemyCharacterName">栩栩栩栩栩</div>
+                <div class="flex justify-start mb-1">
+                    <button onclick="document.getElementById('enemyCharacterInput').click()" class="text-[10px] flex items-center gap-1 text-gray-500 hover:text-red-300 transition italic">
+                        <span>Load Custom Data</span>
+                    </button>
+                    <input type="file" id="enemyCharacterInput" accept=".json" onchange="handleEnemyCharacterLoadWrapper(this)">
+                </div>
+                <div class="text-[10px] text-gray-500 italic leading-tight h-8 overflow-hidden" id="characterDesc">私立樱羽学园学生会副会长，操纵"冰结律法"的冷酷大小姐。</div>
+            </div>
+
+            <div class="w-full flex items-center justify-between mb-auto border-t border-gray-800 pt-2 z-10">
+                <span class="text-xs font-bold text-red-500">HP</span>
+                <div id="aiHealthDots" class="text-red-500 font-mono tracking-widest text-sm">♥♥♥♥♥</div>
+            </div>
+
+            <div id="aiMoveDisplay" class="mt-2 w-full hidden opacity-0 p-3 bg-red-900/20 border border-red-500/30 rounded z-10">
+                <div class="text-[10px] text-red-300 uppercase mb-1">Last Action</div>
+                <h3 id="aiMoveName" class="text-sm font-bold text-white font-serif mb-2"></h3>
+                <div id="battleResultBadge"></div>
+            </div>
+        </div>
+
+
+        <div class="flex-grow glass-panel rounded-lg flex flex-col relative overflow-hidden border-t-2 border-t-moon-highlight">
+            <div class="absolute right-4 top-4 text-8xl font-serif font-bold text-white opacity-[0.02] pointer-events-none select-none z-0">
+                CHRONICLE
+            </div>
+            <div id="novelOutput" class="nasu-text flex-grow overflow-y-auto p-8 custom-scrollbar z-10 text-base md:text-lg">
+                <p class="text-center text-gray-500 italic mt-20">Waiting for battle initialization...<br><span class="text-xs opacity-50">Select a card below to begin.</span></p>
+            </div>
+            <div class="h-24 border-t border-gray-800 bg-black/50 p-2 overflow-y-auto text-xs font-mono text-gray-400 space-y-1">
+                <div class="text-[10px] text-gray-600 uppercase mb-1">System Log</div>
+                <div id="battleLog"></div>
+            </div>
+        </div>
+
+
+        <div class="w-72 flex-none glass-panel rounded-lg p-3 flex flex-col relative group">
+            <div class="absolute top-0 right-0 w-full h-1 bg-gradient-to-l from-blue-500 to-transparent"></div>
+
+            <div class="portrait-frame w-full aspect-[3/4] rounded bg-gray-900 mb-3 relative cursor-pointer hover:ring-2 hover:ring-blue-500/50 transition" onclick="document.getElementById('playerImgInput').click()">
+                <img id="playerPortrait" src="./web-project/public/laoma.jpg" class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" alt="Player">
+                <div class="portrait-overlay"></div>
+                <div class="absolute top-2 right-2 bg-black/60 backdrop-blur px-2 py-1 rounded border border-blue-500/30">
+                    <span class="text-xs text-blue-400 font-bold tracking-widest">PLAYER</span>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition duration-300">
+                    <span class="text-xs text-white font-bold border border-white/50 px-2 py-1 rounded">Change Image</span>
+                </div>
+            </div>
+            <input type="file" id="playerImgInput" accept="image/*" onchange="handlePlayerImageUpload(this)">
+
+            <div class="mb-2 text-right">
+                <div class="font-bold text-white text-lg font-serif" id="userCharacterName">马马马马马</div>
+                <div class="flex justify-end mt-1">
+                    <button onclick="document.getElementById('userCharacterInput').click()" class="text-[10px] flex items-center gap-1 text-gray-500 hover:text-blue-300 transition italic">
+                        <span>Load Custom Data</span>
+                    </button>
+                    <input type="file" id="userCharacterInput" accept=".json" onchange="handleUserCharacterLoadWrapper(this)">
+                </div>
+                <div class="text-[10px] text-gray-600 italic h-4 mt-1 opacity-0">spacer</div>
+            </div>
+
+            <div class="w-full flex items-center justify-between mb-auto border-t border-gray-800 pt-2">
+                <div id="userHealthDots" class="text-blue-400 font-mono tracking-widest text-sm">♥♥♥♥♥</div>
+                <span class="text-xs font-bold text-blue-500">HP</span>
+            </div>
+
+            <button onclick="clearCurrentMemory()" class="mt-2 w-full py-2 border border-red-900/50 text-red-500/50 text-xs hover:bg-red-900/20 hover:text-red-400 transition rounded">
+                Reset Battle
+            </button>
+        </div>
+    </section>
+
+    <section class="h-[280px] flex-none flex flex-col relative z-20">
+        <div id="selectedMoveDetail" class="hidden absolute -top-16 left-1/2 transform -translate-x-1/2 bg-black/80 border border-moon-highlight text-center px-6 py-2 rounded-full backdrop-blur-md shadow-[0_0_15px_rgba(129,140,248,0.3)] transition-all z-50">
+            <span class="font-bold text-moon-highlight mr-2" id="detailName"></span>
+            <span class="text-gray-300 text-xs border-l border-gray-600 pl-2" id="detailEffect"></span>
+            <span class="text-red-400 text-xs ml-2 italic" id="detailRestriction"></span>
+        </div>
+
+        <div class="flex-grow glass-panel rounded-t-xl border-b-0 relative">
+            <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-black/80 pointer-events-none"></div>
+
+            <div class="flex h-full items-center">
+                <div id="moveListContainer" class="flex-grow px-8 items-end pb-6">
+                </div>
+
+                <div class="w-40 flex-none h-full flex items-center justify-center p-4 border-l border-gray-800/50 bg-black/20">
+                    <button onclick="startBattleTurn()" id="submitBtn" class="w-full h-24 relative group bg-gray-800 hover:bg-moon-highlight text-white rounded-lg border border-gray-600 transition-all duration-300 overflow-hidden shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                        <div class="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
+                        <span id="btnText" class="relative z-10 font-serif font-bold tracking-widest group-hover:text-black">
+                            PLAY<br>CARD
+                        </span>
+                        <div id="loadingSpinner" class="loader absolute top-2 right-2 h-4 w-4 rounded-full border-2 hidden"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<script src="new2.js"></script>
+
+<script>
+    // === 敌方图片逻辑 ===
+    const charImages = {
+        'HimuroRinne': './web-project/public/栩.jpg',
+        'Saber': 'https://placehold.co/300x400/450a0a/fbbf24?text=Saber',
+        'Unknown': 'https://placehold.co/300x400/000/666?text=Unknown'
+    };
+
+    function handleEnemyChange(selectElement) {
+        if (typeof switchEnemyContext === 'function') {
+            switchEnemyContext();
+        } else {
+            // 如果switchEnemyContext还未定义，直接更新图片和名称
+            const newVal = selectElement.value;
+            const profile = typeof CHARACTER_PROFILES !== 'undefined' ? CHARACTER_PROFILES[newVal] : null;
+            
+            // 更新名称
+            if (profile && profile.name) {
+                const nameElement = document.getElementById('enemyCharacterName');
+                if (nameElement) {
+                    nameElement.innerText = profile.name;
+                }
+            }
+            
+            // 更新描述
+            if (profile && profile.desc) {
+                const descElement = document.getElementById('characterDesc');
+                if (descElement) {
+                    descElement.innerText = profile.desc;
+                }
+            }
+            
+            // 更新图片：优先使用CHARACTER_PROFILES中的imageUrl，否则使用默认映射
+            const img = document.getElementById('enemyPortrait');
+            if (img) {
+                const imageUrl = profile?.imageUrl || charImages[newVal] || charImages['Unknown'];
+                img.style.opacity = '0.5';
+                setTimeout(() => {
+                    img.src = imageUrl;
+                    img.onload = () => { img.style.opacity = '1'; };
+                }, 200);
+            }
+        }
+    }
+
+    // === 我方图片上传逻辑 ===
+    function handlePlayerImageUpload(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('playerPortrait').src = e.target.result;
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // === 包装原本的 loadUserCharacter 函数以加载JSON中的图片和名称 ===
+    function handleUserCharacterLoadWrapper(input) {
+        if (typeof loadUserCharacter === 'function') {
+            loadUserCharacter(input);
+        }
+    }
+
+    // === 加载敌方角色配置文件的包装函数 ===
+    function handleEnemyCharacterLoadWrapper(input) {
+        if (typeof loadEnemyCharacter === 'function') {
+            loadEnemyCharacter(input);
+        }
+    }
+
+    // === 加载 API 配置 ===
+    async function loadApiConfig() {
+        try {
+            const response = await fetch('./api-config.json');
+            if (response.ok) {
+                const config = await response.json();
+                document.getElementById('apiKey').value = config.apiKey || '';
+                document.getElementById('baseUrl').value = config.baseUrl || '';
+                document.getElementById('modelName').value = config.modelName || '';
+            } else {
+                console.warn('未找到配置文件，使用默认空值');
+            }
+        } catch (error) {
+            console.error('加载 API 配置失败:', error);
+        }
+    }
+
+    // === 初始化与卡牌特效 ===
+    document.addEventListener('DOMContentLoaded', () => {
+        // 加载 API 配置
+        loadApiConfig();
+        
+        // 初始化敌方图片、名称和描述
+        const enemySelect = document.getElementById('aiClass');
+        if(enemySelect) {
+            const currentVal = enemySelect.value;
+            const profile = typeof CHARACTER_PROFILES !== 'undefined' ? CHARACTER_PROFILES[currentVal] : null;
+            
+            // 更新名称
+            if (profile && profile.name) {
+                const nameElement = document.getElementById('enemyCharacterName');
+                if (nameElement) {
+                    nameElement.innerText = profile.name;
+                }
+            }
+            
+            // 更新描述
+            if (profile && profile.desc) {
+                const descElement = document.getElementById('characterDesc');
+                if (descElement) {
+                    descElement.innerText = profile.desc;
+                }
+            }
+            
+            handleEnemyChange(enemySelect);
+        }
+    });
+
+    // 监听DOM变化增强卡牌效果
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'childList' && mutation.target.id === 'moveListContainer') {
+                enhanceCards();
+            }
+        });
+    });
+    observer.observe(document.getElementById('moveListContainer'), { childList: true });
+
+    function enhanceCards() {
+        const container = document.getElementById('moveListContainer');
+        Array.from(container.children).forEach(child => {
+            if(!child.classList.contains('move-card')) {
+                child.className = 'move-card group flex-shrink-0';
+            }
+            child.addEventListener('click', function() {
+                document.querySelectorAll('.move-card').forEach(c => c.classList.remove('selected'));
+                this.classList.add('selected');
+                document.getElementById('selectedMoveDetail').classList.remove('hidden');
+            });
+        });
+    }
+</script>
+</body>
+</html>

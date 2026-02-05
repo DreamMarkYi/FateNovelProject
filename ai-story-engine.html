@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUV-LUV: 蝴蝶效应 - AI剧情驱动引擎</title>
+    <style>
+        :root {
+            --primary-color: #00ffcc;
+            --danger-color: #ff3333;
+            --bg-color: #050a14;
+            --panel-bg: rgba(10, 20, 30, 0.85);
+            --border-color: #1a3c5a;
+            --font-main: "Segoe UI", "Roboto", "Helvetica Neue", sans-serif;
+            --font-tech: "Courier New", monospace;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: #e0e0e0;
+            font-family: var(--font-main);
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-image: linear-gradient(0deg, rgba(0,0,0,0.8), rgba(0,0,0,0.5)), url('https://placehold.co/1920x1080/000000/1a3c5a?text=Tactical+Surface+Fighter+Hangar');
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Scanlines Effect */
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 255, 204, 0.03) 3px
+            );
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        header {
+            background: rgba(0,0,0,0.9);
+            border-bottom: 2px solid var(--primary-color);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 20;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+        }
+
+        h1 {
+            margin: 0;
+            font-family: var(--font-tech);
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px var(--primary-color);
+        }
+
+        .status-bar {
+            font-family: var(--font-tech);
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+            height: calc(100vh - 60px);
+            z-index: 15;
+            position: relative;
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(5px);
+            position: relative;
+        }
+
+        .panel::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 10px;
+            height: 10px;
+            border-top: 2px solid var(--primary-color);
+            border-left: 2px solid var(--primary-color);
+        }
+
+        .panel::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            border-bottom: 2px solid var(--primary-color);
+            border-right: 2px solid var(--primary-color);
+        }
+
+        .panel-header {
+            font-family: var(--font-tech);
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Layout */
+        .left-col { flex: 1; display: flex; flex-direction: column; gap: 20px; max-width: 300px; }
+        .center-col { flex: 2; display: flex; flex-direction: column; }
+        .right-col { flex: 1; display: flex; flex-direction: column; gap: 20px; max-width: 350px; }
+
+        /* NPC List Area */
+        .npc-chip {
+            background: rgba(0, 255, 204, 0.1);
+            border: 1px solid var(--primary-color);
+            padding: 5px 10px;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .npc-status { font-size: 0.7rem; color: #aaa; }
+
+        /* Story Display */
+        #story-display {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding-right: 10px;
+            font-size: 1.05rem;
+            line-height: 1.6;
+            color: #eee;
+        }
+
+        .story-block { margin-bottom: 20px; animation: fadeIn 0.5s ease; }
+        .story-block.narrative { color: #ccc; }
+        .story-block.dialogue { border-left: 3px solid var(--primary-color); padding-left: 10px; color: #fff; }
+        .story-block.system { color: #888; font-family: var(--font-tech); font-size: 0.9rem; }
+        .story-block.action { color: #ffeb3b; font-style: italic; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Input Area */
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 10px;
+            font-family: var(--font-main);
+            border-radius: 2px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.1);
+        }
+
+        button {
+            background: rgba(0, 255, 204, 0.1);
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: var(--font-tech);
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: var(--primary-color);
+            color: #000;
+        }
+
+        button:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+            background: transparent;
+        }
+
+        /* Character & Map Info */
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
+        .stat-label { color: #888; }
+        .stat-value { color: var(--primary-color); font-family: var(--font-tech); }
+
+        #map-visual {
+            height: 200px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .map-node {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #555;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .map-node.active { background: var(--primary-color); box-shadow: 0 0 10px var(--primary-color); }
+        .map-node:hover { transform: translate(-50%, -50%) scale(1.5); }
+        .map-connection {
+            position: absolute;
+            height: 2px;
+            background: #333;
+            transform-origin: 0 50%;
+            z-index: 0;
+        }
+
+        /* Debug/Log Panel */
+        #log-display {
+            font-family: var(--font-tech);
+            font-size: 0.8rem;
+            color: #4CAF50;
+            overflow-y: auto;
+            flex: 1;
+            white-space: pre-wrap;
+        }
+
+        .loading-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: var(--primary-color);
+            animation: pulse 1s infinite;
+            margin-right: 5px;
+        }
+
+        @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+        
+        /* Task List */
+        .task-item {
+            border: 1px solid #333;
+            padding: 8px;
+            margin-bottom: 5px;
+            border-left: 3px solid #555;
+            font-size: 0.9rem;
+        }
+        .task-item.main { border-left-color: var(--primary-color); }
+        .task-item.sub { border-left-color: #ff9800; }
+        
+        /* Defense Line Styles */
+        .defense-line {
+            padding: 5px 8px;
+            margin-bottom: 4px;
+            border-left: 3px solid #555;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .defense-line.SECURE { border-left-color: var(--primary-color); }
+        .defense-line.HOLDING { border-left-color: #4CAF50; }
+        .defense-line.CONTESTED { border-left-color: #ff9800; }
+        .defense-line.BREACHED { border-left-color: #ff5722; }
+        .defense-line.LOST { border-left-color: var(--danger-color); opacity: 0.6; }
+        
+        .threat-bar {
+            width: 50px;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .threat-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), #ff9800, var(--danger-color));
+            transition: width 0.3s;
+        }
+        
+        /* Tactical Event Styles */
+        .tactical-event {
+            padding: 5px 8px;
+            margin-bottom: 4px;
+            font-size: 0.8rem;
+            border-left: 3px solid #ff9800;
+            background: rgba(255, 152, 0, 0.1);
+        }
+        .tactical-event.CRITICAL {
+            border-left-color: var(--danger-color);
+            background: rgba(255, 51, 51, 0.15);
+            animation: pulse-event 1s infinite;
+        }
+        .tactical-event.HIGH { border-left-color: #ff9800; }
+        .tactical-event.MEDIUM { border-left-color: #ffeb3b; }
+        
+        @keyframes pulse-event {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>TSF-X 系统终端</h1>
+        <div class="status-bar">
+            SYSTEM: ONLINE | DATE: 2001-10-22 | PHASE: BETA
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Left Column: Stats & Map -->
+        <div class="left-col">
+            <div class="panel">
+                <div class="panel-header">PILOT STATUS</div>
+                <div id="character-info">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">TSF STATUS ⚙️</div>
+                <div id="combat-status">
+                    <div class="stat-row">
+                        <span class="stat-label">PILOT HP</span>
+                        <span class="stat-value" id="player-hp">100%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">MECH</span>
+                        <span class="stat-value" id="mech-integrity">100%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">PRESSURE</span>
+                        <span class="stat-value" id="combat-pressure">0%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">ENEMIES</span>
+                        <span class="stat-value" id="enemy-count">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TACTICAL MONITOR 战术监控面板 -->
+            <div class="panel" id="tactical-panel" style="display: none;">
+                <div class="panel-header" style="color:#ff3333">⚔️ TACTICAL MONITOR</div>
+                <div id="tactical-info">
+                    <div class="stat-row">
+                        <span class="stat-label">TIME</span>
+                        <span class="stat-value" id="battle-time">06:00 / 18:00</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">OBJECTIVE</span>
+                        <span class="stat-value" id="battle-objective" style="font-size:0.7rem; color:#aaa;">--</span>
+                    </div>
+                </div>
+                
+                <!-- 防线状态 -->
+                <div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                    <div style="font-size: 0.8rem; color: #888; margin-bottom: 5px;">DEFENSE LINES</div>
+                    <div id="defense-lines-display">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+                
+                <!-- 紧急事件 -->
+                <div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                    <div style="font-size: 0.8rem; color: #ff9800; margin-bottom: 5px;">ACTIVE THREATS</div>
+                    <div id="tactical-events-display">
+                        <div style="color:#666; font-size:0.8rem;">No active threats.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">ACTIVE NPCS</div>
+                <div id="npc-list">
+                    <div style="color:#666; font-size:0.8rem; font-style:italic;">Scanning...</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">TACTICAL MAP</div>
+                <div id="map-visual">
+                    <!-- Populated by JS -->
+                </div>
+                <div id="location-name" style="text-align: center; margin-top: 10px; font-family: var(--font-tech);">UNKNOWN</div>
+            </div>
+            
+            <div class="panel" style="flex:1;">
+                <div class="panel-header">ACTIVE TASKS</div>
+                <div id="task-list" style="overflow-y: auto;">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Column: Main Story Interface -->
+        <div class="center-col">
+            <div class="panel" style="height: 100%;">
+                <div class="panel-header">
+                    <span>NARRATIVE LOG</span>
+                    <span id="turn-indicator">TURN: 1</span>
+                </div>
+                <div id="story-display">
+                    <div class="story-block system">系统初始化完成。连接至战术指挥网络...</div>
+                    <div class="story-block system">读取预设数据... 主角: 白银武 (Callsign: Takeru)</div>
+                    <div class="story-block narrative">警报声在机库回荡。不知名的异星生物 BETA 正在突破防线。你坐在“不知火”战术机的驾驶舱内，手心微微出汗。</div>
+                </div>
+                <div class="input-area">
+                    <input type="text" id="player-input" placeholder="输入指令 (e.g., '启动OS', '前往简报室')..." autocomplete="off">
+                    <button id="submit-btn">EXECUTE</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: System Logs / LLM Thoughts -->
+        <div class="right-col">
+            <div class="panel" style="height: 100%;">
+                <div class="panel-header">SYSTEM THOUGHTS (LLM STREAM)</div>
+                <div id="log-display"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION & API
+        // ==========================================
+        const API_CONFIG = {
+            url: "https://api.mindcraft.com.cn/v1/chat/completions",
+            key: "MC-E5B8AB237AAC4EDCBFA26531D6BE0081",
+            model: "gemini-3-pro-preview"
+        };
+
+        const SYSTEM_PROMPT = `
+        你正在参与创作一部名为《MUV-LUV: 蝴蝶效应》的互动式科幻长篇小说。
+        世界观：MUV-LUV Alternative (BETA入侵，人类濒临灭亡，战术机TSF，绝望与希望并存)。
+        写作基调：沉浸、硬核、细腻、压抑、真实感。
+        你的目标是提供比拟专业出版物质量的文本和逻辑，确保剧情的连贯性和文学性，而非简单的游戏指令响应。
+        `;
+
+        // ==========================================
+        // PRESET DATA (Hardcoded as requested)
+        // ==========================================
+        const PRESET_DATA = {
+            protagonist: {
+                name: "白银武",
+                callsign: "Takeru",
+                rank: "少尉",
+                unit: "207卫士训练小队",
+                stats: {
+                    mental: 80,
+                    fatigue: 0,
+                    sync_rate: 92
+                },
+                equipment: ["94式战术步行战斗机 '不知火'", "突击炮", "近战长刀"]
+            },
+            party: [
+                { name: "御剑冥夜", relation: "战友", status: "Active" },
+                { name: "榊千鹤", relation: "分队长", status: "Active" }
+            ],
+            map: {
+                nodes: {
+                    "hangar": { id: "hangar", name: "第17机库", x: 50, y: 80, connections: ["corridor_a", "briefing_room"] },
+                    "corridor_a": { id: "corridor_a", name: "A区走廊", x: 50, y: 50, connections: ["hangar", "cafeteria", "dorm"] },
+                    "briefing_room": { id: "briefing_room", name: "战术简报室", x: 80, y: 80, connections: ["hangar"] },
+                    "cafeteria": { id: "cafeteria", name: "食堂", x: 20, y: 50, connections: ["corridor_a"] },
+                    "dorm": { id: "dorm", name: "士兵宿舍", x: 50, y: 20, connections: ["corridor_a"] },
+                    "frontline": { id: "frontline", name: "前线战区(BETA接触区)", x: 90, y: 20, connections: ["hangar"], locked: true }
+                }
+            },
+            main_story: {
+                title: "绝望的防线",
+                objective: "守卫横滨基地，防止BETA入侵。",
+                progress: 0, // 0-100
+                current_phase: "Phase 1: 紧急出击准备"
+            },
+            completion_conditions: {
+                success: "成功击退BETA先遣队或完成紧急出击任务。",
+                failure: "主角阵亡 (Health/Mental < 0) 或 基地被攻破。"
+            },
+            
+            // ==========================================
+            // 关卡预设：横滨基地防御战
+            // ==========================================
+            battle_levels: {
+                "yokohama_defense": {
+                    id: "yokohama_defense",
+                    name: "横滨基地防御战",
+                    briefing: "BETA群正从海上发动大规模进攻，必须坚守至援军抵达。这是人类在远东的最后防线。",
+                    terrain: "Coastal/Urban (海岸城市废墟，高楼残骸提供掩体，但也限制机动性)",
+                    
+                    // 剧情时间系统（非回合制）
+                    start_time: "06:00",
+                    current_time: "06:00",
+                    end_time: "18:00", // 坚守12小时
+                    time_per_turn: 15, // 每回合推进15分钟（由导演动态调整）
+                    
+                    // 三道防线
+                    defense_lines: [
+                        { 
+                            id: "coast", 
+                            name: "第一防线：海岸", 
+                            status: "HOLDING", // SECURE -> HOLDING -> CONTESTED -> BREACHED -> LOST
+                            description: "基地外3公里的海滩阵地，炮兵支援区",
+                            defenders: ["A-01部队 第1中队", "炮兵连"],
+                            threat_level: 0 // 0-100
+                        },
+                        { 
+                            id: "gate", 
+                            name: "第二防线：基地大门", 
+                            status: "SECURE", 
+                            description: "基地正门防御工事，反战车壕沟",
+                            defenders: ["207训练小队", "守备队"],
+                            threat_level: 0
+                        },
+                        { 
+                            id: "hangar", 
+                            name: "第三防线：机库区", 
+                            status: "SECURE", 
+                            description: "最后的内部防线，保护平民撤离通道",
+                            defenders: ["预备役", "技术人员"],
+                            threat_level: 0
+                        }
+                    ],
+                    
+                    // 敌军波次（剧情驱动，非自动触发）
+                    enemy_waves: [
+                        { time: "06:30", name: "先遣波", composition: "Tank Class x30, Warrior Class x10", status: "pending" },
+                        { time: "10:00", name: "主力波", composition: "Grappler Class x20, Destroyer Class x5, Fort Class x2", status: "pending" },
+                        { time: "14:00", name: "精锐波", composition: "Laser Class x3, Fort Class x5 (含指挥个体)", status: "pending" }
+                    ],
+                    
+                    // 友军配置
+                    allied_forces: {
+                        tsf_squadrons: ["207训练小队 (玩家)", "A-01特殊任务部队 (精锐)", "守备中队 (损耗中)"],
+                        support_units: ["155mm自走炮连", "ML装备地面部队", "轨道支援 (需要呼叫)"]
+                    },
+                    
+                    // 胜利/失败条件
+                    win_condition: "坚守至 18:00，等待帝国援军抵达",
+                    fail_condition: "第三防线(机库区)失守，基地陷落"
+                }
+            }
+        };
+
+        // ==========================================
+        // GAME STATE
+        // ==========================================
+        const GameState = {
+            turn: 1,
+            currentLocation: "hangar",
+            storyProgress: 0,
+            flags: {},
+            lastEventSummary: "游戏开始。主角位于机库。",
+            lastNarrativeDirection: "", // 导演上一次的剧情方向
+            lastNarrativeText: "", // 上一段生成的完整小说文本
+            status: "ONGOING", // ONGOING, SUCCESS, FAILURE
+            
+            // --- COMBAT STATE (扩展版) ---
+            combatState: {
+                inCombat: false,
+                currentLevelId: null, // 当前关卡ID，如 "yokohama_defense"
+                
+                // 剧情时间系统
+                currentTime: "06:00", // 当前剧情时间 (HH:MM)
+                
+                // 防线状态 (运行时从 Preset 复制)
+                defense_lines: [],
+                
+                // 紧急战术事件队列
+                tacticalEvents: [
+                    // { id: "event_1", title: "光线级锁定", description: "...", urgency: "HIGH", resolved: false }
+                ],
+                
+                // 敌军波次状态 (运行时从 Preset 复制)
+                enemy_waves: [],
+                
+                // 原有数值
+                pressure: 0,         // 0-100，总体战场压力
+                enemyCount: 0,       // 当前战场敌人估算
+                playerHealth: 100,   // 主角 HP
+                mechIntegrity: 100   // 机体完整度
+            },
+            
+            // --- NEW: NPC REGISTRY (with health) ---
+            npc_registry: [
+                { 
+                    id: "meiya", 
+                    name: "御剑冥夜", 
+                    role: "战友/近战前锋", 
+                    personality: "崇尚武士道, 固执, 极其忠诚, 容易冲动, 严于律己", 
+                    relationship: "信赖 (90/100)", 
+                    status: "Active",
+                    health: 100,          // NPC HP
+                    mechIntegrity: 100    // NPC 机体完整度
+                },
+                { 
+                    id: "chizuru", 
+                    name: "榊千鹤", 
+                    role: "分队长/指挥", 
+                    personality: "极度认真, 遵守规则, 责任感强, 毒舌但关心队友", 
+                    relationship: "监督 (70/100)", 
+                    status: "Active",
+                    health: 100,
+                    mechIntegrity: 100
+                }
+            ],
+
+            // --- NEW: MEMORY SYSTEM ---
+            memory: {
+                shortTerm: [], // Last 10 turns: { role, content, analysis }
+                longTerm: {
+                    facts: [],   // Key knowledge: ["Code is 1234", "NPC is suspicious"]
+                    summary: "游戏开始。" // Running summary
+                }
+            }
+        };
+
+        // --- NEW: MEMORY MANAGER ---
+        class MemoryManager {
+            static addShortTerm(role, content) {
+                GameState.memory.shortTerm.push({ role, content, turn: GameState.turn });
+                if (GameState.memory.shortTerm.length > 10) {
+                    GameState.memory.shortTerm.shift(); // Keep window size 10
+                }
+            }
+
+            static addFact(fact) {
+                if (fact && !GameState.memory.longTerm.facts.includes(fact)) {
+                    GameState.memory.longTerm.facts.push(fact);
+                    logSystem(`[MEMORY] New Fact: ${fact}`);
+                }
+            }
+
+            static getContextBlock() {
+                const stm = GameState.memory.shortTerm.map(m => `[${m.role.toUpperCase()}]: ${m.content}`).join("\n");
+                const ltm = GameState.memory.longTerm.facts.map(f => `- ${f}`).join("\n");
+                
+                return `
+                [长期记忆 / 事实]
+                ${ltm || "暂无。"}
+                
+                [短期记忆 / 最近记录]
+                ${stm || "暂无。"}
+                `;
+            }
+
+            // --- 统一的世界上下文 ---
+            static getWorldContext() {
+                // 主线信息
+                const mainStory = PRESET_DATA.main_story;
+                
+                // 当前地点
+                const currentNode = PRESET_DATA.map.nodes[GameState.currentLocation];
+                const locationName = currentNode ? currentNode.name : "未知";
+                
+                // NPC 信息 (包含HP)
+                const npcInfo = GameState.npc_registry.map(npc => 
+                    `- ${npc.name} (${npc.role}): 性格[${npc.personality}], 关系[${npc.relationship}], 状态[${npc.status}], HP[${npc.health}], 机体[${npc.mechIntegrity}]`
+                ).join("\n");
+                
+                // 战斗状态 (扩展版)
+                const combat = GameState.combatState;
+                let combatInfo = "";
+                if (combat.inCombat && combat.currentLevelId) {
+                    const level = PRESET_DATA.battle_levels[combat.currentLevelId];
+                    const defenseStatus = combat.defense_lines.map(d => 
+                        `  - ${d.name}: ${d.status} (威胁: ${d.threat_level}%)`
+                    ).join("\n");
+                    const pendingEvents = combat.tacticalEvents.filter(e => !e.resolved);
+                    const eventsInfo = pendingEvents.length > 0 
+                        ? pendingEvents.map(e => `  - [${e.urgency}] ${e.title}: ${e.description}`).join("\n")
+                        : "  暂无";
+                    
+                    combatInfo = `
+[战斗状态] ⚔️ 战斗中!
+- 关卡: ${level ? level.name : combat.currentLevelId}
+- 剧情时间: ${combat.currentTime} / 目标: ${level ? level.end_time : "18:00"}
+- 战场压力: ${combat.pressure}/100
+- 敌人估算: ${combat.enemyCount}
+- 主角HP: ${combat.playerHealth}/100
+- 机体完整度: ${combat.mechIntegrity}/100
+
+[防线状态]
+${defenseStatus || "  未初始化"}
+
+[紧急事件]
+${eventsInfo}
+`;
+                } else {
+                    combatInfo = "[战斗状态] 非战斗状态 (待命中)";
+                }
+                
+                // 记忆
+                const facts = GameState.memory.longTerm.facts.map(f => `- ${f}`).join("\n");
+                const recentLog = GameState.memory.shortTerm.slice(-5).map(m => 
+                    `[${m.role.toUpperCase()}]: ${m.content.substring(0, 100)}...`
+                ).join("\n");
+                
+                return `
+===== 世界上下文 (WORLD CONTEXT) =====
+
+[主线任务]
+- 标题: ${mainStory.title}
+- 目标: ${mainStory.objective}
+- 当前阶段: ${mainStory.current_phase}
+- 进度: ${GameState.storyProgress}%
+
+[当前状况]
+- 地点: ${locationName} (${GameState.currentLocation})
+- 回合: ${GameState.turn}
+- Flags: ${JSON.stringify(GameState.flags)}
+
+${combatInfo}
+
+[在场人物 (含HP/机体)]
+${npcInfo || "暂无。"}
+
+[导演的剧情方向]
+${GameState.lastNarrativeDirection || "（剧情刚开始）"}
+
+[剧情概要 / 关键事实]
+${facts || "暂无。"}
+
+[最近发生的事]
+${recentLog || "暂无。"}
+
+===== END CONTEXT =====
+                `;
+            }
+        }
+
+        // ==========================================
+        // LLM CLIENT
+        // ==========================================
+        class LLMClient {
+            static async call(messages, temperature = 0.7) {
+                logSystem(`Calling LLM...`);
+                
+                // Prepend System Prompt
+                const finalMessages = [
+                    { role: "system", content: SYSTEM_PROMPT },
+                    ...messages
+                ];
+
+                try {
+                    const response = await fetch(API_CONFIG.url, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${API_CONFIG.key}`
+                        },
+                        body: JSON.stringify({
+                            model: API_CONFIG.model,
+                            messages: finalMessages,
+                            temperature: temperature
+                        })
+                    });
+                    
+                    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                    
+                    const data = await response.json();
+                    const content = data.choices[0].message.content;
+                    logSystem(`LLM Response received.`);
+                    return content;
+                } catch (e) {
+                    logSystem(`ERROR: ${e.message}`);
+                    return null;
+                }
+            }
+        }
+
+        // ==========================================
+        // PROMPT ENGINEERING
+        // ==========================================
+        const PROMPTS = {
+            // 1. INPUT PARSER
+            inputParser: (input, location) => `
+                ROLE: 输入分析员
+                TASK: 将用户的输入解析为结构化数据。
+                CONTEXT: 用户是 '${PRESET_DATA.protagonist.name}'，位于 '${location}'。
+                INPUT: "${input}"
+                
+                请识别:
+                1. 意图 (Intent): (移动, 交谈, 动作, 观察, 等待)
+                2. 目标 (Target): (物体, 人物, 地点)
+                3. 提取的关键信息
+                
+                输出必须是严格的JSON格式，匹配此Schema:
+                {
+                    "intent": "string",
+                    "target": "string or null",
+                    "content": "string (refined input)",
+                    "meta": "any additional info"
+                }
+                不要使用markdown代码块包裹。仅返回原生JSON。
+            `,
+
+            // 1.5 NPC CONTROLLER (The Agents)
+            npcController: (state, worldContext, lastEvent) => `
+                ROLE: NPC 行为模拟引擎
+                TASK: 基于角色性格和当前局势，判断是否有 NPC 需要采取 **主动行动** 或 **发起对话**。
+                
+                ${worldContext}
+                
+                当前局势:
+                - 上一轮事件: "${lastEvent}"
+                
+                逻辑判断规则:
+                1. **性格驱动**: 比如，"冲动"的角色可能会在敌人出现时擅自攻击；"谨慎"的角色可能会发出警告。
+                2. **相关性**: 只有在场或与当前事件相关的 NPC 才会行动。
+                3. **避免混乱**: 一次只能有一个主要 NPC 事件。如果没有必要，返回 null。
+                4. **剧情张力**: 优先选择能制造冲突、危机或推进剧情的行为（例如：有人受伤求救，有人违抗命令）。
+                
+                输出 SCHEMA (Strict JSON):
+                {
+                    "has_action": boolean,
+                    "actor_id": "string (必须对应列表中的 id)",
+                    "action_type": "DIALOGUE" | "ACTION" | "CRISIS",
+                    "description": "string (行为描述，例如：'冥夜拔出长刀冲向了BETA群')",
+                    "dialogue": "string (可选台词，例如：'武！不要犹豫！')"
+                }
+            `,
+
+            // 2. MASTER DRIVER (The Brain)
+            masterDriver: (state, parsedInput, npcEvent, preset, worldContext, battleReport) => `
+                ROLE: 游戏主控 / 导演 / 地下城主 (DM)
+                THEME: MUV-LUV (科幻, 机甲, 战争, 绝望, 希望)。
+                TASK: 基于用户行为、NPC自主行为、战术AI报告推进剧情。
+                
+                ${worldContext}
+                
+                用户行为: ${JSON.stringify(parsedInput)}
+                
+                **NPC突发事件**: ${npcEvent ? JSON.stringify(npcEvent) : "无"}
+                
+                **战术AI报告 (仅战斗时有效)**: ${battleReport ? JSON.stringify(battleReport) : "无 (非战斗状态)"}
+                
+                预设地图: ${JSON.stringify(preset.map.nodes)}
+                可用战斗关卡: ${JSON.stringify(Object.keys(preset.battle_levels))}
+                
+                当前战斗状态: inCombat = ${state.combatState.inCombat}, levelId = ${state.combatState.currentLevelId}
+                
+                ===== 战斗判定 =====
+                
+                1. **战斗触发判定 (重要)**:
+                   - **只有在剧情逻辑合理时才开启战斗**。
+                   - **触发条件**: 
+                     * 玩家主动出击 (如"出击"、"前往战场"、"驾驶战术机起飞")
+                     * 警报拉响且玩家选择响应
+                     * 剧情强制遇敌 (如敌人突破到玩家所在区域)
+                   - **不触发条件**: 
+                     * 还在基地对话、整备
+                     * 只是看到雷达红点但未接触
+                     * 正在撤退途中（除非被追上）
+                   - **开启方式**: 在 combat_trigger 中设置 start_combat = true，并指定 level_id。
+                
+                2. **战斗结束判定**:
+                   - 当满足关卡胜利条件 (坚守到目标时间) 或玩家撤退/死亡时，设置 end_combat = true。
+                   - 如果战术AI报告 base_fallen = true，游戏失败。
+                
+                3. **整合战术AI报告 (战斗中)**:
+                   - 战术AI已经计算了防线变化、时间推进、新事件。
+                   - 你需要将 narrative_report 融入你的 narrative_direction。
+                   - 你负责计算**玩家和NPC的战损**（战术AI只管战场大局）。
+                      ===== 核心逻辑 =====
+                 逻辑要求:
+                1. **整合冲突**: 如果 NPC 事件与用户行为冲突，优先考虑戏剧性张力。
+
+                 2. **高自由度与剧情修正 (重要)**:
+                   - **动态适应**: 如果玩家偏离了预设路线，不要强制拉回，而是**修改后续剧情**来适应玩家。
+                   - **有趣至上**: 优先选择戏剧性强的发展。失败也可以是有趣的（如被捕、机体受损迫降），不要轻易 Game Over。
+                   - **任务实时变更**: 如果玩家的行为改变了战局，请在 \`events\` 中发出信号，更新任务目标。
+                3. 一致性: 参考世界上下文中的剧情概要和事实，不要与既定事实相矛盾。
+                2. **动态适应**: 如果玩家偏离了预设路线，修改后续剧情来适应。
+                3. **动态战场模拟 (战斗中必须执行)**:
+                   - **敌军行动**: 每一轮，敌人都会行动。如果玩家只是"观察"或"犹豫"，敌军必须推进（压力值 +10~20）。
+                   - **战损计算**:
+                     * 鲁莽冲锋 -> 机体完整度 -10~30
+                     * 被击中 -> HP -10~50
+                     * 成功击杀 -> 压力值 -5~15
+                   - **同伴危机**: 如果同伴处于危险位置（冲动的冥夜等），必须计算同伴的战损。同伴 HP/机体 归零则标记为 KIA (Killed In Action)。
+                   - **压力爆表**: 压力值 >= 80 时，必须触发危机事件（如被包围）。
+                4. 一致性: 参考世界上下文中的剧情概要和事实，不要与既定事实相矛盾。
+                5. 蝴蝶效应: 小的行动会改变未来的概率。
+                
+                6. **动态战损 (战斗中)**:
+                   - 鲁莽冲锋 -> 机体完整度 -10~30
+                   - 被击中 -> HP -10~50
+                   - 成功击杀 -> (无直接数值，但降低后续威胁)
+                   - 同伴冲动行为 -> 同伴战损
+
+                
+                ===== 输出 SCHEMA (Strict JSON) =====
+                {
+                    "narrative_direction": "string (给叙述者的指令，需融入战术报告)",
+                    "state_update": {
+                        "location": "string (地点ID)",
+                        "new_flags": {},
+                        "story_progress_delta": number
+                    },
+                    "combat_trigger": {
+                        "start_combat": boolean,
+                        "level_id": "string (如 'yokohama_defense')" | null,
+                        "end_combat": boolean,
+                        "end_reason": "string (如 'victory', 'retreat', 'death')" | null
+                    },
+                    "combat_update": {
+                        "playerHealth_delta": number,
+                        "mechIntegrity_delta": number,
+                        "npc_damage": [
+                            { "id": "string", "health_delta": number, "mechIntegrity_delta": number, "killed": boolean }
+                        ]
+                    },
+                    "events": [
+                        { "type": "string", "description": "string" }
+                    ],
+                    "butterfly_effect_note": "string"
+                }
+            `,
+
+            // 3. OUTCOME JUDGE (New Separate Layer)
+            outcomeJudge: (state, parsedInput, masterDecision, preset, worldContext) => `
+                ROLE: 游戏规则裁决者
+                TASK: 判定回合的机械性结果和剧本完成状态。**必须严格按照数值判定死亡**。
+                
+                ${worldContext}
+                
+                输入数据:
+                - 用户意图: "${parsedInput.intent}" (${parsedInput.content})
+                - 导演叙事计划: "${masterDecision.narrative_direction}"
+                - 导演战斗更新: ${JSON.stringify(masterDecision.combat_update || {})}
+                - 完成条件: ${JSON.stringify(preset.completion_conditions)}
+                - 当前战斗状态: ${JSON.stringify(state.combatState)}
+                
+                裁决规则:
+                1. 基于动作/叙事确定 OUTCOME_TYPE (结果类型):
+                   - COMBAT: 敌人出现或被攻击。
+                   - DEATH: 致命伤害或致命剧情事件。
+                   - NPC_DEATH: 有同伴阵亡。
+                   - DIALOGUE: 与NPC交谈。
+                   - TRIGGER: 事件触发 (如陷阱, 发现)。
+                   - TASK_COMPLETE: 达成了特定目标。
+                   - NONE: 标准探索/动作。
+                   
+                2. **硬核死亡判定 (必须执行)**:
+                   - **主角死亡**: 如果 playerHealth <= 0 或 mechIntegrity <= 0，必须判定为 DEATH，scenario_status = FAILURE。不要手下留情。
+                   - **同伴阵亡**: 如果导演标记某 NPC killed=true，必须在 system_message 中宣告"[NPC名] 阵亡"。
+                   - **受伤反馈**: 如果 HP 或机体下降超过 20%，必须在 system_message 中指出"机体受损"或"受伤"。
+                   
+                3. 检查 SCENARIO STATUS (剧本状态):
+                   - SUCCESS: 符合成功条件?
+                   - FAILURE: 主角死亡 / 基地被毁?
+                   - ONGOING: 都不是。
+
+                输出 SCHEMA (Strict JSON):
+                {
+                    "outcome_type": "COMBAT" | "DEATH" | "NPC_DEATH" | "DIALOGUE" | "TRIGGER" | "TASK_COMPLETE" | "NONE",
+                    "scenario_status": "ONGOING" | "SUCCESS" | "FAILURE",
+                    "reason": "string (状态/结果的解释)",
+                    "system_message": "string (显示的简短系统消息)",
+                    "killed_npcs": ["string (阵亡NPC的id列表)"]
+                }
+            `,
+
+            // 4. NARRATOR (The Voice)
+            narrator: (direction, outcome, state, input, worldContext, lastNarrative) => `
+                ROLE: 畅销长篇科幻小说家
+                STYLE: 硬朗简洁, 压抑但充满张力 (MUV-LUV 风格)。拒绝华丽空洞的网文腔。
+                TASK: 基于导演的指令，续写小说的下一个完整小节。
+                
+                ${worldContext}
+                
+                本回合信息:
+                - 导演指令: ${direction}
+                - 系统判定: ${outcome.outcome_type} (${outcome.system_message})
+                - 用户行动: "${input}"
+
+                上一段小说原文 (必须紧密衔接):
+                """
+                ${lastNarrative || "（这是故事的开端）"}
+                """
+                
+                写作要求:
+                1. **强行衔接 (最高优先级)**: 
+                   - 你的开头第一句话必须直接承接上一段原文的最后一句。
+                   - 想象你是在同一个Word文档里继续打字，中间没有断开。
+                   - 如果上一段以对话结束（如"他说..."），你这一段必须紧接着写后续动作或回答。
+                   - 绝对禁止另起炉灶，绝对禁止写"就在这时"、"接着"这种转折词，直接写动作或对话。
+                2. **第一人称视角**: 始终使用"我"作为主语，深度体验主角(白银武)的所见所感。
+                3. **无缝衔接**: 根据世界上下文中的"最近发生的事"，开头必须紧承上文最后一句，**绝对禁止**使用"总而言之"、"在这个回合"等总结性废话。
+                4. **禁止空洞描写**:
+                   - **绝对禁止**: 陈词滥调的比喻、形容词堆砌、无意义的外貌/眼神描写。
+                     * 负面例子 (不要写): "那双紫色的眼眸中仿佛凝固了万年不化的寒冰"、"他的目光如刀锋般锐利"、"她宛如坠入凡间的天使"、"如同万年玄冰"。
+                   - **应该做**: 用**动作**和**简短对话**推动剧情，而非用形容词装饰。
+                     * 正面例子: "她皱了皱眉"、"'别废话。'她打断了我"、"我注意到她的手在发抖"。
+                   - **外貌原则**: 除非角色首次登场或外貌有剧情意义（如受伤），否则**不描写外貌**。
+                5. **对话驱动 (高优先级)**:
+                   - 除非是纯独角戏，否则**大幅增加人物对话**。
+                   - 主角必须积极参与对话，形成**对话链**（来回交锋），不要让 NPC 自言自语。
+                   - 参考世界上下文中的人物关系和性格来塑造对话语气。
+                6. **精简与白描**:
+                   - 非战斗场景：只写**有用的细节**（推进剧情或揭示性格），砍掉一切装饰性描写。
+                   - 战斗场景：保持**极致的跌宕起伏**和**感官冲击**（警报、过载、机械质感），但依然避免华丽空洞的比喻。
+                7. **高自由度兼容**: 如果导演修正了剧情，自然地描绘转折。
+                8. **隐晦引导**: 在章节结尾，通过 NPC 的自然建议或环境线索，暗示下一步。
+                
+                输出 SCHEMA (Strict JSON):
+                {
+                    "text": "string (主要剧情文本，使用 HTML <br> 换行，长度 300-500 字)",
+                    "speaker": "string (角色名，如果是旁白则为 null)",
+                    "audio_cue": "string (可选)"
+                }
+            `,
+
+            // 5. TASK GENERATOR (The Quest Giver)
+            taskGen: (storyState, events) => `
+                ROLE: 任务发布系统
+                TASK: 基于最近的事件更新玩家任务列表。
+                
+                故事状态: ${JSON.stringify(storyState)}
+                最近事件: ${JSON.stringify(events)}
+                
+                输出 SCHEMA (Strict JSON):
+                {
+                    "tasks": [
+                        { "id": "string", "title": "string", "status": "active/completed/failed", "type": "main/sub" }
+                    ]
+                }
+            `,
+
+            // 6. FACT EXTRACTOR (New Independent Layer)
+            factExtractor: (existingFacts, userAction, narrativeText) => `
+                ROLE: 记忆归档员
+                TASK: 分析最新回合，提取新的、永久性的事实存入长期记忆。
+                
+                输入:
+                - 现有事实: ${JSON.stringify(existingFacts)}
+                - 用户动作: "${userAction}"
+                - 故事结果: "${narrativeText}"
+                
+                指导原则:
+                1. 仅提取 **永久性** 信息 (获得的物品, 得知的秘密, NPC状态变化, 重大选择)。
+                2. 忽略琐碎的描述 ("他走得很慢") 或临时状态 ("他饿了")。
+                3. 不要重复现有的事实。
+                4. 保持简洁。例如: "玩家拥有红色钥匙", "冥夜很生气"。
+                
+                输出 SCHEMA (Strict JSON):
+                {
+                    "facts": ["string"] 
+                }
+            `,
+
+            // ==========================================
+            // 7. BATTLE COMMANDER (战术指挥AI - 仅战斗时调用)
+            // ==========================================
+            battleCommander: (combatState, levelData, userAction, npcEvent, worldContext) => `
+                ROLE: 战术指挥 AI / 战场态势模拟器
+                THEME: MUV-LUV (BETA入侵，人类防御战，残酷但有希望)
+                TASK: 模拟战场态势变化，更新防线状态，生成紧急战术事件。
+                
+                ${worldContext}
+                
+                ===== 当前战场数据 =====
+                关卡: ${levelData.name}
+                剧情时间: ${combatState.currentTime} / 目标时间: ${levelData.end_time}
+                
+                防线状态:
+                ${JSON.stringify(combatState.defense_lines, null, 2)}
+                
+                敌军波次:
+                ${JSON.stringify(combatState.enemy_waves, null, 2)}
+                
+                当前紧急事件:
+                ${JSON.stringify(combatState.tacticalEvents.filter(e => !e.resolved), null, 2)}
+                
+                玩家行动: "${userAction}"
+                NPC动态: ${npcEvent ? JSON.stringify(npcEvent) : "无"}
+                
+                ===== 推演规则 =====
+                
+                1. **时间推进**: 
+                   - 根据玩家行动的剧烈程度推进时间 (激烈战斗: +15~30分钟, 对话/观察: +5~10分钟)。
+                   - 检查是否触发新的敌军波次 (根据 enemy_waves 的 time 字段)。
+                
+                2. **防线推演**:
+                   - 状态等级: SECURE -> HOLDING -> CONTESTED -> BREACHED -> LOST
+                   - 如果玩家忽略某个高威胁防线，该防线状态恶化 (threat_level +20~40)。
+                   - threat_level >= 80 时，防线状态降级。
+                   - 如果玩家成功支援某防线，threat_level -10~30。
+                   - **第一防线失守** -> 敌人涌向第二防线，第二防线 threat_level +30。
+                   - **第二防线失守** -> 第三防线进入 CONTESTED 状态。
+                   - **第三防线失守** -> 游戏失败信号。
+                
+                3. **事件生成** :
+                   - 基于地形和敌人类型生成危机 (如: "光线级锁定我方炮兵阵地", "突击级群正在迂回包抄")。
+                   - urgency: "CRITICAL" (必须立即处理) / "HIGH" (应尽快处理) / "MEDIUM" (可选)
+                   - 如果玩家处理了某事件，标记为 resolved。
+                
+                4. **压力计算**:
+                   - 综合所有防线的 threat_level 计算总压力。
+                   - 压力 >= 80: 必须在 narrative_report 中警告。
+                
+                ===== 输出 SCHEMA (Strict JSON) =====
+                {
+                    "time_advance": "string (推进后的时间，如 '07:15')",
+                    "defense_line_updates": [
+                        { 
+                            "id": "string (防线id)", 
+                            "new_status": "string (可选，如状态变化)", 
+                            "threat_delta": number,
+                            "note": "string (变化原因)"
+                        }
+                    ],
+                    "wave_triggered": {
+                        "wave_name": "string",
+                        "description": "string (如: '第二波敌军抵达战场！')"
+                    } | null,
+                    "new_event": {
+                        "id": "string",
+                        "title": "string",
+                        "description": "string",
+                        "urgency": "CRITICAL" | "HIGH" | "MEDIUM"
+                    } | null,
+                    "resolved_events": ["string (被玩家解决的事件id)"],
+                    "pressure_delta": number,
+                    "enemy_count_delta": number,
+                    "narrative_report": "string (简短的战况汇报，供导演和叙述者参考，如: '海岸防线告急！光线级正在集结！')",
+                    "base_fallen": boolean
+                }
+            `
+        };
+
+        // ==========================================
+        // SYSTEM LOGIC
+        // ==========================================
+        
+        function logSystem(text) {
+            const logPanel = document.getElementById('log-display');
+            const time = new Date().toLocaleTimeString();
+            logPanel.innerHTML += `[${time}] ${text}\n`;
+            logPanel.scrollTop = logPanel.scrollHeight;
+        }
+
+        function appendStory(text, type = 'narrative') {
+            const display = document.getElementById('story-display');
+            const div = document.createElement('div');
+            div.className = `story-block ${type}`;
+            div.innerHTML = text;
+            display.appendChild(div);
+            display.scrollTop = display.scrollHeight;
+        }
+
+        // Helper to safely parse JSON from LLM (often wraps in ```json ... ```)
+        function safeJSONParse(str) {
+            try {
+                // Remove markdown code blocks if present
+                let clean = str.replace(/```json/g, '').replace(/```/g, '').trim();
+                return JSON.parse(clean);
+            } catch (e) {
+                console.error("JSON Parse Error", e, str);
+                return null;
+            }
+        }
+
+        // 初始化战斗关卡
+        function initializeBattle(levelId) {
+            const level = PRESET_DATA.battle_levels[levelId];
+            if (!level) {
+                logSystem(`Error: Level ${levelId} not found!`);
+                return false;
+            }
+            
+            GameState.combatState.inCombat = true;
+            GameState.combatState.currentLevelId = levelId;
+            GameState.combatState.currentTime = level.start_time;
+            
+            // 深拷贝防线和波次数据
+            GameState.combatState.defense_lines = JSON.parse(JSON.stringify(level.defense_lines));
+            GameState.combatState.enemy_waves = JSON.parse(JSON.stringify(level.enemy_waves));
+            GameState.combatState.tacticalEvents = [];
+            
+            logSystem(`Battle Initialized: ${level.name}`);
+            logSystem(`Objective: ${level.win_condition}`);
+            
+            // 更新战术UI
+            updateTacticalUI();
+            
+            return true;
+        }
+
+        // 结束战斗
+        function endBattle(reason) {
+            logSystem(`Battle Ended: ${reason}`);
+            GameState.combatState.inCombat = false;
+            GameState.combatState.currentLevelId = null;
+            GameState.combatState.defense_lines = [];
+            GameState.combatState.enemy_waves = [];
+            GameState.combatState.tacticalEvents = [];
+            
+            updateTacticalUI();
+        }
+
+        // 应用战术AI报告
+        function applyBattleReport(report) {
+            if (!report) return;
+            
+            // 更新时间
+            if (report.time_advance) {
+                GameState.combatState.currentTime = report.time_advance;
+                logSystem(`Time: ${report.time_advance}`);
+            }
+            
+            // 更新防线状态
+            if (report.defense_line_updates && Array.isArray(report.defense_line_updates)) {
+                report.defense_line_updates.forEach(update => {
+                    const line = GameState.combatState.defense_lines.find(l => l.id === update.id);
+                    if (line) {
+                        if (update.new_status) {
+                            line.status = update.new_status;
+                        }
+                        line.threat_level = Math.max(0, Math.min(100, line.threat_level + (update.threat_delta || 0)));
+                        logSystem(`Defense Line [${line.name}]: ${line.status} (Threat: ${line.threat_level}%)`);
+                    }
+                });
+            }
+            
+            // 触发敌军波次
+            if (report.wave_triggered) {
+                const wave = GameState.combatState.enemy_waves.find(w => w.name === report.wave_triggered.wave_name);
+                if (wave) {
+                    wave.status = "active";
+                }
+                appendStory(`[TACTICAL] ${report.wave_triggered.description}`, 'system');
+            }
+            
+            // 添加新事件
+            if (report.new_event) {
+                GameState.combatState.tacticalEvents.push({
+                    ...report.new_event,
+                    resolved: false
+                });
+                const urgencyColor = report.new_event.urgency === 'CRITICAL' ? 'var(--danger-color)' : '#ff9800';
+                appendStory(`[${report.new_event.urgency}] ${report.new_event.title}: ${report.new_event.description}`, 'system');
+            }
+            
+            // 解决事件
+            if (report.resolved_events && Array.isArray(report.resolved_events)) {
+                report.resolved_events.forEach(eventId => {
+                    const event = GameState.combatState.tacticalEvents.find(e => e.id === eventId);
+                    if (event) {
+                        event.resolved = true;
+                        logSystem(`Event Resolved: ${event.title}`);
+                    }
+                });
+            }
+            
+            // 更新压力和敌人数量
+            GameState.combatState.pressure = Math.max(0, Math.min(100, 
+                GameState.combatState.pressure + (report.pressure_delta || 0)));
+            GameState.combatState.enemyCount = Math.max(0, 
+                GameState.combatState.enemyCount + (report.enemy_count_delta || 0));
+            
+            // 检查基地是否陷落
+            if (report.base_fallen) {
+                GameState.status = "FAILURE";
+                appendStory("[CRITICAL] 第三防线失守！基地陷落！", 'system');
+            }
+            
+            // 更新战术UI
+            updateTacticalUI();
+        }
+
+        async function processTurn(rawInput) {
+            const inputField = document.getElementById('player-input');
+            const btn = document.getElementById('submit-btn');
+            
+            inputField.disabled = true;
+            btn.disabled = true;
+            
+            // --- MEMORY: Record User Input ---
+            MemoryManager.addShortTerm('user', rawInput);
+            appendStory(`> ${rawInput}`, 'action');
+            
+            try {
+                // 1. PARSE INPUT
+                const parserPrompt = PROMPTS.inputParser(rawInput, GameState.currentLocation);
+                const parserRaw = await LLMClient.call([{role: "user", content: parserPrompt}]);
+                const parsedInput = safeJSONParse(parserRaw);
+                
+                if (!parsedInput) throw new Error("Input Parsing Failed");
+                logSystem(`Parsed Intent: ${parsedInput.intent} on ${parsedInput.target}`);
+
+                // 获取统一的世界上下文
+                const worldContext = MemoryManager.getWorldContext();
+                logSystem(`World Context: \n${worldContext}`); // 输出 World Context 到日志
+
+                // 1.5 NPC CONTROLLER (Autonomous Action)
+                let npcEvent = null;
+                try {
+                    const npcPrompt = PROMPTS.npcController(
+                        GameState, 
+                        worldContext, 
+                        GameState.lastEventSummary
+                    );
+                    const npcRaw = await LLMClient.call([{role: "user", content: npcPrompt}], 0.6); // slightly creative
+                    const npcResult = safeJSONParse(npcRaw);
+                    
+                    if (npcResult && npcResult.has_action) {
+                        npcEvent = npcResult;
+                        logSystem(`NPC Event: [${npcResult.actor_id}] ${npcResult.description}`);
+                    }
+                } catch (e) {
+                    logSystem("NPC Controller Error: " + e.message);
+                }
+
+                // 1.7 BATTLE COMMANDER (仅战斗时调用)
+                let battleReport = null;
+                if (GameState.combatState.inCombat && GameState.combatState.currentLevelId) {
+                    try {
+                        const levelData = PRESET_DATA.battle_levels[GameState.combatState.currentLevelId];
+                        if (levelData) {
+                            logSystem("Commander: Assessing battlefield...");
+                            const battlePrompt = PROMPTS.battleCommander(
+                                GameState.combatState, 
+                                levelData, 
+                                parsedInput.content, 
+                                npcEvent, 
+                                worldContext
+                            );
+                            const battleRaw = await LLMClient.call([{role: "user", content: battlePrompt}], 0.5);
+                            battleReport = safeJSONParse(battleRaw);
+                            
+                            if (battleReport) {
+                                logSystem(`Commander: ${battleReport.narrative_report}`);
+                                
+                                // 应用战术更新
+                                applyBattleReport(battleReport);
+                            }
+                        }
+                    } catch (e) {
+                        logSystem("Battle Commander Error: " + e.message);
+                    }
+                }
+
+                // 2. MASTER DECISION (Now uses World Context, NPC Event, AND Battle Report)
+                const masterPrompt = PROMPTS.masterDriver(GameState, parsedInput, npcEvent, PRESET_DATA, worldContext, battleReport);
+                const masterRaw = await LLMClient.call([{role: "user", content: masterPrompt}]);
+                const masterDecision = safeJSONParse(masterRaw);
+
+                if (!masterDecision) throw new Error("Master Decision Failed");
+                logSystem(`Director: ${masterDecision.narrative_direction}`);
+                logSystem(`Effect: ${masterDecision.butterfly_effect_note}`);
+                
+                // 保存导演的剧情方向
+                GameState.lastNarrativeDirection = masterDecision.narrative_direction;
+
+                // 3. OUTCOME JUDGE (Separate LLM Call)
+                const judgePrompt = PROMPTS.outcomeJudge(GameState, parsedInput, masterDecision, PRESET_DATA, worldContext);
+                const judgeRaw = await LLMClient.call([{role: "user", content: judgePrompt}]);
+                const judgeResult = safeJSONParse(judgeRaw);
+                
+                if (!judgeResult) throw new Error("Outcome Judgment Failed");
+                logSystem(`Judge: ${judgeResult.outcome_type} | Status: ${judgeResult.scenario_status}`);
+                
+                // Handle Outcome
+                if (judgeResult.outcome_type !== 'NONE') {
+                    appendStory(`[SYSTEM] ${judgeResult.system_message}`, 'system');
+                }
+                
+                if (judgeResult.scenario_status !== 'ONGOING') {
+                    GameState.status = judgeResult.scenario_status;
+                }
+
+                // Update State (Location/Flags from Master)
+                if (masterDecision.state_update.location) {
+                    GameState.currentLocation = masterDecision.state_update.location;
+                    updateMapVisual();
+                }
+                GameState.storyProgress += (masterDecision.state_update.story_progress_delta || 0);
+                GameState.flags = { ...GameState.flags, ...masterDecision.state_update.new_flags };
+                
+                // --- HANDLE COMBAT TRIGGER (战斗开始/结束) ---
+                if (masterDecision.combat_trigger) {
+                    const ct = masterDecision.combat_trigger;
+                    
+                    // 开始战斗
+                    if (ct.start_combat && ct.level_id && !GameState.combatState.inCombat) {
+                        initializeBattle(ct.level_id);
+                        appendStory(`[TACTICAL] 战斗开始！`, 'system');
+                    }
+                    
+                    // 结束战斗
+                    if (ct.end_combat) {
+                        endBattle(ct.end_reason || 'unknown');
+                        if (ct.end_reason === 'victory') {
+                            GameState.status = "SUCCESS";
+                        } else if (ct.end_reason === 'death') {
+                            GameState.status = "FAILURE";
+                        }
+                    }
+                }
+                
+                // --- UPDATE COMBAT STATE (玩家战损) ---
+                if (masterDecision.combat_update) {
+                    const cu = masterDecision.combat_update;
+                    
+                    // 玩家战损
+                    GameState.combatState.playerHealth = Math.max(0, Math.min(100, GameState.combatState.playerHealth + (cu.playerHealth_delta || 0)));
+                    GameState.combatState.mechIntegrity = Math.max(0, Math.min(100, GameState.combatState.mechIntegrity + (cu.mechIntegrity_delta || 0)));
+                    
+                    // Handle NPC Damage
+                    if (cu.npc_damage && Array.isArray(cu.npc_damage)) {
+                        cu.npc_damage.forEach(dmg => {
+                            const npc = GameState.npc_registry.find(n => n.id === dmg.id);
+                            if (npc) {
+                                npc.health = Math.max(0, Math.min(100, npc.health + (dmg.health_delta || 0)));
+                                npc.mechIntegrity = Math.max(0, Math.min(100, npc.mechIntegrity + (dmg.mechIntegrity_delta || 0)));
+                                if (dmg.killed || npc.health <= 0 || npc.mechIntegrity <= 0) {
+                                    npc.status = "KIA";
+                                    logSystem(`[DEATH] ${npc.name} 阵亡!`);
+                                }
+                            }
+                        });
+                    }
+                    
+                    logSystem(`Combat: Pressure=${GameState.combatState.pressure}, HP=${GameState.combatState.playerHealth}, Mech=${GameState.combatState.mechIntegrity}`);
+                    updateCombatUI();
+                }
+                
+                // Handle killed NPCs from judge
+                if (judgeResult.killed_npcs && Array.isArray(judgeResult.killed_npcs)) {
+                    judgeResult.killed_npcs.forEach(npcId => {
+                        const npc = GameState.npc_registry.find(n => n.id === npcId);
+                        if (npc && npc.status !== "KIA") {
+                            npc.status = "KIA";
+                            npc.health = 0;
+                            logSystem(`[DEATH] ${npc.name} 阵亡!`);
+                        }
+                    });
+                    updateNPCList();
+                }
+                
+                GameState.turn++;
+                document.getElementById('turn-indicator').innerText = `TURN: ${GameState.turn}`;
+
+                // 4. GENERATE NARRATIVE
+                const narratorPrompt = PROMPTS.narrator(
+                    masterDecision.narrative_direction, 
+                    judgeResult, 
+                    GameState, 
+                    rawInput, 
+                    worldContext,
+                    GameState.lastNarrativeText // 传入上一段原文
+                );
+                const narratorRaw = await LLMClient.call([{role: "user", content: narratorPrompt}]);
+                const narration = safeJSONParse(narratorRaw);
+
+                let finalStoryText = "";
+                if (narration) {
+                    finalStoryText = narration.text;
+                    appendStory(narration.text, narration.speaker ? 'dialogue' : 'narrative');
+                } else {
+                    finalStoryText = masterDecision.narrative_direction;
+                    appendStory(masterDecision.narrative_direction, 'narrative');
+                }
+                
+                // 保存本段原文，供下一段衔接使用
+                GameState.lastNarrativeText = finalStoryText;
+                
+                // --- MEMORY SYSTEM: Short Term (System Response) ---
+                MemoryManager.addShortTerm('system', finalStoryText);
+
+                // --- MEMORY SYSTEM: Long Term (Independent Fact Extraction) ---
+                // run in background to keep UI responsive? Or await for debug?
+                // Let's await it to show it working.
+                logSystem("Archivist: Analyzing for new memories...");
+                
+                const runFactExtraction = async () => {
+                    try {
+                        const extractorPrompt = PROMPTS.factExtractor(
+                            GameState.memory.longTerm.facts, 
+                            rawInput, 
+                            finalStoryText
+                        );
+                        // Using low temp for extraction
+                        const extractorRaw = await LLMClient.call([{role: "user", content: extractorPrompt}], 0.3);
+                        const extractorData = safeJSONParse(extractorRaw);
+                        
+                        if (extractorData && extractorData.facts && extractorData.facts.length > 0) {
+                            extractorData.facts.forEach(fact => MemoryManager.addFact(fact));
+                        } else {
+                            logSystem("Archivist: No new facts found.");
+                        }
+                    } catch (e) {
+                        logSystem(`Archivist Error: ${e.message}`);
+                    }
+                };
+                
+                await runFactExtraction();
+
+                // Check Game Over / Completion AFTER narrative
+                if (GameState.status !== 'ONGOING') {
+                    setTimeout(() => {
+                        const msg = GameState.status === 'SUCCESS' ? 'MISSION ACCOMPLISHED' : 'MISSION FAILED';
+                        alert(`${msg}\n\nReason: ${judgeResult.reason}`);
+                        appendStory(`--- ${msg} ---`, 'system');
+                        inputField.disabled = true;
+                        btn.disabled = true;
+                    }, 1000);
+                    return; // Stop processing
+                }
+
+                // 5. UPDATE TASKS
+                const taskPrompt = PROMPTS.taskGen(GameState, masterDecision.events);
+                const taskRaw = await LLMClient.call([{role: "user", content: taskPrompt}]);
+                const taskData = safeJSONParse(taskRaw);
+                
+                if (taskData && taskData.tasks) {
+                    updateTaskList(taskData.tasks);
+                }
+
+                // 6. UPDATE NPC UI
+                updateNPCList();
+
+            } catch (err) {
+                appendStory(`SYSTEM ERROR: ${err.message}`, 'system');
+                logSystem(err.stack);
+            } finally {
+                inputField.disabled = false;
+                btn.disabled = false;
+                inputField.value = '';
+                inputField.focus();
+            }
+        }
+
+        // ==========================================
+        // UI UPDATERS
+        // ==========================================
+        function initUI() {
+            // Character Info
+            const p = PRESET_DATA.protagonist;
+            document.getElementById('character-info').innerHTML = `
+                <div class="stat-row"><span class="stat-label">NAME</span><span class="stat-value">${p.name}</span></div>
+                <div class="stat-row"><span class="stat-label">UNIT</span><span class="stat-value">${p.unit}</span></div>
+                <div class="stat-row"><span class="stat-label">MENTAL</span><span class="stat-value">${p.stats.mental}%</span></div>
+                <div class="stat-row"><span class="stat-label">SYNC</span><span class="stat-value">${p.stats.sync_rate}%</span></div>
+                <div style="margin-top:10px; font-size:0.8rem; color:#666;">EQUIPMENT: ${p.equipment.join(', ')}</div>
+            `;
+
+            // Map
+            updateMapVisual();
+            
+            // Initial Task
+            updateTaskList([{id: "init", title: PRESET_DATA.main_story.objective, status: "active", type: "main"}]);
+            
+            // Initial NPCs
+            updateNPCList();
+            
+            // Initial Combat UI
+            updateCombatUI();
+            
+            // Initial Tactical UI
+            updateTacticalUI();
+
+            // Events
+            document.getElementById('submit-btn').addEventListener('click', () => {
+                const val = document.getElementById('player-input').value;
+                if(val.trim()) processTurn(val);
+            });
+            document.getElementById('player-input').addEventListener('keypress', (e) => {
+                if(e.key === 'Enter') {
+                    const val = document.getElementById('player-input').value;
+                    if(val.trim()) processTurn(val);
+                }
+            });
+        }
+
+        function updateMapVisual() {
+            const container = document.getElementById('map-visual');
+            container.innerHTML = '';
+            
+            const nodes = PRESET_DATA.map.nodes;
+            const nodeKeys = Object.keys(nodes);
+
+            // Draw connections first
+            nodeKeys.forEach(key => {
+                const node = nodes[key];
+                node.connections.forEach(targetKey => {
+                    const target = nodes[targetKey];
+                    // Simple line drawing logic could go here, but for now we just place nodes
+                    // Ideally use SVG for lines, but keeping it simple for single file
+                });
+            });
+
+            // Draw nodes
+            nodeKeys.forEach(key => {
+                const node = nodes[key];
+                const el = document.createElement('div');
+                el.className = `map-node ${key === GameState.currentLocation ? 'active' : ''}`;
+                el.style.left = node.x + '%';
+                el.style.top = node.y + '%';
+                el.title = node.name;
+                
+                // Add label
+                const label = document.createElement('div');
+                label.innerText = node.name;
+                label.style.position = 'absolute';
+                label.style.top = '15px';
+                label.style.left = '-20px';
+                label.style.width = '60px';
+                label.style.textAlign = 'center';
+                label.style.fontSize = '0.6rem';
+                label.style.color = '#aaa';
+                el.appendChild(label);
+
+                container.appendChild(el);
+            });
+
+            const currName = nodes[GameState.currentLocation] ? nodes[GameState.currentLocation].name : 'UNKNOWN';
+            document.getElementById('location-name').innerText = `CURRENT: ${currName}`;
+        }
+
+        function updateTaskList(tasks) {
+            const container = document.getElementById('task-list');
+            // In a real app we would merge lists, here we just replace or append
+            // For this demo, let's just clear and show current ones provided by LLM
+            // or keep the main one + new ones.
+            // Simplified: Just render what comes in + Main Objective
+            
+            let html = `<div class="task-item main">[MAIN] ${PRESET_DATA.main_story.objective}</div>`;
+            
+            tasks.forEach(t => {
+                if(t.id !== 'init') {
+                    html += `<div class="task-item ${t.type || 'sub'}">[${t.status.toUpperCase()}] ${t.title}</div>`;
+                }
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function updateNPCList() {
+            const container = document.getElementById('npc-list');
+            
+            let html = '';
+            GameState.npc_registry.forEach(npc => {
+                const isKIA = npc.status === 'KIA';
+                const hpColor = npc.health > 50 ? 'var(--primary-color)' : (npc.health > 20 ? '#ff9800' : 'var(--danger-color)');
+                
+                html += `
+                    <div class="npc-chip" style="${isKIA ? 'opacity: 0.5; border-color: var(--danger-color);' : ''}">
+                        <div>
+                            <span>${npc.name}</span>
+                            <span class="npc-status" style="${isKIA ? 'color: var(--danger-color);' : ''}">${npc.status}</span>
+                        </div>
+                        <div style="font-size: 0.7rem; color: ${hpColor};">
+                            HP: ${npc.health}% | 机体: ${npc.mechIntegrity}%
+                        </div>
+                    </div>
+                `;
+            });
+            
+            if (!html) html = '<div style="color:#666; font-size:0.8rem;">No signal.</div>';
+            container.innerHTML = html;
+        }
+
+        function updateCombatUI() {
+            const combat = GameState.combatState;
+            
+            // Update HP display with color coding
+            const hpEl = document.getElementById('player-hp');
+            hpEl.textContent = combat.playerHealth + '%';
+            hpEl.style.color = combat.playerHealth > 50 ? 'var(--primary-color)' : (combat.playerHealth > 20 ? '#ff9800' : 'var(--danger-color)');
+            
+            // Update Mech display
+            const mechEl = document.getElementById('mech-integrity');
+            mechEl.textContent = combat.mechIntegrity + '%';
+            mechEl.style.color = combat.mechIntegrity > 50 ? 'var(--primary-color)' : (combat.mechIntegrity > 20 ? '#ff9800' : 'var(--danger-color)');
+            
+            // Update Pressure display
+            const pressureEl = document.getElementById('combat-pressure');
+            pressureEl.textContent = combat.pressure + '%';
+            pressureEl.style.color = combat.pressure < 50 ? 'var(--primary-color)' : (combat.pressure < 80 ? '#ff9800' : 'var(--danger-color)');
+            
+            // Update Enemy count
+            document.getElementById('enemy-count').textContent = combat.enemyCount;
+        }
+
+        function updateTacticalUI() {
+            const combat = GameState.combatState;
+            const tacticalPanel = document.getElementById('tactical-panel');
+            
+            // 显示/隐藏战术面板
+            if (combat.inCombat && combat.currentLevelId) {
+                tacticalPanel.style.display = 'block';
+                const level = PRESET_DATA.battle_levels[combat.currentLevelId];
+                
+                // 更新时间和目标
+                document.getElementById('battle-time').textContent = `${combat.currentTime} / ${level ? level.end_time : '18:00'}`;
+                document.getElementById('battle-objective').textContent = level ? level.win_condition : '--';
+                
+                // 更新防线状态
+                const defenseContainer = document.getElementById('defense-lines-display');
+                let defenseHtml = '';
+                combat.defense_lines.forEach(line => {
+                    const threatPercent = Math.min(100, line.threat_level);
+                    defenseHtml += `
+                        <div class="defense-line ${line.status}">
+                            <div>
+                                <div style="font-weight:bold;">${line.name}</div>
+                                <div style="font-size:0.7rem; color:#888;">${line.status}</div>
+                            </div>
+                            <div class="threat-bar">
+                                <div class="threat-fill" style="width:${threatPercent}%;"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+                defenseContainer.innerHTML = defenseHtml || '<div style="color:#666;">No data.</div>';
+                
+                // 更新紧急事件
+                const eventsContainer = document.getElementById('tactical-events-display');
+                const activeEvents = combat.tacticalEvents.filter(e => !e.resolved);
+                let eventsHtml = '';
+                activeEvents.forEach(event => {
+                    eventsHtml += `
+                        <div class="tactical-event ${event.urgency}">
+                            <div style="font-weight:bold;">[${event.urgency}] ${event.title}</div>
+                            <div style="font-size:0.75rem; color:#ccc;">${event.description}</div>
+                        </div>
+                    `;
+                });
+                eventsContainer.innerHTML = eventsHtml || '<div style="color:#666; font-size:0.8rem;">No active threats.</div>';
+                
+            } else {
+                tacticalPanel.style.display = 'none';
+            }
+        }
+
+        // Start
+        window.onload = initUI;
+
+    </script>
+</body>
+</html>
+

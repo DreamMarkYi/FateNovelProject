@@ -1,0 +1,524 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURO-DETECTIVE: 逃离夜之城</title>
+
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/dist/vis-network.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #050a10;
+            --panel-bg: #0f1623;
+            --border-color: #233142;
+            --accent-color: #00ffcc; /* 青色赛博风 */
+            --danger-color: #ff3366;
+            --text-color: #d0d7de;
+
+            --node-start: #00ffcc;
+            --node-end: #ff3366;
+            --node-normal: #4a9eff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', 'Roboto Mono', monospace;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 顶部 HUD */
+        #hud-bar {
+            background: rgba(15, 22, 35, 0.95);
+            padding: 12px 20px;
+            border-bottom: 2px solid var(--accent-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.1);
+            z-index: 100;
+        }
+
+        .mission-objective {
+            font-size: 0.9rem;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; text-shadow: 0 0 10px var(--accent-color); } 100% { opacity: 0.8; } }
+
+        /* 主布局 */
+        #main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 图谱区域 */
+        #graph-container {
+            flex: 2;
+            background: radial-gradient(circle at center, #0f1623 0%, #050a10 100%);
+            position: relative;
+            border-right: 1px solid var(--border-color);
+        }
+
+        #network-visual { width: 100%; height: 100%; }
+
+        /* 右侧交互终端 */
+        #terminal-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel-bg);
+            max-width: 500px;
+            border-left: 1px solid var(--border-color);
+        }
+
+        #chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scroll-behavior: smooth;
+        }
+
+        /* 消息样式 */
+        .msg {
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            max-width: 95%;
+            position: relative;
+        }
+        .msg::before { content: ''; position: absolute; top: 0; bottom: 0; width: 3px; left: 0; }
+
+        .msg.ai {
+            background: rgba(0, 255, 204, 0.05);
+            border-left: 1px solid var(--accent-color);
+            color: #fff;
+        }
+        .msg.user {
+            background: rgba(255, 255, 255, 0.05);
+            border-right: 1px solid #666;
+            align-self: flex-end;
+            text-align: right;
+        }
+        .msg.system {
+            color: #666;
+            font-size: 0.8rem;
+            text-align: center;
+            font-style: italic;
+        }
+        .msg.end {
+            background: rgba(255, 51, 102, 0.1);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        /* 输入区 */
+        #input-area {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            background: rgba(0,0,0,0.3);
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #333;
+            color: var(--accent-color);
+            padding: 12px;
+            font-family: 'Roboto Mono', monospace;
+            transition: border 0.3s;
+        }
+        input[type="text"]:focus { outline: none; border-color: var(--accent-color); }
+        input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        button {
+            background: rgba(0, 255, 204, 0.1);
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            padding: 0 20px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: 'Roboto Mono', monospace;
+            transition: all 0.2s;
+        }
+        button:hover { background: var(--accent-color); color: #000; }
+        button:disabled { border-color: #555; color: #555; background: transparent; cursor: not-allowed; }
+
+        /* Loading */
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: var(--accent-color);
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            z-index: 50;
+        }
+        .scanning .scanline { opacity: 1; animation: scan 1.5s infinite linear; }
+        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+
+    </style>
+</head>
+<body>
+
+<div class="scanline" id="scan-effect"></div>
+
+<div id="hud-bar">
+    <div style="font-weight:900; letter-spacing:2px;">NEURO<span style="color:var(--accent-color)">://</span>DETECTIVE</div>
+    <div class="mission-objective" id="objective-display">任务目标: 初始化中...</div>
+    <div>
+        <button id="reset-btn" onclick="startGame()" style="font-size:0.8rem; padding:5px 10px;">REBOOT SYSTEM</button>
+    </div>
+</div>
+
+<div id="main-container">
+    <div id="graph-container">
+        <div id="network-visual"></div>
+        <div id="node-info" style="position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.8); padding:10px; border:1px solid #333; display:none; max-width:300px;">
+            <div id="n-label" style="color:var(--accent-color); font-weight:bold; margin-bottom:5px;"></div>
+            <div id="n-desc" style="font-size:0.8rem; color:#ccc;"></div>
+        </div>
+    </div>
+
+    <div id="terminal-panel">
+        <div id="chat-history">
+            <div class="msg system">>> SYSTEM ONLINE. 等待神经连接...</div>
+        </div>
+        <div id="input-area">
+            <input type="text" id="player-input" placeholder="输入指令 (e.g. 移动到酒吧, 骇入终端)..." autocomplete="off" disabled>
+            <button id="send-btn" onclick="handleInput()" disabled>SEND</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. 游戏配置 & 目标定义
+    // ==========================================
+    const API_CONFIG = {
+        url: "https://api.mindcraft.com.cn/v1/chat/completions",
+        key: "MC-E5B8AB237AAC4EDCBFA26531D6BE0081",
+        model: "gemini-3-pro-preview"
+    };
+
+    // 核心设计：定义起点、终点和胜利条件
+    const GAME_CONFIG = {
+        title: "逃离夜之城 (Escape Night City)",
+        // 初始状态 (Start Point)
+        initial_graph: {
+            nodes: [
+                { id: 'player', label: '玩家', group: 'Player', desc: '刚醒来的你，手里紧握着一枚带血的芯片。', color: '#00ffcc' },
+                { id: 'loc_start', label: '贫民窟后巷', group: 'Location', desc: '充满酸雨味和垃圾的死胡同。', color: '#4a9eff' },
+                { id: 'item_chip', label: '加密芯片', group: 'Item', desc: '里面似乎存有逃离这座城市的通行码。', color: '#d2a8ff' },
+                // 预设一个远处的终点，增加目标感
+                { id: 'loc_end', label: '天际线穿梭站', group: 'Exit', desc: '位于城市顶层的撤离点。只有持有通行码才能进入。', color: '#ff3366' }
+            ],
+            edges: [
+                { from: 'player', to: 'loc_start', label: '位于' },
+                { from: 'player', to: 'item_chip', label: '持有' },
+                // 注意：初始时不连接起点和终点，需要玩家通过剧情“解锁”路径
+            ]
+        },
+        // 胜利条件 (AI 依据此判断 game_over)
+        victory_condition: "玩家成功抵达'天际线穿梭站' (loc_end) 并且 成功破解/使用了'加密芯片'。",
+        display_objective: "目标: 寻找路径前往 [天际线穿梭站] 并逃离。"
+    };
+
+    // ==========================================
+    // 2. VIS.JS 可视化引擎
+    // ==========================================
+    let network, nodes, edges;
+
+    function initGraph() {
+        nodes = new vis.DataSet([]);
+        edges = new vis.DataSet([]);
+        const container = document.getElementById('network-visual');
+
+        const options = {
+            nodes: {
+                shape: 'dot',
+                size: 20,
+                font: { color: '#fff', size: 14, face: 'Roboto Mono' },
+                borderWidth: 2,
+                shadow: true
+            },
+            edges: {
+                width: 1,
+                color: { color: '#334', highlight: '#00ffcc' },
+                arrows: 'to',
+                length: 180,
+                smooth: { type: 'dynamic' }
+            },
+            physics: {
+                stabilization: false,
+                barnesHut: { gravitationalConstant: -4000, springConstant: 0.02 }
+            },
+            interaction: { hover: true }
+        };
+
+        network = new vis.Network(container, { nodes, edges }, options);
+
+        // 点击查看节点详情
+        network.on("click", function (params) {
+            if (params.nodes.length > 0) {
+                const node = nodes.get(params.nodes[0]);
+                const infoBox = document.getElementById('node-info');
+                document.getElementById('n-label').innerText = node.label;
+                document.getElementById('n-desc').innerText = node.desc || "无数据";
+                infoBox.style.display = 'block';
+            } else {
+                document.getElementById('node-info').style.display = 'none';
+            }
+        });
+    }
+
+    // ==========================================
+    // 3. LLM 交互逻辑
+    // ==========================================
+    let conversationHistory = [];
+    let isGameOver = false;
+
+    // 系统指令：植入游戏规则和胜利判定
+    const SYSTEM_PROMPT = `
+你是一个文字冒险游戏的图形化引擎。
+游戏名称：${GAME_CONFIG.title}
+当前目标：${GAME_CONFIG.victory_condition}
+
+你的职责：
+1. 叙述剧情 (Narrative)。
+2. 管理图谱 (Graph Ops)：根据剧情添加新地点、人物或线索。
+3. **判定结局 (Game Over Logic)**：
+   - 只有当玩家达成胜利条件时，将 "game_over" 设为 true，并设置 "ending_type": "VICTORY"。
+   - 如果玩家死亡或任务彻底失败，将 "game_over" 设为 true，并设置 "ending_type": "DEFEAT"。
+   - 游戏结束时，请输出一段精彩的结局描写。
+
+颜色规范：
+- Player: #00ffcc (Cyan)
+- Location: #4a9eff (Blue)
+- Enemy/Threat: #ff3366 (Red)
+- Item/Clue: #d2a8ff (Purple)
+`;
+
+    // 用户输入后缀指令：强制 JSON 格式
+    const JSON_INSTRUCTION = `
+\n\n[SYSTEM INSTRUCTION]
+RESPONSE FORMAT: JSON ONLY. NO MARKDOWN.
+{
+  "narrative": "Story text (use <br> for lines)",
+  "game_over": boolean,
+  "ending_type": "VICTORY" | "DEFEAT" | null,
+  "graph_ops": [
+    { "op": "add_node", "id": "str", "label": "str", "group": "str", "desc": "str", "color": "hex" },
+    { "op": "add_edge", "from": "id", "to": "id", "label": "str" },
+    { "op": "remove_node", "id": "str" },
+    { "op": "update_node", "id": "str", "desc": "str" }
+  ]
+}
+`;
+
+    async function callLLM(userAction, isInit = false) {
+        const loading = document.getElementById('scan-effect');
+        loading.classList.add('scanning');
+
+        // 构造上下文：当前图谱状态
+        const graphState = `
+[Current Graph State]
+Nodes: ${JSON.stringify(nodes.get().map(n => ({id: n.id, label: n.label, desc: n.desc})))}
+Edges: ${JSON.stringify(edges.get().map(e => ({from: e.from, to: e.to, label: e.label})))}
+`;
+
+        // 如果是初始化，提示词略有不同
+        const promptContent = isInit
+            ? `初始化游戏。当前图谱已加载预设的起点和终点。请描述开场剧情。`
+            : userAction;
+
+        const finalMessage = promptContent + JSON_INSTRUCTION;
+
+        const messages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...conversationHistory,
+            { role: "system", content: graphState },
+            { role: "user", content: finalMessage }
+        ];
+
+        try {
+            const response = await fetch(API_CONFIG.url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${API_CONFIG.key}`
+                },
+                body: JSON.stringify({
+                    model: API_CONFIG.model,
+                    messages: messages,
+                    temperature: 0.7,
+                    response_format: { type: "json_object" }
+                })
+            });
+
+            if (!response.ok) throw new Error("API Connection Failed");
+
+            const data = await response.json();
+            const rawContent = data.choices[0].message.content;
+            const cleanContent = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+            const result = JSON.parse(cleanContent);
+
+            // 更新历史
+            if (!isInit) conversationHistory.push({ role: "user", content: userAction });
+            conversationHistory.push({ role: "assistant", content: cleanContent });
+            if (conversationHistory.length > 6) conversationHistory.splice(1, 2); // 保持上下文精简
+
+            return result;
+
+        } catch (error) {
+            console.error(error);
+            appendLog(`Error: ${error.message}`, 'system');
+            return null;
+        } finally {
+            loading.classList.remove('scanning');
+        }
+    }
+
+    // ==========================================
+    // 4. 游戏逻辑控制
+    // ==========================================
+
+    function processGameResponse(data) {
+        if (!data) return;
+
+        // 1. 显示剧情
+        appendLog(data.narrative, 'ai');
+
+        // 2. 更新图谱 (仅当游戏未结束时，或者为了展示结局状态)
+        if (data.graph_ops && data.graph_ops.length > 0) {
+            applyGraphOps(data.graph_ops);
+        }
+
+        // 3. 检查是否结束
+        if (data.game_over) {
+            isGameOver = true;
+            const endText = data.ending_type === 'VICTORY' ? "MISSION COMPLETE" : "CRITICAL FAILURE";
+            appendLog(`*** ${endText} ***`, 'end');
+
+            // 禁用输入
+            document.getElementById('player-input').disabled = true;
+            document.getElementById('send-btn').disabled = true;
+            document.getElementById('player-input').placeholder = "连接已断开。请点击 REBOOT 重启。";
+        }
+    }
+
+    function applyGraphOps(ops) {
+        ops.forEach(op => {
+            try {
+                if (op.op === 'add_node') {
+                    if (!nodes.get(op.id)) nodes.add({ id: op.id, label: op.label, group: op.group, title: op.desc, desc: op.desc, color: op.color || '#4a9eff' });
+                }
+                else if (op.op === 'add_edge') {
+                    // 避免重复连线
+                    const exists = edges.get({ filter: e => e.from === op.from && e.to === op.to });
+                    if (exists.length === 0) edges.add({ from: op.from, to: op.to, label: op.label });
+                }
+                else if (op.op === 'update_node') {
+                    nodes.update({ id: op.id, desc: op.desc, title: op.desc });
+                }
+                else if (op.op === 'remove_node') {
+                    nodes.remove(op.id);
+                }
+            } catch(e) { console.error(e); }
+        });
+    }
+
+    // ==========================================
+    // 5. UI 交互
+    // ==========================================
+
+    function appendLog(text, type) {
+        const container = document.getElementById('chat-history');
+        const div = document.createElement('div');
+        div.className = `msg ${type}`;
+        div.innerHTML = text;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async function handleInput() {
+        if (isGameOver) return;
+
+        const input = document.getElementById('player-input');
+        const val = input.value.trim();
+        if (!val) return;
+
+        appendLog(val, 'user');
+        input.value = '';
+        input.disabled = true; // 防止重复提交
+
+        const result = await callLLM(val);
+        processGameResponse(result);
+
+        if (!isGameOver) {
+            input.disabled = false;
+            input.focus();
+        }
+    }
+
+    async function startGame() {
+        // 重置状态
+        isGameOver = false;
+        conversationHistory = [];
+        nodes.clear();
+        edges.clear();
+        document.getElementById('chat-history').innerHTML = '<div class="msg system">>> 系统重启中... 加载世界模型...</div>';
+        document.getElementById('objective-display').innerText = GAME_CONFIG.display_objective;
+
+        const input = document.getElementById('player-input');
+        const btn = document.getElementById('send-btn');
+        input.disabled = true;
+        btn.disabled = true;
+
+        // 加载初始图谱
+        nodes.add(GAME_CONFIG.initial_graph.nodes);
+        edges.add(GAME_CONFIG.initial_graph.edges);
+
+        // 获取开场白
+        const result = await callLLM(null, true);
+        processGameResponse(result);
+
+        input.disabled = false;
+        btn.disabled = false;
+        input.focus();
+    }
+
+    // 绑定回车键
+    document.getElementById('player-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleInput();
+    });
+
+    // 初始化
+    window.onload = function() {
+        initGraph();
+        startGame();
+    };
+
+</script>
+</body>
+</html>

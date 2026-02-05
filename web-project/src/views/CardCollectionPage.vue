@@ -11,9 +11,13 @@
           @toggle-mobile-menu="toggleMobileMenu"
           @scroll-to-section="scrollToSection"
       />
-      <div class="cards-wrapper" v-if="!loading && !error">
+      <div 
+          class="cards-wrapper" 
+          :class="{ 'cards-scrollable': needsScroll }"
+          v-if="!loading && !error"
+      >
         <CardItem
-            v-for="(card, index) in cardsData"
+            v-for="(card, index) in processedCards"
             :key="card._id || index"
             :ref="el => cardRefs[index] = el"
             :season="card.season"
@@ -31,8 +35,8 @@
             :overlay-dark-color="card.overlayDarkColor || 'rgba(50, 80, 120, 0.3)'"
             :overlay-background-image="card.overlayBackgroundImage || '/storyImage/harukaBG.png'"
             :is-active="hoveredCardIndex === index"
-            @click="handleCardClick(index)"
-            @hover="handleCardHover(index)"
+            @click="handleCardClick(index, card)"
+            @hover="handleCardHover(index, card)"
             @hover-end="handleCardHoverEnd(index)"
         />
       </div>
@@ -72,6 +76,8 @@ import CharacterDetail from '../components/CharacterDetail.vue' // 引入新分�
 import characterCardApi from '../api/characterCardApi'
 import SowakaNavigation from "@/components/sowaka/SowakaNavigation.vue";
 
+const MAX_VISIBLE_CARDS = 7 // 页面最多显示的卡片数量
+
 const sidebarContentRef = ref(null)
 const cardRefs = ref([])
 const activeCardIndex = ref(null) // 用于显示详细页面（点击触发）
@@ -97,19 +103,76 @@ const loadCards = async () => {
   }
 }
 
-// 计算当前选中的卡片数据
-const currentCard = computed(() => {
-  if (activeCardIndex.value === null) return null
-  return cardsData.value[activeCardIndex.value]
+// 处理后的卡片数据：已解锁优先，按序号排序，不足7个时填充未解锁卡片
+const processedCards = computed(() => {
+  const cards = [...cardsData.value]
+  
+  // 分离已解锁和未解锁卡片
+  const unlockedCards = cards.filter(card => card.unlocked !== false)
+  const lockedCards = cards.filter(card => card.unlocked === false)
+  
+  // 各自按序号排序（使用number字段或index字段）
+  const sortByNumber = (a, b) => {
+    const numA = parseInt(a.number) || a.index || 0
+    const numB = parseInt(b.number) || b.index || 0
+    return numA - numB
+  }
+  
+  unlockedCards.sort(sortByNumber)
+  lockedCards.sort(sortByNumber)
+  
+  // 合并：已解锁在前，未解锁在后
+  let result = [...unlockedCards, ...lockedCards]
+  
+  // 如果总数不足MAX_VISIBLE_CARDS，用占位未解锁卡片填充
+  if (result.length < MAX_VISIBLE_CARDS) {
+    const placeholderCount = MAX_VISIBLE_CARDS - result.length
+    for (let i = 0; i < placeholderCount; i++) {
+      result.push({
+        _id: `placeholder-${i}`,
+        isPlaceholder: true,
+        unlocked: false,
+        season: '???',
+        number: `??`,
+        title: '未知',
+        subtitle: '待解锁',
+        label: 'UNKNOWN',
+        backgroundImage: '/storyImage/defaultBG.png',
+        hoverGradient: 'linear-gradient(to top, rgba(100,100,100,0.8), transparent)',
+        commandImage: '/storyImage/command1.png',
+        overlayColor: 'rgba(100, 100, 100, 0.3)',
+        overlayDarkColor: 'rgba(50, 50, 50, 0.3)',
+        overlayBackgroundImage: '/storyImage/defaultBG.png'
+      })
+    }
+  }
+  
+  return result
 })
 
-const handleCardClick = (index) => {
-  if (cardsData.value[index]?.unlocked === false) return
+// 是否需要滚动条
+const needsScroll = computed(() => {
+  return processedCards.value.length > MAX_VISIBLE_CARDS
+})
+
+// 计算当前选中的卡片数据（使用processedCards的索引查找原始数据）
+const currentCard = computed(() => {
+  if (activeCardIndex.value === null) return null
+  const card = processedCards.value[activeCardIndex.value]
+  // 如果是占位卡片，不返回数据
+  if (card?.isPlaceholder) return null
+  return card
+})
+
+const handleCardClick = (index, card) => {
+  // 占位卡片或未解锁卡片不可点击
+  if (card?.isPlaceholder || card?.unlocked === false) return
   activeCardIndex.value = index
 }
 
-const handleCardHover = (index) => {
-  if (cardsData.value[index]?.unlocked === false) return
+const handleCardHover = (index, card) => {
+  // 占位卡片或未解锁卡片不触发悬停效果
+  if (card?.isPlaceholder || card?.unlocked === false) return
   hoveredCardIndex.value = index
 }
 
@@ -225,12 +288,46 @@ onUnmounted(() => {
   position: relative;
 }
 .cards-wrapper {
+  --card-width: calc((100% - 140px - 120px) / 7); /* 7张卡片，减去间距和悬停扩展空间 */
+  --card-active-width: calc(var(--card-width) + 120px); /* 悬停时扩大的固定宽度 */
+  
   display: flex;
   height: 100vh;
   width: 100%;
   position: relative;
   gap: 20px;
   padding: 0 40px 0 20px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+
+/* 需要滚动时的样式 */
+.cards-wrapper.cards-scrollable {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  /* 确保有足够的空间容纳所有卡片 */
+  width: calc(100% - 60px);
+}
+
+/* 自定义滚动条样式 */
+.cards-wrapper.cards-scrollable::-webkit-scrollbar {
+  height: 6px;
+}
+
+.cards-wrapper.cards-scrollable::-webkit-scrollbar-track {
+  background: rgba(200, 200, 210, 0.1);
+  border-radius: 3px;
+}
+
+.cards-wrapper.cards-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 120, 0.3);
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.cards-wrapper.cards-scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 100, 120, 0.5);
 }
 
 /* 底部信息 */
@@ -275,6 +372,8 @@ onUnmounted(() => {
     letter-spacing: 6px;
   }
   .cards-wrapper {
+    --card-width: calc((100% - 100px - 100px) / 7);
+    --card-active-width: calc(var(--card-width) + 100px);
     gap: 15px;
     padding: 30px 30px 30px 15px;
   }
@@ -288,8 +387,12 @@ onUnmounted(() => {
     display: none;
   }
   .cards-wrapper {
+    --card-width: calc((100% - 60px - 80px) / 5); /* 移动端显示5张 */
+    --card-active-width: calc(var(--card-width) + 80px);
     padding: 20px;
     gap: 10px;
+    /* 移动端默认开启滚动 */
+    overflow-x: auto;
   }
 }
 

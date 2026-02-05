@@ -1,0 +1,355 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人作品集 | Portfolio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- CSS 变量：配色提取自参考图 --- */
+        :root {
+            /* 背景与基础色 */
+            --bg-color: #fcfcfc;
+            --card-bg: #ffffff;
+            --text-main: #3d3d3d;
+            --text-sub: #8a8a8a;
+            --border-light: #e0e0e0;
+
+            /* 提取的点缀色 */
+            --accent-red: #d46a6a;    /* 参考图中红色角色的色调 */
+            --accent-grey: #8c9ea3;   /* 参考图中绿色/灰色角色的色调 */
+            --accent-blue: #9dcbf5;   /* 参考图中蓝色角色的色调 */
+            --accent-glow: rgba(255, 255, 255, 0.8);
+        }
+
+        /* --- 基础重置 --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Playfair Display', 'Noto Serif SC', serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.8;
+            overflow-x: hidden;
+        }
+
+        a { text-decoration: none; color: inherit; transition: 0.3s; }
+        ul { list-style: none; }
+
+        /* --- 布局工具 --- */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 40px;
+            position: relative;
+        }
+
+        /* 左侧装饰竖线 - 模仿参考图的纵向排版感 */
+        .deco-line {
+            position: fixed;
+            left: 40px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: linear-gradient(to bottom, transparent, var(--border-light) 10%, var(--border-light) 90%, transparent);
+            z-index: 0;
+            display: none; /* 移动端隐藏 */
+        }
+        @media (min-width: 768px) { .deco-line { display: block; } }
+
+        /* --- Header / 顶部区域 --- */
+        header {
+            height: 90vh; /* 占据首屏 */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            position: relative;
+        }
+
+        .hero-subtitle {
+            font-size: 0.9rem;
+            letter-spacing: 0.4em;
+            text-transform: uppercase;
+            color: var(--text-sub);
+            margin-bottom: 20px;
+            position: relative;
+            padding-left: 50px;
+        }
+
+        /* 装饰性短横线 */
+        .hero-subtitle::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 30px;
+            height: 1px;
+            background-color: var(--accent-red);
+        }
+
+        .hero-title {
+            font-size: 4rem;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #333, #666);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-desc {
+            max-width: 500px;
+            color: var(--text-sub);
+            font-size: 1.1rem;
+        }
+
+        /* --- 作品列表区域 --- */
+        .portfolio-section {
+            padding: 100px 0;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            text-align: center;
+            margin-bottom: 80px;
+            letter-spacing: 0.2em;
+            color: var(--text-main);
+            position: relative;
+        }
+
+        .section-title::after {
+            content: "COLLECTION";
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 4rem;
+            opacity: 0.05;
+            letter-spacing: 0.5em;
+            white-space: nowrap;
+        }
+
+        /* 作品卡片样式 */
+        .project-card {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 120px;
+            position: relative;
+            background: var(--card-bg);
+            border: 1px solid rgba(0,0,0,0.03);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.03);
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+        }
+
+        @media (min-width: 768px) {
+            .project-card {
+                flex-direction: row;
+                align-items: stretch;
+                min-height: 400px;
+            }
+
+            /* 偶数个卡片反向排列 */
+            .project-card:nth-child(even) {
+                flex-direction: row-reverse;
+            }
+        }
+
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.06);
+        }
+
+        /* 图片区域 */
+        .card-image {
+            flex: 1.2;
+            background-color: #eee;
+            position: relative;
+            overflow: hidden;
+            min-height: 250px;
+        }
+
+        .card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s ease;
+        }
+
+        .project-card:hover .card-image img {
+            transform: scale(1.05);
+        }
+
+        /* 颜色遮罩层 - 对应参考图的配色 */
+        .card-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            opacity: 0.15;
+            mix-blend-mode: multiply;
+        }
+
+        /* 内容区域 */
+        .card-content {
+            flex: 1;
+            padding: 50px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* 装饰性编号背景 */
+        .card-number {
+            position: absolute;
+            font-size: 8rem;
+            font-weight: 700;
+            color: rgba(0,0,0,0.03);
+            top: 10px;
+            right: 20px;
+            line-height: 1;
+            font-family: 'Playfair Display', serif;
+            z-index: 0;
+        }
+
+        .card-role {
+            font-size: 0.75rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            font-weight: 600;
+            z-index: 1;
+        }
+
+        .card-title {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            font-weight: 400;
+            z-index: 1;
+        }
+
+        .card-desc {
+            font-size: 0.95rem;
+            color: var(--text-sub);
+            margin-bottom: 30px;
+            text-align: justify;
+            z-index: 1;
+        }
+
+        .card-link {
+            display: inline-block;
+            font-size: 0.8rem;
+            letter-spacing: 0.2em;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 5px;
+            width: fit-content;
+            z-index: 1;
+        }
+
+        /* --- 特定颜色的类 --- */
+        /* 对应参考图：红色系 (Archer) */
+        .theme-red .card-role, .theme-red .card-link:hover { color: var(--accent-red); }
+        .theme-red .card-overlay { background-color: var(--accent-red); }
+        .theme-red .card-link { border-color: var(--accent-red); }
+
+        /* 对应参考图：青灰色系 (Caster) */
+        .theme-grey .card-role, .theme-grey .card-link:hover { color: var(--accent-grey); }
+        .theme-grey .card-overlay { background-color: var(--accent-grey); }
+        .theme-grey .card-link { border-color: var(--accent-grey); }
+
+        /* 对应参考图：冰蓝色系 (Enemy) */
+        .theme-blue .card-role, .theme-blue .card-link:hover { color: var(--accent-blue); }
+        .theme-blue .card-overlay { background-color: var(--accent-blue); }
+        .theme-blue .card-link { border-color: var(--accent-blue); }
+
+
+        /* --- Footer --- */
+        footer {
+            padding: 50px 0;
+            text-align: center;
+            border-top: 1px solid var(--border-light);
+            font-size: 0.8rem;
+            color: var(--text-sub);
+            letter-spacing: 0.1em;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="deco-line"></div>
+
+<div class="container">
+    <header>
+        <div class="hero-subtitle">DESIGNER & DEVELOPER</div>
+        <h1 class="hero-title">Shirahatori<br>Haruka</h1>
+        <p class="hero-desc">
+            探索极简主义与交互设计的边界。<br>
+            Exploring the boundaries between minimalism and interaction.
+        </p>
+    </header>
+
+    <section class="portfolio-section">
+        <h2 class="section-title">WORKS</h2>
+
+        <article class="project-card theme-red">
+            <div class="card-image">
+                <img src="https://images.unsplash.com/photo-1515462277126-2dd0c162007a?q=80&w=1000&auto=format&fit=crop" alt="Project Image">
+                <div class="card-overlay"></div>
+            </div>
+            <div class="card-content">
+                <div class="card-number">01</div>
+                <span class="card-role">UI / UX DESIGN</span>
+                <h3 class="card-title">Akamiya Hina</h3>
+                <p class="card-desc">
+                    这是一个专注于视觉冲击力的品牌设计项目。使用了高饱和度的红色作为主视觉，传达出热情与危险并存的美学理念。
+                </p>
+                <a href="#" class="card-link">VIEW CASE STUDY</a>
+            </div>
+        </article>
+
+        <article class="project-card theme-grey">
+            <div class="card-image">
+                <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop" alt="Project Image">
+                <div class="card-overlay"></div>
+            </div>
+            <div class="card-content">
+                <div class="card-number">02</div>
+                <span class="card-role">ARCHITECTURE</span>
+                <h3 class="card-title">Kashiro Ruri</h3>
+                <p class="card-desc">
+                    沉稳、理性的空间结构设计。通过灰绿色调展现出如同精密仪器般的逻辑美感，强调结构本身的功能性与秩序。
+                </p>
+                <a href="#" class="card-link">VIEW CASE STUDY</a>
+            </div>
+        </article>
+
+        <article class="project-card theme-blue">
+            <div class="card-image">
+                <img src="https://images.unsplash.com/photo-1483729558449-99ef09a8c325?q=80&w=1000&auto=format&fit=crop" alt="Project Image">
+                <div class="card-overlay"></div>
+            </div>
+            <div class="card-content">
+                <div class="card-number">03</div>
+                <span class="card-role">INTERACTIVE ART</span>
+                <h3 class="card-title">Himuro Rinne</h3>
+                <p class="card-desc">
+                    冰冷而纯净的数字化体验。利用 WebGL 技术构建的交互式网页，如同极寒之地的冰晶一般，折射出数据的光芒。
+                </p>
+                <a href="#" class="card-link">VIEW CASE STUDY</a>
+            </div>
+        </article>
+
+    </section>
+
+    <footer>
+        <p>&copy; 2024 SHIRAHATORI HARUKA. ALL RIGHTS RESERVED.</p>
+    </footer>
+</div>
+
+</body>
+</html>
