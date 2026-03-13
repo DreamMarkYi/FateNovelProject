@@ -16,6 +16,11 @@ import TerminalChapterSelect from '../views/TerminalChapterSelect.vue'
 import ChapterNodeEditor from '../views/ChapterNodeEditor.vue'
 import BattleSimulatorPage from '../views/BattleSimulatorPage.vue'
 import VocabularyPage from '../views/VocabularyPage.vue'
+import PortfolioHomePage from '../views/PortfolioHomePage.vue'
+import PortfolioCatalogPage from '../views/PortfolioCatalogPage.vue'
+import PortfolioImageWallPage from '../views/PortfolioImageWallPage.vue'
+import PortfolioDetailPage from '../views/PortfolioDetailPage.vue'
+import PortfolioWorkspacePage from '../views/PortfolioWorkspacePage.vue'
 
 
 const router = createRouter({
@@ -86,6 +91,36 @@ const router = createRouter({
       path: '/vocabulary',
       name: 'vocabulary',
       component: VocabularyPage,
+      meta: { public: true }
+    },
+    {
+      path: '/portfolio',
+      name: 'portfolio',
+      component: PortfolioHomePage,
+      meta: { public: true }
+    },
+    {
+      path: '/portfolio/catalog',
+      name: 'portfolio-catalog',
+      component: PortfolioCatalogPage,
+      meta: { public: true }
+    },
+    {
+      path: '/portfolio/wall',
+      name: 'portfolio-wall',
+      component: PortfolioImageWallPage,
+      meta: { public: true }
+    },
+    {
+      path: '/portfolio/:id',
+      name: 'portfolio-detail',
+      component: PortfolioDetailPage,
+      meta: { public: true }
+    },
+    {
+      path: '/portfolio-config',
+      name: 'portfolio-config',
+      component: PortfolioWorkspacePage,
       meta: { public: true }
     },
     

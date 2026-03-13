@@ -1,0 +1,20 @@
+{
+  "id": "unity-urp-布料材质",
+  "title": "Unity URP 布料材质",
+  "tags": "TA/Shader",
+  "coverImage": "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_044_0023.png",
+  "galleryImages": [
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_038_0008.png",
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_042_0012.png",
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_044_0023.png",
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_045_0009.png",
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_046_0019.png"
+  ],
+  "markdown": "在这篇文章中制作了各种布料的材质，主要涉及到了对各种布料材质的BSDF的公式的理解和实际渲染过程中的计算。\n\n## 丝绸（Silk）\n\n丝绸是一种各向异性材质，各向异性简单来说是在各个方向(切线、副切线方向)求高光的亮度，严谨来说各向同性高光是各向异性高光的特殊形式。首先来看各项同性的D项（法线分布项，控制有多少高光反射到眼睛中）公式。这里以GGX的D项为起点，公式如下：\n$$D_{Iso} = \\frac{\\alpha^2}{\\pi \\left( (N \\cdot H)^2 (\\alpha^2 - 1) + 1 \\right)^2}$$\n我们可以展开分母中的括号内的内容，得到\n$$\\alpha^2(N \\cdot H)^2 + \\left( 1 - (N \\cdot H)^2 \\right)$$\n在这一部分中，\n\n$$1 - (N \\cdot H)^2 = 1 - \\cos^2\\theta = \\sin^2\\theta$$\n代表了，H在表面上的每个方向投影长度，为了计算高光在不同方向上表现，我们就要引出T、B这两个方向的变量。根据单位向量在正交基投影的定理，我们知道：\n\n$$1 - (N \\cdot H)^2 = (T \\cdot H)^2 + (B \\cdot H)^2$$\n\n把这个关系替换回第一步展开的式子中，原本消失的 $T$ 和 $B$ 就出来了：\n\n$$= \\alpha^2(N \\cdot H)^2 + (T \\cdot H)^2 + (B \\cdot H)^2$$\n\n我们将它代回到 $D_{Iso}$ 中，就可以得到了有B和T的式子：\n\n$$D_{Iso} = \\frac{\\alpha^2}{\\pi \\left( (T \\cdot H)^2 + (B \\cdot H)^2 + \\alpha^2(N \\cdot H)^2 \\right)^2}$$\n\n但是此时的高光还是各项同性的，因为我们只是进行了变量的替换，然后我们要把 $\\alpha$ 变为为两个独立方向的变量：$\\alpha_T$ 和 $\\alpha_B$。\n完成这步替换后，我们就得到了最终的各向异性 GGX 公式：\n\n$$D_{Aniso} = \\frac{1}{\\pi \\alpha_T \\alpha_B \\left( \\frac{(T \\cdot H)^2}{\\alpha_T^2} + \\frac{(B \\cdot H)^2}{\\alpha_B^2} + (N \\cdot H)^2 \\right)^2}$$\n\n在完成了各向异性的推导之后，继续给出V项的公式\n\n\n\n$$V = \\frac{0.5}{\\Lambda_V + \\Lambda_L}$$\n\n其中，与视线相关的遮蔽概率 $\\Lambda_V$ 为：\n\n\n$$\\Lambda_V = (N \\cdot L) \\sqrt{\\alpha_T^2(T \\cdot V)^2 + \\alpha_B^2(B \\cdot V)^2 + (N \\cdot V)^2}$$\n\nF项为普通的Schlick_F项,DVF项全部凑齐，我们就可以算出高光。\n高光效果如下图所示：\n\n![](https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_047_0007.png)\n\n## 预积分环境光\n\n先来讲讲为什么需要进行预积分，当我们计算直接光的时候，光线只有一个方向，我们只需要将一盏光源的数据带入BRDF即可，但是在计算环境光的时候，我们需要计算四面八方的光，因此我们就需要对像素上半球的每一个方向求积分。Epic Games 的大神提出了近似分离求和的理念，然后我们就可以得到以下公式：\n$$\\int (L_i \\cdot f_r \\cdot n \\cdot l) \\approx \\left( \\int L_i \\cdot D \\cdot n \\cdot l \\right) \\times \\left( \\int f_r \\cdot n \\cdot l \\right)$$\n左边一半：只和环境光有关，也就是采样 Cubemap 得到的结果。\n\n右边一半：只和 BRDF 材质有关（Pre-integrated BRDF）这一半就需要进行预积分。\n\n这一步我们可以在Unity中进行离线完成，但是比较好的是，unity为我们提供了预积分的计算脚本和Shader（虽然是在HDRP管线中，但是我们可以抄过来）。经过离线计算后，我们可以得到下图的属于丝绸材质的BRDF LUT。如下图所示：\n\n![](https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/SilkFGD.png)\n\n先来说明一下U代表了N·V，V代表了粗糙度。在分别明白了UV代表什么之后，我们来看一下这张图的RGB分量分别代表什么。\n\n\n\n\n\n\n\n",
+  "author": "SYSTEM",
+  "summary": "在这篇文章中制作了各种布料的材质，主要涉及到了对各种布料材质的BSDF的公式的理解和实际渲染过程中的计算。 丝绸（Silk） 丝绸是一种各向异性材质，各向异性简单来说是在各个方向 切线、副切线方向 求高光的亮度，严谨来说各向同性高光是各向异",
+  "showInGallery": false,
+  "showInCatalog": true,
+  "createdAt": "2026-03-12T15:09:43.471Z",
+  "updatedAt": "2026-03-12T15:09:43.471Z"
+}

@@ -26,6 +26,7 @@ const miscMessageRoutes = require('./routes/mongo/miscMessageRoutes');
 const characterCardRoutes = require('./routes/mongo/characterCardRoutes');
 const doodleStoryRoutes = require('./routes/mongo/doodleStoryRoutes');
 const battleSimulatorRoutes = require('./routes/battleSimulatorRoutes');
+const portfolioRoutes = require('./routes/portfolioRoutes');
 
 const app = express();
 
@@ -77,6 +78,7 @@ app.use('/api/mongo/misc-messages', miscMessageRoutes);
 app.use('/api/mongo/character-cards', characterCardRoutes);
 app.use('/api/mongo/doodle-stories', doodleStoryRoutes);
 app.use('/api/battle-simulator', battleSimulatorRoutes);
+app.use('/api/portfolio', portfolioRoutes);
 
 // 健康检查
 app.get('/health', (req, res) => {
@@ -127,6 +129,11 @@ app.get('/', (req, res) => {
         startStatistics: '/api/mongo/start-choices/statistics',
         doodleStories: '/api/mongo/doodle-stories',
         activeDoodleStories: '/api/mongo/doodle-stories/active'
+      },
+      portfolio: {
+        listArticles: '/api/portfolio/articles',
+        articleById: '/api/portfolio/articles/:id',
+        saveArticle: '/api/portfolio/articles'
       }
     }
   });
