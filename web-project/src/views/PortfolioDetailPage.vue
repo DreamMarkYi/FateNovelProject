@@ -100,10 +100,6 @@ watch(
   { immediate: true }
 )
 
-function goToWorks() {
-  router.push('/portfolio#works')
-}
-
 function openLightbox(url) {
   lightboxImage.value = url
 }
@@ -182,9 +178,12 @@ onUnmounted(() => {
   <div class="portfolio-detail-page">
     <nav>
       <div class="nav-inner">
-        <router-link to="/portfolio" class="logo">COLLECTION</router-link>
+        <router-link to="/portfolio" class="logo">HOMEPAGE</router-link>
         <ul class="nav-links">
-          <li><a href="#" @click.prevent="goToWorks">BACK TO WORKS</a></li>
+          <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
+          <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
+          <li><router-link to="/portfolio-novel-select">NOVEL</router-link></li>
+          <li><router-link to="/portfolio-memo">MEM0</router-link></li>
         </ul>
       </div>
     </nav>

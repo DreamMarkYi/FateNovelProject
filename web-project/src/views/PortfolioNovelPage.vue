@@ -50,6 +50,10 @@ const currentChapterIndex = computed(() =>
   chapterList.value.findIndex((item) => item.id === novelData.value.id)
 )
 
+function buildAccessTokenKey(chapterId) {
+  return `portfolio-novel-access-token:${chapterId}`
+}
+
 function formatDate(value) {
   if (!value) {
     return '--'
@@ -97,7 +101,8 @@ async function loadNovelData(chapterId = '') {
       })
 
     if (chapterId) {
-      const chapterResponse = await portfolioArticleApi.getNovelChapterById(chapterId)
+      const accessToken = sessionStorage.getItem(buildAccessTokenKey(chapterId)) || ''
+      const chapterResponse = await portfolioArticleApi.getNovelChapterById(chapterId, accessToken)
       const chapter = chapterResponse?.data
 
       if (chapter) {
@@ -122,6 +127,10 @@ async function loadNovelData(chapterId = '') {
       id: baseNovel.id || 'portfolio-novel',
     }
   } catch (error) {
+    if (error?.response?.status === 403) {
+      loadError.value = '章节访问验证未通过或已过期，请返回目录页重新输入姓名验证。'
+      return
+    }
     loadError.value = '加载失败，当前展示默认内容。'
   } finally {
     loading.value = false
@@ -172,9 +181,12 @@ watch(
   <div class="novel-reader-page">
     <nav class="reader-nav">
       <div class="nav-inner">
-        <router-link to="/portfolio" class="logo">COLLECTION</router-link>
+        <router-link to="/portfolio" class="logo">HOMEPAGE</router-link>
         <ul class="nav-links">
-          <li><a href="#" @click.prevent="goBack">LIBRARY</a></li>
+          <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
+          <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
+          <li><router-link to="/portfolio-novel-select">NOVEL</router-link></li>
+          <li><router-link to="/portfolio-memo">MEM0</router-link></li>
         </ul>
       </div>
     </nav>

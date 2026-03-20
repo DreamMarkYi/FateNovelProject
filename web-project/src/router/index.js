@@ -24,7 +24,25 @@ import PortfolioWorkspacePage from '../views/PortfolioWorkspacePage.vue'
 import PortfolioNovelPage from '../views/PortfolioNovelPage.vue'
 import PortfolioNovelWorkspacePage from '../views/PortfolioNovelWorkspacePage.vue'
 import PortfolioNovelSelectPage from "@/views/PortfolioNovelSelectPage.vue";
+import PortfolioNovelAccessConfigPage from '../views/PortfolioNovelAccessConfigPage.vue'
 import PortfolioOrderWorkspacePage from '../views/PortfolioOrderWorkspacePage.vue'
+import PortfolioMemoPage from '../views/PortfolioMemoPage.vue'
+
+function forceScrollToTop() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+
+  // 双保险：兼容部分浏览器在过渡阶段只更新 documentElement/body 的情况
+  if (document.documentElement) {
+    document.documentElement.scrollTop = 0
+  }
+  if (document.body) {
+    document.body.scrollTop = 0
+  }
+}
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -132,6 +150,12 @@ const router = createRouter({
       component: PortfolioNovelWorkspacePage,
       meta: { public: true }
     },
+      {
+          path: '/portfolio-memo',
+          name: 'portfolio-memo',
+          component: PortfolioMemoPage,
+          meta: { public: true }
+      },
     {
       path: '/portfolio-order-config',
       name: 'portfolio-order-config',
@@ -144,6 +168,12 @@ const router = createRouter({
           component: PortfolioNovelSelectPage,
           meta: { public: true }
       },
+    {
+      path: '/portfolio-novel-access-config',
+      name: 'portfolio-novel-access-config',
+      component: PortfolioNovelAccessConfigPage,
+      meta: { public: true },
+    },
     
     // === 昼用户专属页面 ===
     {
@@ -198,7 +228,10 @@ const router = createRouter({
           component: PortfolioNovelPage,
           meta: { public: true }
       }
-  ]
+  ],
+  scrollBehavior() {
+    return { left: 0, top: 0, behavior: 'auto' }
+  }
 })
 
 // 全局路由守卫
@@ -241,6 +274,18 @@ router.beforeEach(async (to, from, next) => {
   }
   
   next()
+})
+
+router.afterEach(() => {
+  // 首次 tick 回顶，覆盖常规场景
+  requestAnimationFrame(() => {
+    forceScrollToTop()
+  })
+
+  // 页面过渡动画结束后再兜底一次，避免保留旧滚动位置
+  window.setTimeout(() => {
+    forceScrollToTop()
+  }, 350)
 })
 
 export default router

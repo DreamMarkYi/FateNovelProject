@@ -14,6 +14,7 @@ const remoteArticles = ref([])
 const lastSyncText = ref('未同步')
 const syncError = ref('')
 const isRefreshing = ref(false)
+const showEditor = ref(false)
 const orderConfig = ref({
   homeRecentOrder: [],
   catalogOrder: [],
@@ -88,6 +89,9 @@ function setPage(page) {
 
 onMounted(async () => {
   await Promise.all([loadRemoteArticles(), loadPortfolioOrderConfig().then((config) => (orderConfig.value = config))])
+  const isDev = import.meta.env.DEV
+  const hasDebugParam = new URLSearchParams(window.location.search).has('debug')
+  showEditor.value = isDev || hasDebugParam
 })
 </script>
 
@@ -95,12 +99,12 @@ onMounted(async () => {
   <div class="portfolio-catalog-page">
     <nav>
       <div class="container nav-inner">
-        <router-link to="/portfolio" class="logo">COLLECTION</router-link>
+        <router-link to="/portfolio" class="logo">HOMEPAGE</router-link>
         <ul class="nav-links">
-          <li><router-link to="/portfolio">HOME</router-link></li>
-          <li><router-link to="/portfolio/wall">IMAGE WALL</router-link></li>
-          <li><router-link to="/portfolio-order-config">ORDER</router-link></li>
-          <li><router-link to="/portfolio-config">WORKSPACE</router-link></li>
+          <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
+          <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
+          <li><router-link to="/portfolio-novel-select">NOVEL</router-link></li>
+          <li><router-link to="/portfolio-memo">MEM0</router-link></li>
         </ul>
       </div>
     </nav>
@@ -110,12 +114,6 @@ onMounted(async () => {
         <div class="section-title">
           <h1>全部文章目录</h1>
           <span>ALL PROJECT ARTICLES</span>
-          <p class="sync-tip">
-            {{ syncError || `最近同步：${lastSyncText}` }}
-          </p>
-          <button type="button" class="refresh-btn" :disabled="isRefreshing" @click="loadRemoteArticles">
-            {{ isRefreshing ? 'REFRESHING...' : 'REFRESH DATA' }}
-          </button>
           <p class="count-tip">总文章数：{{ allProjects.length }}</p>
         </div>
 
@@ -139,6 +137,7 @@ onMounted(async () => {
             <div class="card-actions">
               <router-link :to="`/portfolio/${project.id}`" class="card-link">VIEW DETAIL</router-link>
               <router-link
+                v-if="showEditor"
                 :to="{ path: '/portfolio-config', query: { id: project.id } }"
                 class="card-link card-edit-link"
               >

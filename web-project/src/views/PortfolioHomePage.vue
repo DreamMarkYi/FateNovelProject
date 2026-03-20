@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { portfolioProjects } from '@/data/portfolioData'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
 import {
@@ -24,6 +24,10 @@ const avatarImageFailed = ref(false)
 const contactEmail = ref('wsbhsbd1314@gmail.com')
 const copyFeedback = ref('')
 let copyFeedbackTimer = null
+const recentSectionMode = ref('articles')
+
+// 新增：用于获取“最近文章”区域的 DOM 引用
+const recentSectionRef = ref(null)
 
 function normalizeRemoteProject(article, index) {
   const typeIndex = (index % 3) + 1
@@ -39,6 +43,7 @@ function normalizeRemoteProject(article, index) {
     tags,
     image: article.coverImage || '',
     showInCatalog: article.showInCatalog !== false,
+    showInGallery: article.showInGallery !== false,
     detail: {
       date: article.updatedAt ? article.updatedAt.slice(0, 10).replaceAll('-', '.') : 'UNKNOWN',
       author: article.author || 'SYSTEM',
@@ -127,9 +132,9 @@ async function copyContactEmail() {
 
 const displayedProjects = computed(() => {
   const source =
-    remoteArticles.value.length > 0
-      ? remoteArticles.value.filter((item) => item.showInCatalog !== false)
-      : portfolioProjects.filter((item) => item.showInCatalog !== false)
+      remoteArticles.value.length > 0
+          ? remoteArticles.value.filter((item) => item.showInCatalog !== false)
+          : portfolioProjects.filter((item) => item.showInCatalog !== false)
 
   const ordered = applyOrderByIds(source, orderConfig.value.catalogOrder)
   return reindexPortfolioCards(ordered)
@@ -138,6 +143,21 @@ const featuredProjects = computed(() => {
   const ordered = applyOrderByIds(displayedProjects.value, orderConfig.value.homeRecentOrder)
   return reindexPortfolioCards(ordered).slice(0, 5)
 })
+const featuredWorks = computed(() => {
+  const source =
+      remoteArticles.value.length > 0
+          ? remoteArticles.value.filter((item) => item.showInGallery !== false)
+          : portfolioProjects.filter((item) => item.showInGallery !== false)
+
+  const ordered = applyOrderByIds(source, orderConfig.value.wallOrder)
+  return reindexPortfolioCards(ordered).slice(0, 5)
+})
+const activeRecentProjects = computed(() =>
+    recentSectionMode.value === 'articles' ? featuredProjects.value : featuredWorks.value
+)
+const recentViewMoreRoute = computed(() =>
+    recentSectionMode.value === 'articles' ? '/portfolio/catalog' : '/portfolio/wall'
+)
 const heroStaticImages = computed(() => {
   if (heroBackgroundImages.value.length === 0) {
     return []
@@ -159,6 +179,41 @@ function onAvatarImageError() {
   avatarImageFailed.value = true
 }
 
+// 跳轉时页面滚动到顶部的辅助函数
+const scrollToTop = () => {
+  window.scrollTo({
+    top: 0,
+    behavior: 'auto'
+  })
+}
+
+// 点击 VIEW GALLERY 后切到“最近文章”并滚动到该区域
+const scrollToRecent = async () => {
+  recentSectionMode.value = 'articles'
+  await nextTick()
+
+  const targetElement =
+    recentSectionRef.value || document.getElementById('works')
+
+  if (!targetElement) {
+    return
+  }
+
+  // 先用原生锚点滚动，再做顶部偏移修正，兼容性更稳
+  targetElement.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  })
+
+  window.setTimeout(() => {
+    window.scrollBy({
+      top: -88,
+      left: 0,
+      behavior: 'smooth',
+    })
+  }, 180)
+}
+
 onMounted(async () => {
   await Promise.all([loadRemoteArticles(), loadDisplayConfig(), loadOrderConfig()])
 })
@@ -174,13 +229,12 @@ onBeforeUnmount(() => {
   <div class="portfolio-home-page">
     <nav>
       <div class="container nav-inner">
-        <router-link to="/portfolio" class="logo">HOMEPAGE</router-link>
+        <router-link to="/portfolio" class="logo" @click="scrollToTop">HOMEPAGE</router-link>
         <ul class="nav-links">
-          <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
-          <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
-          <li><a href="/portfolio-novel-select">NOVEL</a></li>
-          <li><router-link to="/portfolio-order-config">ORDER</router-link></li>
-          <li><router-link to="/portfolio-config">WORKSPACE</router-link></li>
+          <li class="primary-nav-item"><router-link to="/portfolio/catalog" @click="scrollToTop">ARTICLES</router-link></li>
+          <li class="primary-nav-item"><router-link to="/portfolio/wall" @click="scrollToTop">GALLERY</router-link></li>
+          <li class="primary-nav-item"><router-link to="/portfolio-novel-select" @click="scrollToTop">NOVEL</router-link></li>
+          <li class="primary-nav-item"><router-link to="/portfolio-memo" @click="scrollToTop">MEM0</router-link></li>
         </ul>
       </div>
     </nav>
@@ -197,10 +251,11 @@ onBeforeUnmount(() => {
       </div>
       <div class="container hero-content">
         <h1>Illusions Intersect Dreams</h1>
-        <p>ARTIST / ILLUSION / DREAM</p>
+        <p class="hero-slogan">ARTIST / ILLUSION / DREAM</p>
         <p class="sub-title">Build World & Rendering Realities</p>
         <br />
-        <a href="#works" class="btn-scroll">VIEW GALLERY</a>
+        <!-- 修改：使用 @click.prevent 绑定自定义跳转方法 -->
+        <a href="#" class="btn-scroll" @click.prevent="scrollToRecent">VIEW GALLERY</a>
       </div>
 
     </section>
@@ -275,17 +330,40 @@ onBeforeUnmount(() => {
       </aside>
 
       <div class="container works-main">
-        <div class="section-title">
-          <h2>最近文章</h2>
-          <span>PROJECT DIRECTORY</span>
+
+        <!-- 修改：添加 ref="recentSectionRef" 以便精准定位 -->
+        <div class="merged-section-title" ref="recentSectionRef">
+          <button
+              type="button"
+              class="tab-header-btn"
+              :class="{ active: recentSectionMode === 'articles' }"
+              @click="recentSectionMode = 'articles'"
+          >
+            <h2>最近文章</h2>
+            <span>RECENT ARTICLES</span>
+          </button>
+
+          <div class="title-divider"></div>
+
+          <button
+              type="button"
+              class="tab-header-btn"
+              :class="{ active: recentSectionMode === 'works' }"
+              @click="recentSectionMode = 'works'"
+          >
+            <h2>最近作品</h2>
+            <span>RECENT WORKS</span>
+          </button>
         </div>
 
         <div class="portfolio-list">
-          <article
-              v-for="project in featuredProjects"
+          <router-link
+              v-for="project in activeRecentProjects"
               :key="project.id"
+              :to="`/portfolio/${project.id}`"
               class="project-row"
               :class="project.typeClass"
+              @click="scrollToTop"
           >
             <div class="project-image">
               <img v-if="project.image" :src="project.image" :alt="project.title" />
@@ -296,14 +374,12 @@ onBeforeUnmount(() => {
               <h3 class="project-title">{{ project.title }}</h3>
               <p class="project-desc">{{ project.description }}</p>
               <div class="tags">{{ project.tags }}</div>
-              <router-link :to="`/portfolio/${project.id}`" class="detail-link">
-                VIEW DETAIL
-              </router-link>
+              <span class="detail-link">VIEW DETAIL</span>
             </div>
-          </article>
+          </router-link>
         </div>
         <div class="view-more-wrap">
-          <router-link to="/portfolio/catalog" class="view-more-link">VIEW MORE</router-link>
+          <router-link :to="recentViewMoreRoute" class="view-more-link" @click="scrollToTop">VIEW MORE</router-link>
         </div>
       </div>
     </section>
@@ -391,8 +467,12 @@ nav {
 .nav-links {
   display: flex;
   gap: 40px;
-  font-size: 0.9rem;
+  font-size: 1rem;
   color: var(--text-sub);
+}
+
+.nav-links .primary-nav-item {
+  transform: translateX(200px);
 }
 
 .nav-links a:hover {
@@ -488,6 +568,10 @@ nav {
   text-shadow: 0 2px 12px rgba(20, 31, 47, 0.4);
 }
 
+.hero .hero-slogan {
+  font-size: 1.45rem;
+}
+
 .hero .sub-title {
   font-size: 0.92rem;
   color: rgba(244, 248, 255, 0.92);
@@ -514,30 +598,86 @@ nav {
 }
 
 .section {
-  padding: 120px 0;
+  padding: 80px 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.03);
 }
 
-.section-title {
-  text-align: center;
-  margin-bottom: 80px;
+/* --- 优化后的合并标签组样式 (呼吸感提升) --- */
+.merged-section-title {
+  display: flex;
+  align-items: center;
+  gap: 50px; /* 大幅增加选项之间的间距，提供横向呼吸感 */
+  margin-bottom: 30px; /* 增加底部留白，拉开与下方卡片的距离 */
+  padding-left: 5px;
+}
+
+.tab-header-btn {
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  padding: 0 0 16px 0; /* 增加底部 padding，让指示线离文字更远 */
   position: relative;
+  opacity: 0.45; /* 略微提升未激活状态的可见度，避免过度灰暗 */
+  transform: translateY(0);
+  transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+  outline: none;
 }
 
-.section-title h2 {
-  font-size: 2.2rem;
-  font-weight: 300;
-  letter-spacing: 0.1em;
+.tab-header-btn:hover {
+  opacity: 0.8;
 }
 
-.section-title span {
+.tab-header-btn.active {
+  opacity: 1;
+  transform: translateY(-2px); /* 激活时微微上浮，增加立体感和交互感 */
+}
+
+.tab-header-btn h2 {
+  font-size: 1rem; /* 已调小：主标题适度缩小 */
+  font-weight: 300; /* 降低字重（变细），配合 Noto Serif 更显文艺与轻盈 */
+  letter-spacing: 0.15em; /* 撑开中文字间距 */
+  color: var(--text-main);
+  margin-top: 0;
+  margin-bottom: 8px; /* 拉开中英文字体之间的上下间距 */
+  transition: color 0.4s ease;
+}
+
+.tab-header-btn span {
   display: block;
-  margin-top: 10px;
   font-family: 'Cinzel', serif;
-  color: var(--accent-ice);
-  font-size: 0.85rem;
-  letter-spacing: 0.3em;
+  color: var(--text-sub); /* 默认状态使用低调的副色 */
+  font-size: 0.65rem; /* 已调小：英文字号缩小 */
+  letter-spacing: 0.35em; /* 极大拉开英文字间距，增强设计感 */
+  transition: color 0.4s ease;
 }
+
+.tab-header-btn.active span {
+  color: var(--accent-ice); /* 激活时英文点亮为冰蓝色 */
+}
+
+.tab-header-btn::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 1px; /* 下划线变细为 1px，更加精致 */
+  background-color: var(--accent-red);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tab-header-btn.active::after {
+  width: 60px; /* 激活时红色下划线稍微延长 */
+}
+
+.title-divider {
+  width: 1px;
+  height: 50px; /* 分割线稍微拉长 */
+  /* 使用渐变色让分割线的上下两端自然消散，极其提升质感 */
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.12), transparent);
+}
+/* ------------------------- */
 
 .sync-tip {
   margin-top: 14px;
@@ -598,6 +738,7 @@ nav {
 
 .works-with-sidebar {
   position: relative;
+  padding-top: 60px;
   padding-bottom: 90px;
 }
 
@@ -968,10 +1109,6 @@ nav {
   letter-spacing: 0.06em;
 }
 
-.works-main .section-title {
-  text-align: left;
-}
-
 .project-row {
   display: flex;
   background: #fff;
@@ -1107,8 +1244,24 @@ footer {
     width: min(86vw, 340px);
   }
 
-  .works-main .section-title {
+  /* 移动端调整间距 */
+  .merged-section-title {
+    justify-content: center;
+    gap: 30px; /* 移动端适当缩小间距 */
+    padding-left: 0;
+  }
+
+  .title-divider {
+    height: 40px; /* 移动端分割线调短 */
+  }
+
+  .tab-header-btn {
     text-align: center;
+  }
+
+  .tab-header-btn::after {
+    left: 50%;
+    transform: translateX(-50%);
   }
 
   .project-row,

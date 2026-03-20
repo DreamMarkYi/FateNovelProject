@@ -1,8 +1,10 @@
 const fs = require('fs/promises');
 const path = require('path');
+const crypto = require('crypto');
 
 const DEFAULT_ARTICLE_DIR = path.resolve(__dirname, '../../portfolio-articles');
 const DEFAULT_NOVEL_DIR = path.resolve(__dirname, '../../portfolio-Novel');
+const DEFAULT_MEMO_DIR = path.resolve(__dirname, '../../portfolio-memo');
 const DEFAULT_DISPLAY_CONFIG_PATH = path.resolve(
   __dirname,
   '../../portfolio-config/display-config.json'
@@ -11,6 +13,12 @@ const DEFAULT_NOVEL_CONFIG_PATH = path.resolve(
   __dirname,
   '../../portfolio-config/portfolio-novel.json'
 );
+const NOVEL_ACCESS_NAME_SALT = process.env.PORTFOLIO_NOVEL_ACCESS_NAME_SALT || 'portfolio-novel-name-salt-v1';
+const NOVEL_ACCESS_SECRET = process.env.PORTFOLIO_NOVEL_ACCESS_SECRET || 'portfolio-novel-access-secret-v1';
+const NOVEL_ACCESS_EXPIRES_MS = 10 * 60 * 1000;
+const MEMO_ACCESS_NAME_SALT = process.env.PORTFOLIO_MEMO_ACCESS_NAME_SALT || 'portfolio-memo-name-salt-v1';
+const MEMO_ACCESS_SECRET = process.env.PORTFOLIO_MEMO_ACCESS_SECRET || 'portfolio-memo-access-secret-v1';
+const MEMO_ACCESS_EXPIRES_MS = 30 * 60 * 1000;
 
 function getArticleDir() {
   const customDir = process.env.PORTFOLIO_ARTICLE_DIR;
@@ -24,6 +32,14 @@ function getNovelDir() {
   const customDir = process.env.PORTFOLIO_NOVEL_DIR;
   if (!customDir) {
     return DEFAULT_NOVEL_DIR;
+  }
+  return path.resolve(customDir);
+}
+
+function getMemoDir() {
+  const customDir = process.env.PORTFOLIO_MEMO_DIR;
+  if (!customDir) {
+    return DEFAULT_MEMO_DIR;
   }
   return path.resolve(customDir);
 }
@@ -54,6 +70,214 @@ function normalizeId(rawId) {
     .replace(/^-|-$/g, '');
 }
 
+function hashNameWithSalt(rawName, salt) {
+  return crypto
+    .createHash('sha256')
+    .update(`${String(salt || '')}:${String(rawName || '').trim()}`)
+    .digest('hex');
+}
+
+function hashGuardianName(rawName) {
+  return hashNameWithSalt(rawName, NOVEL_ACCESS_NAME_SALT);
+}
+
+function hashMemoAccessName(rawName) {
+  return hashNameWithSalt(rawName, MEMO_ACCESS_NAME_SALT);
+}
+
+function splitEnvList(rawValue) {
+  return String(rawValue || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function isDevelopmentMode() {
+  return String(process.env.NODE_ENV || 'development').trim().toLowerCase() === 'development';
+}
+
+function parseGuardianNamesFromBody(body = {}) {
+  if (Array.isArray(body.names)) {
+    return body.names.map((item) => String(item || '').trim()).filter(Boolean);
+  }
+
+  if (typeof body.namesText === 'string') {
+    return body.namesText
+      .split(/\r?\n|,/)
+      .map((item) => String(item || '').trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function getExpectedGuardianNameHashes() {
+  const preHashedList = [
+    ...splitEnvList(process.env.PORTFOLIO_NOVEL_ACCESS_NAME_HASHES),
+    ...splitEnvList(process.env.PORTFOLIO_NOVEL_ACCESS_NAME_HASH),
+  ].map((item) => item.toLowerCase());
+  if (preHashedList.length > 0) {
+    return preHashedList;
+  }
+
+  // 兼容未配置 hash 的开发环境，仍不直接存储明文
+  const names = [
+    ...splitEnvList(process.env.PORTFOLIO_NOVEL_ACCESS_NAMES),
+    ...splitEnvList(process.env.PORTFOLIO_NOVEL_ACCESS_NAME),
+  ];
+  if (names.length === 0) {
+    return [hashGuardianName('Illusion')];
+  }
+  return names.map((name) => hashGuardianName(name).toLowerCase());
+}
+
+function getExpectedMemoAccessNameHashes() {
+  const preHashedList = [
+    ...splitEnvList(process.env.PORTFOLIO_MEMO_ACCESS_NAME_HASHES),
+    ...splitEnvList(process.env.PORTFOLIO_MEMO_ACCESS_NAME_HASH),
+  ].map((item) => item.toLowerCase());
+  if (preHashedList.length > 0) {
+    return preHashedList;
+  }
+
+  const names = [
+    ...splitEnvList(process.env.PORTFOLIO_MEMO_ACCESS_NAMES),
+    ...splitEnvList(process.env.PORTFOLIO_MEMO_ACCESS_NAME),
+  ];
+  if (names.length === 0) {
+    return [hashMemoAccessName('MemoKeeper')];
+  }
+  return names.map((name) => hashMemoAccessName(name).toLowerCase());
+}
+
+function safeEqualHex(a, b) {
+  const left = Buffer.from(String(a || ''), 'hex');
+  const right = Buffer.from(String(b || ''), 'hex');
+  if (left.length === 0 || right.length === 0 || left.length !== right.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(left, right);
+}
+
+function signNovelAccessPayload(payloadJson) {
+  return crypto.createHmac('sha256', NOVEL_ACCESS_SECRET).update(payloadJson).digest('hex');
+}
+
+function signMemoAccessPayload(payloadJson) {
+  return crypto.createHmac('sha256', MEMO_ACCESS_SECRET).update(payloadJson).digest('hex');
+}
+
+function toBase64Url(value) {
+  return Buffer.from(value, 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function fromBase64Url(value) {
+  const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  const paddingLength = (4 - (normalized.length % 4)) % 4;
+  const padded = normalized + '='.repeat(paddingLength);
+  return Buffer.from(padded, 'base64').toString('utf8');
+}
+
+function createNovelAccessToken(chapterId) {
+  const payload = {
+    chapterId,
+    exp: Date.now() + NOVEL_ACCESS_EXPIRES_MS,
+  };
+  const payloadJson = JSON.stringify(payload);
+  const payloadBase64 = toBase64Url(payloadJson);
+  const signature = signNovelAccessPayload(payloadJson);
+  return `${payloadBase64}.${signature}`;
+}
+
+function verifyNovelAccessToken(token, expectedChapterId) {
+  const raw = String(token || '');
+  const [payloadBase64, signature] = raw.split('.');
+  if (!payloadBase64 || !signature) {
+    return { valid: false, message: '缺少访问令牌' };
+  }
+
+  let payloadJson = '';
+  try {
+    payloadJson = fromBase64Url(payloadBase64);
+  } catch (error) {
+    return { valid: false, message: '访问令牌格式无效' };
+  }
+
+  const expectedSignature = signNovelAccessPayload(payloadJson);
+  if (!safeEqualHex(signature, expectedSignature)) {
+    return { valid: false, message: '访问令牌签名无效' };
+  }
+
+  let payload = null;
+  try {
+    payload = JSON.parse(payloadJson);
+  } catch (error) {
+    return { valid: false, message: '访问令牌内容无效' };
+  }
+
+  if (!payload || payload.chapterId !== expectedChapterId) {
+    return { valid: false, message: '访问令牌与章节不匹配' };
+  }
+
+  if (!Number.isFinite(payload.exp) || payload.exp < Date.now()) {
+    return { valid: false, message: '访问令牌已过期' };
+  }
+
+  return { valid: true };
+}
+
+function createMemoAccessToken() {
+  const payload = {
+    scope: 'memo:write',
+    exp: Date.now() + MEMO_ACCESS_EXPIRES_MS,
+  };
+  const payloadJson = JSON.stringify(payload);
+  const payloadBase64 = toBase64Url(payloadJson);
+  const signature = signMemoAccessPayload(payloadJson);
+  return `${payloadBase64}.${signature}`;
+}
+
+function verifyMemoAccessToken(token) {
+  const raw = String(token || '');
+  const [payloadBase64, signature] = raw.split('.');
+  if (!payloadBase64 || !signature) {
+    return { valid: false, message: '缺少便签访问令牌' };
+  }
+
+  let payloadJson = '';
+  try {
+    payloadJson = fromBase64Url(payloadBase64);
+  } catch (error) {
+    return { valid: false, message: '便签访问令牌格式无效' };
+  }
+
+  const expectedSignature = signMemoAccessPayload(payloadJson);
+  if (!safeEqualHex(signature, expectedSignature)) {
+    return { valid: false, message: '便签访问令牌签名无效' };
+  }
+
+  let payload = null;
+  try {
+    payload = JSON.parse(payloadJson);
+  } catch (error) {
+    return { valid: false, message: '便签访问令牌内容无效' };
+  }
+
+  if (!payload || payload.scope !== 'memo:write') {
+    return { valid: false, message: '便签访问令牌作用域无效' };
+  }
+
+  if (!Number.isFinite(payload.exp) || payload.exp < Date.now()) {
+    return { valid: false, message: '便签访问令牌已过期' };
+  }
+
+  return { valid: true };
+}
+
 function ensureSafeId(id) {
   if (!id || id.includes('/') || id.includes('\\') || id.includes('..')) {
     return null;
@@ -71,12 +295,21 @@ function buildNovelPath(id) {
   return path.join(getNovelDir(), fileName);
 }
 
+function buildMemoPath(id) {
+  const fileName = `${id}.json`;
+  return path.join(getMemoDir(), fileName);
+}
+
 async function ensureArticleDirExists() {
   await fs.mkdir(getArticleDir(), { recursive: true });
 }
 
 async function ensureNovelDirExists() {
   await fs.mkdir(getNovelDir(), { recursive: true });
+}
+
+async function ensureMemoDirExists() {
+  await fs.mkdir(getMemoDir(), { recursive: true });
 }
 
 function buildSummary(markdown) {
@@ -192,7 +425,249 @@ async function readNovelFile(fullPath) {
   };
 }
 
+async function readMemoFile(fullPath) {
+  const fileContent = await fs.readFile(fullPath, 'utf8');
+  const parsed = JSON.parse(fileContent);
+  const tags = Array.isArray(parsed.tags)
+    ? parsed.tags.map((tag) => String(tag || '').trim()).filter(Boolean)
+    : [];
+
+  return {
+    id: String(parsed.id || ''),
+    createdAt: parsed.createdAt || null,
+    updatedAt: parsed.updatedAt || null,
+    content: String(parsed.content || ''),
+    tags,
+  };
+}
+
 class PortfolioController {
+  static async generateNovelAccessNameHashes(req, res) {
+    try {
+      if (!isDevelopmentMode()) {
+        return res.status(403).json({
+          success: false,
+          message: '该接口仅在开发模式可用',
+        });
+      }
+
+      const names = parseGuardianNamesFromBody(req.body || {});
+      if (names.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: '请至少提供一个姓名',
+        });
+      }
+
+      const uniqueNames = Array.from(new Set(names));
+      const hashes = uniqueNames.map((name) => hashGuardianName(name).toLowerCase());
+
+      return res.json({
+        success: true,
+        data: {
+          nameCount: uniqueNames.length,
+          names: uniqueNames,
+          hashes,
+          envLine: `PORTFOLIO_NOVEL_ACCESS_NAME_HASHES=${hashes.join(',')}`,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
+  static async verifyNovelChapterAccess(req, res) {
+    try {
+      const safeId = ensureSafeId(req.params.id);
+      if (!safeId) {
+        return res.status(400).json({
+          success: false,
+          message: '章节ID不合法',
+        });
+      }
+
+      const chapterPath = buildNovelPath(safeId);
+      try {
+        await fs.access(chapterPath);
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          return res.status(404).json({
+            success: false,
+            message: '章节不存在',
+          });
+        }
+        throw error;
+      }
+
+      const guardianName = String(req.body?.guardianName || '').trim();
+      if (!guardianName) {
+        return res.status(400).json({
+          success: false,
+          message: '请输入验证姓名',
+        });
+      }
+
+      const inputHash = hashGuardianName(guardianName).toLowerCase();
+      const expectedHashes = getExpectedGuardianNameHashes();
+      const matched = expectedHashes.some((expectedHash) => safeEqualHex(inputHash, expectedHash));
+      if (!matched) {
+        return res.status(403).json({
+          success: false,
+          message: '姓名验证失败，无法进入阅读页',
+        });
+      }
+
+      const accessToken = createNovelAccessToken(safeId);
+      res.json({
+        success: true,
+        message: '验证通过',
+        data: {
+          accessToken,
+          expiresInMs: NOVEL_ACCESS_EXPIRES_MS,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
+  static async verifyMemoAccess(req, res) {
+    try {
+      const accessName = String(req.body?.accessName || '').trim();
+      if (!accessName) {
+        return res.status(400).json({
+          success: false,
+          message: '请输入验证姓名',
+        });
+      }
+
+      const inputHash = hashMemoAccessName(accessName).toLowerCase();
+      const expectedHashes = getExpectedMemoAccessNameHashes();
+      const matched = expectedHashes.some((expectedHash) => safeEqualHex(inputHash, expectedHash));
+      if (!matched) {
+        return res.status(403).json({
+          success: false,
+          message: '姓名验证失败，无法记录便签',
+        });
+      }
+
+      const accessToken = createMemoAccessToken();
+      return res.json({
+        success: true,
+        message: '验证通过',
+        data: {
+          accessToken,
+          expiresInMs: MEMO_ACCESS_EXPIRES_MS,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
+  static async listMemos(req, res) {
+    try {
+      await ensureMemoDirExists();
+
+      const memoDir = getMemoDir();
+      const files = await fs.readdir(memoDir);
+      const jsonFiles = files.filter((file) => file.endsWith('.json'));
+
+      const memos = await Promise.all(
+        jsonFiles.map(async (file) => {
+          const fullPath = path.join(memoDir, file);
+          try {
+            return await readMemoFile(fullPath);
+          } catch (error) {
+            console.warn(`[portfolio] 跳过无效便签文件: ${file}`, error.message);
+            return null;
+          }
+        })
+      );
+
+      const data = memos
+        .filter(Boolean)
+        .sort((a, b) => {
+          const ta = new Date(a.createdAt || 0).getTime();
+          const tb = new Date(b.createdAt || 0).getTime();
+          return tb - ta;
+        });
+
+      return res.json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
+  static async saveMemo(req, res) {
+    try {
+      const tokenFromHeader =
+        req.headers['x-portfolio-memo-access-token'] ||
+        String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+      const tokenCheckResult = verifyMemoAccessToken(tokenFromHeader);
+      if (!tokenCheckResult.valid) {
+        return res.status(403).json({
+          success: false,
+          message: tokenCheckResult.message,
+        });
+      }
+
+      const content = String(req.body?.content || '').trim();
+      if (!content) {
+        return res.status(400).json({
+          success: false,
+          message: '便签内容不能为空',
+        });
+      }
+
+      const tags = Array.isArray(req.body?.tags)
+        ? req.body.tags.map((tag) => String(tag || '').trim()).filter(Boolean)
+        : [];
+
+      await ensureMemoDirExists();
+
+      const nowIso = new Date().toISOString();
+      const randomPart = Math.random().toString(36).slice(2, 8);
+      const memoId = normalizeId(`memo-${Date.now()}-${randomPart}`) || `memo-${Date.now()}`;
+      const memoData = {
+        id: memoId,
+        content,
+        tags,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+
+      const memoPath = buildMemoPath(memoId);
+      await fs.writeFile(memoPath, JSON.stringify(memoData, null, 2), 'utf8');
+
+      return res.status(201).json({
+        success: true,
+        message: '便签已保存',
+        data: memoData,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
   static async getNovelConfig(req, res) {
     try {
       const configPath = getNovelConfigPath();
@@ -286,6 +761,17 @@ class PortfolioController {
         return res.status(400).json({
           success: false,
           message: '章节ID不合法',
+        });
+      }
+
+      const tokenFromHeader =
+        req.headers['x-novel-access-token'] ||
+        String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+      const tokenCheckResult = verifyNovelAccessToken(tokenFromHeader, safeId);
+      if (!tokenCheckResult.valid) {
+        return res.status(403).json({
+          success: false,
+          message: tokenCheckResult.message,
         });
       }
 

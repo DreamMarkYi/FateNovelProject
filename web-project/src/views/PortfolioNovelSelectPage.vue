@@ -19,6 +19,11 @@ const bookData = ref({
 const chapters = ref([])
 const loading = ref(false)
 const loadError = ref('')
+const isAccessModalVisible = ref(false)
+const pendingChapter = ref(null)
+const guardianNameInput = ref('')
+const verifyLoading = ref(false)
+const verifyError = ref('')
 
 const volumes = computed(() => [
   {
@@ -30,7 +35,6 @@ const volumes = computed(() => [
 ])
 
 const firstChapter = computed(() => chapters.value[0] || null)
-
 function formatDate(value) {
   if (!value) {
     return '--'
@@ -84,19 +88,100 @@ async function loadChapters() {
   }
 }
 
-function goBack() {
-  router.push('/portfolio')
+function buildAccessTokenKey(chapterId) {
+  return `portfolio-novel-access-token:${chapterId}`
 }
 
-function goToChapter(chapter) {
+function openAccessModal(chapter) {
   if (!chapter || !chapter.id || chapter.isLocked) {
     return
   }
 
-  router.push({
-    path: '/portfolio-Novel',
-    query: { id: chapter.id },
-  })
+  pendingChapter.value = chapter
+  guardianNameInput.value = ''
+  verifyError.value = ''
+  isAccessModalVisible.value = true
+}
+
+function closeAccessModal() {
+  if (verifyLoading.value) {
+    return
+  }
+  isAccessModalVisible.value = false
+  pendingChapter.value = null
+  guardianNameInput.value = ''
+  verifyError.value = ''
+}
+
+async function submitAccessVerification() {
+  if (verifyLoading.value || !pendingChapter.value?.id) {
+    return
+  }
+
+  const inputName = guardianNameInput.value.trim()
+  if (!inputName) {
+    verifyError.value = '请输入姓名后再验证'
+    return
+  }
+
+  try {
+    verifyLoading.value = true
+    verifyError.value = ''
+    const response = await portfolioArticleApi.verifyNovelChapterAccess(pendingChapter.value.id, inputName)
+    const accessToken = response?.data?.accessToken
+    if (!accessToken) {
+      verifyError.value = '验证失败，请稍后重试'
+      return
+    }
+
+    sessionStorage.setItem(buildAccessTokenKey(pendingChapter.value.id), accessToken)
+    isAccessModalVisible.value = false
+    const chapterId = pendingChapter.value.id
+    pendingChapter.value = null
+    guardianNameInput.value = ''
+
+    router.push({
+      path: '/portfolio-Novel',
+      query: { id: chapterId },
+    })
+  } catch (error) {
+    verifyError.value =
+      error?.response?.data?.message || '姓名验证失败，请确认输入无误后重试'
+  } finally {
+    verifyLoading.value = false
+  }
+}
+
+function goToChapter(chapter) {
+  openAccessModal(chapter)
+}
+
+function onModalMaskClick(event) {
+  if (event.target === event.currentTarget) {
+    closeAccessModal()
+  }
+}
+
+function onModalKeydown(event) {
+  if (event.key === 'Escape') {
+    closeAccessModal()
+  }
+  if (event.key === 'Enter') {
+    submitAccessVerification()
+  }
+}
+
+function openFirstChapter() {
+  if (!firstChapter.value) {
+    return
+  }
+  openAccessModal(firstChapter.value)
+}
+
+function onModalInput() {
+  if (verifyError.value) {
+    verifyError.value = ''
+  }
 }
 
 onMounted(loadChapters)
@@ -107,9 +192,12 @@ onMounted(loadChapters)
     <!-- 顶部导航条 -->
     <nav class="index-nav">
       <div class="nav-inner">
-        <router-link to="/portfolio" class="logo">COLLECTION</router-link>
+        <router-link to="/portfolio" class="logo">HOMEPAGE</router-link>
         <ul class="nav-links">
-          <li><a href="#" @click.prevent="goBack">BACK TO WORKS</a></li>
+          <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
+          <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
+          <li><router-link to="/portfolio-novel-select">NOVEL</router-link></li>
+          <li><router-link to="/portfolio-memo">MEM0</router-link></li>
         </ul>
       </div>
     </nav>
@@ -134,7 +222,7 @@ onMounted(loadChapters)
           <p class="book-summary">{{ bookData.summary }}</p>
 
           <div class="hero-actions">
-            <button class="btn-read" :disabled="!firstChapter" @click="goToChapter(firstChapter)">
+            <button class="btn-read" :disabled="!firstChapter" @click="openFirstChapter">
               START READING
             </button>
           </div>
@@ -188,6 +276,40 @@ onMounted(loadChapters)
         </div>
       </div>
     </main>
+
+    <div
+      v-if="isAccessModalVisible"
+      class="access-modal-mask"
+      role="dialog"
+      aria-modal="true"
+      @click="onModalMaskClick"
+      @keydown="onModalKeydown"
+    >
+      <div class="access-modal">
+        <h3>身份验证</h3>
+        <p class="access-modal-desc">
+          请输入指定姓名以解锁章节阅读：
+          <b>{{ pendingChapter?.title || '当前章节' }}</b>
+        </p>
+        <input
+          v-model="guardianNameInput"
+          class="access-modal-input"
+          type="text"
+          placeholder="请输入姓名"
+          autofocus
+          @input="onModalInput"
+        />
+        <p v-if="verifyError" class="access-modal-error">{{ verifyError }}</p>
+        <div class="access-modal-actions">
+          <button type="button" class="btn-cancel" :disabled="verifyLoading" @click="closeAccessModal">
+            取消
+          </button>
+          <button type="button" class="btn-confirm" :disabled="verifyLoading" @click="submitAccessVerification">
+            {{ verifyLoading ? '验证中...' : '确认进入' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <footer>
       <p>&copy; 2026 Your Name. All Rights Reserved.</p>
@@ -262,6 +384,9 @@ ul {
 }
 
 .nav-links {
+  display: flex;
+  align-items: center;
+  gap: 22px;
   font-size: 0.85rem;
   font-family: 'Cinzel', serif;
   letter-spacing: 0.1em;
@@ -550,6 +675,81 @@ ul {
 
 .chapter-item.is-locked .chapter-name {
   color: var(--text-sub);
+}
+
+.access-modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 22, 30, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  padding: 20px;
+}
+
+.access-modal {
+  width: min(92vw, 460px);
+  background: #fff;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 24px 60px rgba(16, 22, 30, 0.18);
+  padding: 26px 24px;
+}
+
+.access-modal h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.access-modal-desc {
+  margin: 12px 0 16px;
+  color: var(--text-sub);
+  font-size: 0.9rem;
+  line-height: 1.8;
+}
+
+.access-modal-input {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  font-family: 'Noto Serif SC', serif;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.access-modal-input:focus {
+  border-color: var(--accent-red);
+}
+
+.access-modal-error {
+  margin-top: 10px;
+  color: var(--accent-red);
+  font-size: 0.85rem;
+}
+
+.access-modal-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.access-modal-actions button {
+  border: 1px solid var(--text-main);
+  background: transparent;
+  color: var(--text-main);
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.access-modal-actions .btn-confirm {
+  background: var(--text-main);
+  color: #fff;
 }
 
 footer {

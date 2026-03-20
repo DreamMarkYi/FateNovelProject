@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { portfolioProjects } from '@/data/portfolioData'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
 import {
@@ -9,7 +9,6 @@ import {
 } from '@/utils/portfolioOrderConfig'
 
 const POLL_INTERVAL_MS = 5000
-const PAGE_SIZE = 12
 
 const remoteArticles = ref([])
 const lastSyncText = ref('未同步')
@@ -61,33 +60,6 @@ const displayedProjects = computed(() => {
   return reindexPortfolioCards(ordered)
 })
 
-const currentPage = ref(1)
-const totalPages = computed(() => Math.max(1, Math.ceil(displayedProjects.value.length / PAGE_SIZE)))
-
-const pagedProjects = computed(() => {
-  const start = (currentPage.value - 1) * PAGE_SIZE
-  const end = start + PAGE_SIZE
-  return displayedProjects.value.slice(start, end)
-})
-
-const pageNumbers = computed(() =>
-    Array.from({ length: totalPages.value }, (_, index) => index + 1)
-)
-
-watch(totalPages, (nextTotalPages) => {
-  if (currentPage.value > nextTotalPages) {
-    currentPage.value = nextTotalPages
-  }
-})
-
-function setPage(page) {
-  if (page < 1 || page > totalPages.value) {
-    return
-  }
-  currentPage.value = page
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
 onMounted(async () => {
   await Promise.all([loadRemoteArticles(), loadPortfolioOrderConfig().then((config) => (orderConfig.value = config))])
   pollTimer = window.setInterval(loadRemoteArticles, POLL_INTERVAL_MS)
@@ -109,11 +81,12 @@ onUnmounted(() => {
     <!-- 顶部导航 -->
     <nav class="top-nav">
       <div class="nav-container">
-        <router-link to="/portfolio" class="logo">COLLECTION</router-link>
+        <router-link to="/portfolio" class="logo">HOMEPAGE</router-link>
         <ul class="nav-links">
-          <li><router-link to="/portfolio/catalog">CATALOG</router-link></li>
-          <li><router-link to="/portfolio-order-config">ORDER</router-link></li>
-          <li><router-link to="/portfolio-config">WORKSPACE</router-link></li>
+          <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
+          <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
+          <li><router-link to="/portfolio-novel-select">NOVEL</router-link></li>
+          <li><router-link to="/portfolio-memo">MEM0</router-link></li>
         </ul>
       </div>
     </nav>
@@ -152,7 +125,7 @@ onUnmounted(() => {
       <main class="gallery-content">
         <div class="gallery-grid">
           <router-link
-              v-for="(project, index) in pagedProjects"
+              v-for="(project, index) in displayedProjects"
               :key="project.id"
               :to="`/portfolio/${project.id}`"
               class="gallery-item"
@@ -169,40 +142,6 @@ onUnmounted(() => {
               <span class="item-tags">{{ project.tags }}</span>
             </div>
           </router-link>
-        </div>
-
-        <!-- 分页器 -->
-        <div v-if="totalPages > 1" class="pagination">
-          <button
-              type="button"
-              class="page-btn page-nav"
-              :disabled="currentPage === 1"
-              @click="setPage(currentPage - 1)"
-          >
-            PREV
-          </button>
-
-          <div class="page-numbers-wrap">
-            <button
-                v-for="page in pageNumbers"
-                :key="page"
-                type="button"
-                class="page-btn num-btn"
-                :class="{ active: page === currentPage }"
-                @click="setPage(page)"
-            >
-              {{ String(page).padStart(2, '0') }}
-            </button>
-          </div>
-
-          <button
-              type="button"
-              class="page-btn page-nav"
-              :disabled="currentPage === totalPages"
-              @click="setPage(currentPage + 1)"
-          >
-            NEXT
-          </button>
         </div>
       </main>
 
@@ -521,79 +460,6 @@ ul {
 
 .gallery-item:hover .item-title {
   color: var(--text-sub);
-}
-
-/* ================= 分页器 ================= */
-.pagination {
-  margin-top: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 40px;
-  border-top: 1px solid var(--border-color);
-  padding-top: 40px;
-}
-
-.page-numbers-wrap {
-  display: flex;
-  gap: 8px;
-}
-
-.page-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-light);
-  font-family: 'Cinzel', serif;
-  font-size: 0.85rem;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  padding: 8px 0;
-}
-
-.page-nav {
-  position: relative;
-  overflow: hidden;
-}
-
-.page-nav::after {
-  content: '';
-  position: absolute;
-  bottom: 4px;
-  left: 0;
-  width: 100%;
-  height: 1px;
-  background-color: var(--text-main);
-  transform: translateX(-101%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.page-nav:hover:not(:disabled)::after {
-  transform: translateX(0);
-}
-
-.page-btn:hover:not(:disabled) {
-  color: var(--text-main);
-}
-
-.num-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border-radius: 50%;
-}
-
-.num-btn.active {
-  background-color: var(--text-main);
-  color: var(--bg-color);
-}
-
-.page-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
 }
 
 /* ================= 页脚 ================= */

@@ -32,16 +32,42 @@ export const portfolioArticleApi = {
     return api.get(`${API_PREFIX}/novel`)
   },
 
+  async generateNovelAccessNameHashes(names = []) {
+    return api.post(`${API_PREFIX}/novel/access/hash`, { names })
+  },
+
   async listNovelChapters() {
     return api.get(`${API_PREFIX}/novel/chapters`)
   },
 
-  async getNovelChapterById(id) {
-    return api.get(`${API_PREFIX}/novel/chapters/${id}`)
+  async verifyNovelChapterAccess(id, guardianName) {
+    return api.post(`${API_PREFIX}/novel/chapters/${id}/access`, { guardianName })
+  },
+
+  async getNovelChapterById(id, accessToken = '') {
+    const token = String(accessToken || '').trim()
+    return api.get(`${API_PREFIX}/novel/chapters/${id}`, {
+      headers: token ? { 'x-novel-access-token': token } : {},
+    })
   },
 
   async getArticleById(id) {
     return api.get(`${API_PREFIX}/articles/${id}`)
+  },
+
+  async listMemos() {
+    return api.get(`${API_PREFIX}/memos`)
+  },
+
+  async verifyMemoAccess(accessName) {
+    return api.post(`${API_PREFIX}/memos/access`, { accessName })
+  },
+
+  async saveMemo(payload, accessToken = '') {
+    const token = String(accessToken || '').trim()
+    return api.post(`${API_PREFIX}/memos`, payload, {
+      headers: token ? { 'x-portfolio-memo-access-token': token } : {},
+    })
   },
 
   async saveArticle(payload) {
