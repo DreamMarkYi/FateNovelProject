@@ -92,6 +92,17 @@ function splitEnvList(rawValue) {
     .filter(Boolean);
 }
 
+function isHexDigest(value, expectedLength = 64) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  if (normalized.length !== expectedLength) {
+    return false;
+  }
+  return /^[0-9a-f]+$/.test(normalized);
+}
+
 function isDevelopmentMode() {
   return String(process.env.NODE_ENV || 'development').trim().toLowerCase() === 'development';
 }
@@ -115,7 +126,9 @@ function getExpectedGuardianNameHashes() {
   const preHashedList = [
     ...splitEnvList(process.env.PORTFOLIO_NOVEL_ACCESS_NAME_HASHES),
     ...splitEnvList(process.env.PORTFOLIO_NOVEL_ACCESS_NAME_HASH),
-  ].map((item) => item.toLowerCase());
+  ]
+    .map((item) => item.toLowerCase())
+    .filter((item) => isHexDigest(item));
   if (preHashedList.length > 0) {
     return preHashedList;
   }
@@ -135,7 +148,9 @@ function getExpectedMemoAccessNameHashes() {
   const preHashedList = [
     ...splitEnvList(process.env.PORTFOLIO_MEMO_ACCESS_NAME_HASHES),
     ...splitEnvList(process.env.PORTFOLIO_MEMO_ACCESS_NAME_HASH),
-  ].map((item) => item.toLowerCase());
+  ]
+    .map((item) => item.toLowerCase())
+    .filter((item) => isHexDigest(item));
   if (preHashedList.length > 0) {
     return preHashedList;
   }
@@ -151,12 +166,21 @@ function getExpectedMemoAccessNameHashes() {
 }
 
 function safeEqualHex(a, b) {
-  const left = Buffer.from(String(a || ''), 'hex');
-  const right = Buffer.from(String(b || ''), 'hex');
-  if (left.length === 0 || right.length === 0 || left.length !== right.length) {
+  try {
+    const leftHex = String(a || '').trim().toLowerCase();
+    const rightHex = String(b || '').trim().toLowerCase();
+    if (!isHexDigest(leftHex) || !isHexDigest(rightHex)) {
+      return false;
+    }
+    const left = Buffer.from(leftHex, 'hex');
+    const right = Buffer.from(rightHex, 'hex');
+    if (left.length === 0 || right.length === 0 || left.length !== right.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(left, right);
+  } catch (error) {
     return false;
   }
-  return crypto.timingSafeEqual(left, right);
 }
 
 function signNovelAccessPayload(payloadJson) {
@@ -502,7 +526,9 @@ class PortfolioController {
         throw error;
       }
 
-      const guardianName = String(req.body?.guardianName || '').trim();
+      const guardianName = String(
+        req.body?.guardianName || req.body?.accessName || req.body?.name || ''
+      ).trim();
       if (!guardianName) {
         return res.status(400).json({
           success: false,
@@ -539,7 +565,9 @@ class PortfolioController {
 
   static async verifyMemoAccess(req, res) {
     try {
-      const accessName = String(req.body?.accessName || '').trim();
+      const accessName = String(
+        req.body?.accessName || req.body?.guardianName || req.body?.name || ''
+      ).trim();
       if (!accessName) {
         return res.status(400).json({
           success: false,

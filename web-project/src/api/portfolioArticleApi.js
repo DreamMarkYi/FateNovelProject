@@ -59,7 +59,12 @@ export const portfolioArticleApi = {
   },
 
   async verifyNovelChapterAccess(id, guardianName) {
-    return api.post(`${API_PREFIX}/novel/chapters/${id}/access`, { guardianName })
+    const normalizedName = String(guardianName || '').trim()
+    return api.post(`${API_PREFIX}/novel/chapters/${id}/access`, {
+      guardianName: normalizedName,
+      accessName: normalizedName,
+      name: normalizedName,
+    })
   },
 
   async getNovelChapterById(id, accessToken = '') {
@@ -78,7 +83,12 @@ export const portfolioArticleApi = {
   },
 
   async verifyMemoAccess(accessName) {
-    return api.post(`${API_PREFIX}/memos/access`, { accessName })
+    const normalizedName = String(accessName || '').trim()
+    return api.post(`${API_PREFIX}/memos/access`, {
+      accessName: normalizedName,
+      guardianName: normalizedName,
+      name: normalizedName,
+    })
   },
 
   async saveMemo(payload, accessToken = '') {

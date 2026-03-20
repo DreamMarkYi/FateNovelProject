@@ -116,7 +116,6 @@ onMounted(async () => {
           <span>ALL PROJECT ARTICLES</span>
           <p class="count-tip">总文章数：{{ allProjects.length }}</p>
           <p class="sync-tip" :class="{ 'sync-tip-error': syncError }">
-            {{ syncError || `最新同步时间：${lastSyncText}` }}
           </p>
         </div>
 

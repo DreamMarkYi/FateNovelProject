@@ -356,9 +356,6 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <p class="sync-tip" :class="{ 'sync-tip-error': syncError }">
-          {{ syncError || `最新同步时间：${lastSyncText}` }}
-        </p>
 
         <div class="portfolio-list">
           <router-link
