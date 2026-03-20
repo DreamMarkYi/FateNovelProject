@@ -115,6 +115,9 @@ onMounted(async () => {
           <h1>全部文章目录</h1>
           <span>ALL PROJECT ARTICLES</span>
           <p class="count-tip">总文章数：{{ allProjects.length }}</p>
+          <p class="sync-tip" :class="{ 'sync-tip-error': syncError }">
+            {{ syncError || `最新同步时间：${lastSyncText}` }}
+          </p>
         </div>
 
         <div class="directory-grid">
@@ -277,6 +280,10 @@ nav {
   margin-top: 14px;
   font-size: 0.85rem;
   color: var(--text-sub);
+}
+
+.sync-tip-error {
+  color: var(--accent-red);
 }
 
 .refresh-btn {

@@ -86,7 +86,7 @@ onUnmounted(() => {
           <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
           <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
           <li><router-link to="/portfolio-novel-select">NOVEL</router-link></li>
-          <li><router-link to="/portfolio-memo">MEM0</router-link></li>
+          <li><router-link to="/portfolio-memo">MEMO</router-link></li>
         </ul>
       </div>
     </nav>

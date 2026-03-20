@@ -15,7 +15,22 @@ const api = axios.create({
 })
 
 api.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    const payload = response?.data
+    const isObjectPayload = payload !== null && typeof payload === 'object' && !Array.isArray(payload)
+
+    // 统一校验 portfolio 后端响应结构，避免 HTML 等非 JSON 响应被静默当成空数据
+    if (!isObjectPayload) {
+      const requestUrl = `${response?.config?.baseURL || ''}${response?.config?.url || ''}`
+      throw new Error(`Invalid portfolio API response from ${requestUrl}`)
+    }
+
+    if (payload.success === false) {
+      throw new Error(payload.message || 'Portfolio API request failed')
+    }
+
+    return payload
+  },
   (error) => {
     console.error('Portfolio API Error:', error)
     return Promise.reject(error)

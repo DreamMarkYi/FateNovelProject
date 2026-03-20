@@ -356,6 +356,10 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
+        <p class="sync-tip" :class="{ 'sync-tip-error': syncError }">
+          {{ syncError || `最新同步时间：${lastSyncText}` }}
+        </p>
+
         <div class="portfolio-list">
           <router-link
               v-for="project in activeRecentProjects"
@@ -683,6 +687,10 @@ nav {
   margin-top: 14px;
   font-size: 0.85rem;
   color: var(--text-sub);
+}
+
+.sync-tip-error {
+  color: var(--accent-red);
 }
 
 .refresh-btn {
