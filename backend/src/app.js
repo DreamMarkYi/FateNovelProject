@@ -32,12 +32,31 @@ const portfolioRoutes = require('./routes/portfolioRoutes');
 
 const app = express();
 
+function resolveTrustProxySetting() {
+  const fromEnv = String(process.env.TRUST_PROXY || '').trim().toLowerCase();
+  if (!fromEnv) {
+    return isProduction ? 1 : false;
+  }
+  if (fromEnv === 'true') {
+    return true;
+  }
+  if (fromEnv === 'false') {
+    return false;
+  }
+  const numeric = Number(fromEnv);
+  if (Number.isInteger(numeric) && numeric >= 0) {
+    return numeric;
+  }
+  return fromEnv;
+}
+
 // 安全中间件
 app.use(helmet());
 
 // CORS配置（生产环境不默认放行 localhost）
 const isProduction = String(config.nodeEnv || '').toLowerCase() === 'production';
 const baseAllowedOrigins = [
+  'https://illusiondrm.com',
   'https://www.illusiondrm.com',
   ...String(config.cors.origin || '')
     .split(',')
@@ -48,6 +67,9 @@ if (!isProduction) {
   baseAllowedOrigins.push('http://localhost:5173');
 }
 const allowedOrigins = Array.from(new Set(baseAllowedOrigins));
+
+// 反向代理部署（Nginx/CDN）下需要开启 trust proxy，避免限流中间件误判
+app.set('trust proxy', resolveTrustProxySetting());
 
 app.use(cors({
   origin: (origin, callback) => {
