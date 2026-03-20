@@ -4,12 +4,17 @@ import { useRoute, useRouter } from 'vue-router'
 import { getPortfolioProjectById } from '@/data/portfolioData'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
 import { renderMarkdown } from '@/utils/markdownRenderer'
+import {
+  hydrateArticleReferences,
+  prepareMarkdownWithArticleRefs,
+} from '@/utils/articleReferenceRenderer'
 
 const route = useRoute()
 const router = useRouter()
 
 const remoteArticle = ref(null)
 const loading = ref(false)
+const referenceArticles = ref([])
 
 const project = computed(() => {
   if (remoteArticle.value) {
@@ -34,7 +39,21 @@ const project = computed(() => {
   return getPortfolioProjectById(route.params.id)
 })
 
-const markdownHtml = computed(() => renderMarkdown(project.value?.detail?.markdown || ''))
+const referenceArticleMap = computed(() => {
+  const map = new Map()
+  referenceArticles.value.forEach((item) => {
+    if (item?.id) {
+      map.set(item.id, item)
+    }
+  })
+  return map
+})
+
+const markdownHtml = computed(() => {
+  const markdown = prepareMarkdownWithArticleRefs(project.value?.detail?.markdown || '')
+  const rawHtml = renderMarkdown(markdown)
+  return hydrateArticleReferences(rawHtml, referenceArticleMap.value)
+})
 const galleryImages = computed(() => {
   const detail = project.value?.detail || {}
   const list = Array.isArray(detail.galleryImages) ? detail.galleryImages : []
@@ -64,6 +83,15 @@ async function loadRemoteDetail(id) {
   }
 }
 
+async function loadReferenceArticles() {
+  try {
+    const response = await portfolioArticleApi.listArticles()
+    referenceArticles.value = Array.isArray(response?.data) ? response.data : []
+  } catch (error) {
+    referenceArticles.value = []
+  }
+}
+
 watch(
   () => route.params.id,
   (id) => {
@@ -86,6 +114,17 @@ function closeLightbox() {
 
 function onMarkdownBodyClick(event) {
   const target = event.target
+  const referenceLink = target instanceof Element ? target.closest('.article-reference-card') : null
+  if (referenceLink instanceof HTMLAnchorElement) {
+    event.preventDefault()
+    const href = referenceLink.getAttribute('href') || ''
+    const articleId = href.replace('/portfolio/', '').trim()
+    if (articleId) {
+      router.push(`/portfolio/${articleId}`)
+    }
+    return
+  }
+
   if (!(target instanceof HTMLImageElement)) {
     if (activeMarkdownImage.value) {
       activeMarkdownImage.value.classList.remove('is-fullsize')
@@ -126,6 +165,7 @@ function onKeydown(event) {
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   document.addEventListener('click', onDocumentClick, true)
+  loadReferenceArticles()
 })
 
 onUnmounted(() => {
@@ -152,9 +192,6 @@ onUnmounted(() => {
     <article v-if="project && project.detail">
       <header class="article-hero">
         <h1 class="article-title">{{ project.title }}</h1>
-        <div class="article-meta">
-          DATE: {{ project.detail.date }} &nbsp;&nbsp;|&nbsp;&nbsp; AUTHOR: {{ project.detail.author }}
-        </div>
       </header>
 
       <div
@@ -272,13 +309,6 @@ nav {
 .article-title {
   font-size: 2.5rem;
   font-weight: 500;
-  margin-bottom: 20px;
-}
-
-.article-meta {
-  color: var(--text-sub);
-  font-size: 0.9rem;
-  letter-spacing: 1px;
   margin-bottom: 40px;
 }
 
@@ -419,6 +449,63 @@ nav {
 
 :deep(.markdown-body li) {
   margin-bottom: 10px;
+}
+
+:deep(.markdown-body .article-reference-block) {
+  margin: 18px 0 28px;
+}
+
+:deep(.markdown-body .article-reference-card) {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 12px;
+  align-items: center;
+  background: #f2f3f6;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 10px;
+  color: inherit;
+}
+
+:deep(.markdown-body .article-reference-card:hover) {
+  border-color: rgba(200, 90, 90, 0.4);
+  background: #eceef3;
+}
+
+:deep(.markdown-body .article-reference-thumb) {
+  width: 78px;
+  height: 58px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+}
+
+:deep(.markdown-body .article-reference-thumb-empty) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 1px;
+  color: #6f7b86;
+  background: #dfe3ea;
+}
+
+:deep(.markdown-body .article-reference-title) {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+:deep(.markdown-body .article-reference-meta) {
+  margin: 4px 0 2px;
+  color: #738293;
+  font-size: 0.78rem;
+}
+
+:deep(.markdown-body .article-reference-tag) {
+  font-size: 0.72rem;
+  color: #66717c;
 }
 
 .empty-state {

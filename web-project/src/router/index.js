@@ -21,7 +21,10 @@ import PortfolioCatalogPage from '../views/PortfolioCatalogPage.vue'
 import PortfolioImageWallPage from '../views/PortfolioImageWallPage.vue'
 import PortfolioDetailPage from '../views/PortfolioDetailPage.vue'
 import PortfolioWorkspacePage from '../views/PortfolioWorkspacePage.vue'
-
+import PortfolioNovelPage from '../views/PortfolioNovelPage.vue'
+import PortfolioNovelWorkspacePage from '../views/PortfolioNovelWorkspacePage.vue'
+import PortfolioNovelSelectPage from "@/views/PortfolioNovelSelectPage.vue";
+import PortfolioOrderWorkspacePage from '../views/PortfolioOrderWorkspacePage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -123,6 +126,24 @@ const router = createRouter({
       component: PortfolioWorkspacePage,
       meta: { public: true }
     },
+    {
+      path: '/portfolio-novel-config',
+      name: 'portfolio-novel-config',
+      component: PortfolioNovelWorkspacePage,
+      meta: { public: true }
+    },
+    {
+      path: '/portfolio-order-config',
+      name: 'portfolio-order-config',
+      component: PortfolioOrderWorkspacePage,
+      meta: { public: true }
+    },
+      {
+          path: '/portfolio-novel-select',
+          name: 'portfolio-novel-select',
+          component: PortfolioNovelSelectPage,
+          meta: { public: true }
+      },
     
     // === 昼用户专属页面 ===
     {
@@ -170,7 +191,13 @@ const router = createRouter({
       name: 'terminal-chapter-select',
       component: TerminalChapterSelect,
       meta: { requireAnyIdentity: true }
-    }
+    },
+      {
+          path: '/portfolio-Novel',
+          name: 'portfolio-Novel',
+          component: PortfolioNovelPage,
+          meta: { public: true }
+      }
   ]
 })
 

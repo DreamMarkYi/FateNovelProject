@@ -1,355 +1,175 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>个人作品集 | Portfolio</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-
+    <title>项目详情 | COLLECTION</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif+SC:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
-        /* --- CSS 变量：配色提取自参考图 --- */
+        /* --- 核心变量 (与主页保持一致) --- */
         :root {
-            /* 背景与基础色 */
-            --bg-color: #fcfcfc;
-            --card-bg: #ffffff;
-            --text-main: #3d3d3d;
-            --text-sub: #8a8a8a;
-            --border-light: #e0e0e0;
-
-            /* 提取的点缀色 */
-            --accent-red: #d46a6a;    /* 参考图中红色角色的色调 */
-            --accent-grey: #8c9ea3;   /* 参考图中绿色/灰色角色的色调 */
-            --accent-blue: #9dcbf5;   /* 参考图中蓝色角色的色调 */
-            --accent-glow: rgba(255, 255, 255, 0.8);
+            --bg-color: #FDFDFD;
+            --text-main: #2C3E50;
+            --text-sub: #8E9AA3;
+            --accent-ice: #A8D0E6;
+            --accent-red: #C85A5A;
+            --code-bg: #F4F5F7;
         }
 
-        /* --- 基础重置 --- */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Playfair Display', 'Noto Serif SC', serif;
+            font-family: 'Noto Serif SC', 'Cinzel', serif;
             background-color: var(--bg-color);
             color: var(--text-main);
             line-height: 1.8;
             overflow-x: hidden;
         }
-
         a { text-decoration: none; color: inherit; transition: 0.3s; }
-        ul { list-style: none; }
 
-        /* --- 布局工具 --- */
-        .container {
+        /* --- 导航栏 --- */
+        nav {
+            position: fixed; top: 0; left: 0; width: 100%; padding: 20px 0;
+            background: rgba(253, 253, 253, 0.9); backdrop-filter: blur(10px);
+            z-index: 1000; border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        .nav-inner {
+            max-width: 1100px; margin: 0 auto; padding: 0 20px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .logo { font-size: 1.2rem; letter-spacing: 0.1em; font-weight: 700; font-family: 'Cinzel', serif; }
+        .nav-links { display: flex; gap: 40px; font-size: 0.9rem; color: var(--text-sub); list-style: none; }
+        .nav-links a:hover { color: var(--accent-red); }
+
+        /* --- 封面与标题区 --- */
+        .article-hero {
+            margin-top: 70px;
+            padding: 60px 20px 0;
             max-width: 900px;
-            margin: 0 auto;
-            padding: 0 40px;
-            position: relative;
-        }
-
-        /* 左侧装饰竖线 - 模仿参考图的纵向排版感 */
-        .deco-line {
-            position: fixed;
-            left: 40px;
-            top: 0;
-            bottom: 0;
-            width: 1px;
-            background: linear-gradient(to bottom, transparent, var(--border-light) 10%, var(--border-light) 90%, transparent);
-            z-index: 0;
-            display: none; /* 移动端隐藏 */
-        }
-        @media (min-width: 768px) { .deco-line { display: block; } }
-
-        /* --- Header / 顶部区域 --- */
-        header {
-            height: 90vh; /* 占据首屏 */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: flex-start;
-            position: relative;
-        }
-
-        .hero-subtitle {
-            font-size: 0.9rem;
-            letter-spacing: 0.4em;
-            text-transform: uppercase;
-            color: var(--text-sub);
-            margin-bottom: 20px;
-            position: relative;
-            padding-left: 50px;
-        }
-
-        /* 装饰性短横线 */
-        .hero-subtitle::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            width: 30px;
-            height: 1px;
-            background-color: var(--accent-red);
-        }
-
-        .hero-title {
-            font-size: 4rem;
-            font-weight: 400;
-            letter-spacing: 0.05em;
-            margin-bottom: 30px;
-            background: linear-gradient(45deg, #333, #666);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .hero-desc {
-            max-width: 500px;
-            color: var(--text-sub);
-            font-size: 1.1rem;
-        }
-
-        /* --- 作品列表区域 --- */
-        .portfolio-section {
-            padding: 100px 0;
-        }
-
-        .section-title {
-            font-size: 2rem;
+            margin-left: auto;
+            margin-right: auto;
             text-align: center;
-            margin-bottom: 80px;
-            letter-spacing: 0.2em;
-            color: var(--text-main);
+        }
+        .article-tags {
+            font-family: 'Cinzel', serif; font-size: 0.8rem; color: var(--accent-red);
+            letter-spacing: 2px; margin-bottom: 15px; display: block;
+        }
+        .article-title {
+            font-size: 2.5rem; font-weight: 500; margin-bottom: 20px;
+        }
+        .article-meta {
+            color: var(--text-sub); font-size: 0.9rem; letter-spacing: 1px; margin-bottom: 40px;
+        }
+
+        .article-cover {
+            width: 100%; height: 400px; background-color: #f0f0f0;
+            background-image: url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1200&auto=format&fit=crop'); /* 示例封面 */
+            background-size: cover; background-position: center;
             position: relative;
         }
-
-        .section-title::after {
-            content: "COLLECTION";
-            position: absolute;
-            top: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 4rem;
-            opacity: 0.05;
-            letter-spacing: 0.5em;
-            white-space: nowrap;
+        .article-cover::after {
+            content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 1px; background: rgba(0,0,0,0.1);
         }
 
-        /* 作品卡片样式 */
-        .project-card {
-            display: flex;
-            flex-direction: column;
-            margin-bottom: 120px;
-            position: relative;
-            background: var(--card-bg);
-            border: 1px solid rgba(0,0,0,0.03);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.03);
-            transition: transform 0.4s ease, box-shadow 0.4s ease;
+        /* --- Markdown 正文排版 (Typography) --- */
+        .markdown-body {
+            max-width: 760px; margin: 60px auto 100px; padding: 0 20px;
+            text-align: justify; font-size: 1.05rem; color: #334;
         }
-
-        @media (min-width: 768px) {
-            .project-card {
-                flex-direction: row;
-                align-items: stretch;
-                min-height: 400px;
-            }
-
-            /* 偶数个卡片反向排列 */
-            .project-card:nth-child(even) {
-                flex-direction: row-reverse;
-            }
+        .markdown-body h2 {
+            font-size: 1.8rem; font-weight: 500; margin: 50px 0 20px; position: relative;
+            padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05);
         }
+        .markdown-body h3 { font-size: 1.4rem; font-weight: 500; margin: 30px 0 15px; }
+        .markdown-body p { margin-bottom: 25px; }
 
-        .project-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.06);
+        .markdown-body blockquote {
+            border-left: 3px solid var(--accent-red); padding-left: 20px;
+            margin: 30px 0; color: var(--text-sub); font-style: italic; background: #fafafa; padding: 15px 20px;
         }
-
-        /* 图片区域 */
-        .card-image {
-            flex: 1.2;
-            background-color: #eee;
-            position: relative;
-            overflow: hidden;
-            min-height: 250px;
+        .markdown-body img {
+            max-width: 100%; height: auto; display: block; margin: 40px auto; border: 1px solid rgba(0,0,0,0.05);
         }
-
-        .card-image img {
+        .markdown-body video {
             width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.6s ease;
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 40px auto;
+            border: 1px solid rgba(0,0,0,0.05);
+            background: #000;
         }
-
-        .project-card:hover .card-image img {
-            transform: scale(1.05);
+        .markdown-body code {
+            background-color: var(--code-bg); padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 0.9em;
         }
-
-        /* 颜色遮罩层 - 对应参考图的配色 */
-        .card-overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            opacity: 0.15;
-            mix-blend-mode: multiply;
+        .markdown-body pre {
+            background-color: var(--text-main); color: #fff; padding: 20px; overflow-x: auto;
+            margin: 30px 0; border-radius: 4px; font-family: monospace; font-size: 0.9rem; line-height: 1.5;
         }
+        .markdown-body pre code { background-color: transparent; color: inherit; padding: 0; }
+        .markdown-body ul, .markdown-body ol { margin-bottom: 25px; padding-left: 20px; }
+        .markdown-body li { margin-bottom: 10px; }
 
-        /* 内容区域 */
-        .card-content {
-            flex: 1;
-            padding: 50px 40px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            position: relative;
-        }
-
-        /* 装饰性编号背景 */
-        .card-number {
-            position: absolute;
-            font-size: 8rem;
-            font-weight: 700;
-            color: rgba(0,0,0,0.03);
-            top: 10px;
-            right: 20px;
-            line-height: 1;
-            font-family: 'Playfair Display', serif;
-            z-index: 0;
-        }
-
-        .card-role {
-            font-size: 0.75rem;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            margin-bottom: 15px;
-            font-weight: 600;
-            z-index: 1;
-        }
-
-        .card-title {
-            font-size: 2rem;
-            margin-bottom: 20px;
-            font-weight: 400;
-            z-index: 1;
-        }
-
-        .card-desc {
-            font-size: 0.95rem;
-            color: var(--text-sub);
-            margin-bottom: 30px;
-            text-align: justify;
-            z-index: 1;
-        }
-
-        .card-link {
-            display: inline-block;
-            font-size: 0.8rem;
-            letter-spacing: 0.2em;
-            border-bottom: 1px solid var(--border-light);
-            padding-bottom: 5px;
-            width: fit-content;
-            z-index: 1;
-        }
-
-        /* --- 特定颜色的类 --- */
-        /* 对应参考图：红色系 (Archer) */
-        .theme-red .card-role, .theme-red .card-link:hover { color: var(--accent-red); }
-        .theme-red .card-overlay { background-color: var(--accent-red); }
-        .theme-red .card-link { border-color: var(--accent-red); }
-
-        /* 对应参考图：青灰色系 (Caster) */
-        .theme-grey .card-role, .theme-grey .card-link:hover { color: var(--accent-grey); }
-        .theme-grey .card-overlay { background-color: var(--accent-grey); }
-        .theme-grey .card-link { border-color: var(--accent-grey); }
-
-        /* 对应参考图：冰蓝色系 (Enemy) */
-        .theme-blue .card-role, .theme-blue .card-link:hover { color: var(--accent-blue); }
-        .theme-blue .card-overlay { background-color: var(--accent-blue); }
-        .theme-blue .card-link { border-color: var(--accent-blue); }
-
-
-        /* --- Footer --- */
-        footer {
-            padding: 50px 0;
-            text-align: center;
-            border-top: 1px solid var(--border-light);
-            font-size: 0.8rem;
-            color: var(--text-sub);
-            letter-spacing: 0.1em;
-        }
-
+        /* --- 底部 --- */
+        footer { padding: 40px 0; text-align: center; background: #FAFAFA; font-size: 0.85rem; color: var(--text-sub); }
     </style>
 </head>
 <body>
 
-<div class="deco-line"></div>
+<nav>
+    <div class="nav-inner">
+        <a href="index.html" class="logo">COLLECTION</a>
+        <ul class="nav-links">
+            <li><a href="index.html#works">BACK TO WORKS</a></li>
+        </ul>
+    </div>
+</nav>
 
-<div class="container">
-    <header>
-        <div class="hero-subtitle">DESIGNER & DEVELOPER</div>
-        <h1 class="hero-title">Shirahatori<br>Haruka</h1>
-        <p class="hero-desc">
-            探索极简主义与交互设计的边界。<br>
-            Exploring the boundaries between minimalism and interaction.
-        </p>
+<article>
+    <header class="article-hero">
+        <span class="article-tags">GRAPHICS / SHADER / UNITY</span>
+        <h1 class="article-title">Unity URP 定制阴影管线与卡通渲染</h1>
+        <div class="article-meta">DATE: 2026.02.12 &nbsp;&nbsp;|&nbsp;&nbsp; AUTHOR: SYSTEM</div>
     </header>
 
-    <section class="portfolio-section">
-        <h2 class="section-title">WORKS</h2>
+    <div class="article-cover" id="cover-image"></div>
 
-        <article class="project-card theme-red">
-            <div class="card-image">
-                <img src="https://images.unsplash.com/photo-1515462277126-2dd0c162007a?q=80&w=1000&auto=format&fit=crop" alt="Project Image">
-                <div class="card-overlay"></div>
-            </div>
-            <div class="card-content">
-                <div class="card-number">01</div>
-                <span class="card-role">UI / UX DESIGN</span>
-                <h3 class="card-title">Akamiya Hina</h3>
-                <p class="card-desc">
-                    这是一个专注于视觉冲击力的品牌设计项目。使用了高饱和度的红色作为主视觉，传达出热情与危险并存的美学理念。
-                </p>
-                <a href="#" class="card-link">VIEW CASE STUDY</a>
-            </div>
-        </article>
+    <div class="markdown-body">
+        <p>在现代游戏渲染架构中，阴影不仅仅是遮挡关系的物理体现，更是奠定视觉基调的重要手段。本项目旨在复现类似于《原神》的高质量卡通渲染（Toon Shading）阴影技术。</p>
 
-        <article class="project-card theme-grey">
-            <div class="card-image">
-                <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop" alt="Project Image">
-                <div class="card-overlay"></div>
-            </div>
-            <div class="card-content">
-                <div class="card-number">02</div>
-                <span class="card-role">ARCHITECTURE</span>
-                <h3 class="card-title">Kashiro Ruri</h3>
-                <p class="card-desc">
-                    沉稳、理性的空间结构设计。通过灰绿色调展现出如同精密仪器般的逻辑美感，强调结构本身的功能性与秩序。
-                </p>
-                <a href="#" class="card-link">VIEW CASE STUDY</a>
-            </div>
-        </article>
+        <h2>1. 核心架构设计</h2>
+        <p>通过编写自定义的 <code>ShadowMap Render Feature</code>，我们成功接管了 URP 的默认阴影绘制流程。这意味着我们可以在投射阶段（Cast）和接收阶段（Receive）注入自定义的逻辑。</p>
 
-        <article class="project-card theme-blue">
-            <div class="card-image">
-                <img src="https://images.unsplash.com/photo-1483729558449-99ef09a8c325?q=80&w=1000&auto=format&fit=crop" alt="Project Image">
-                <div class="card-overlay"></div>
-            </div>
-            <div class="card-content">
-                <div class="card-number">03</div>
-                <span class="card-role">INTERACTIVE ART</span>
-                <h3 class="card-title">Himuro Rinne</h3>
-                <p class="card-desc">
-                    冰冷而纯净的数字化体验。利用 WebGL 技术构建的交互式网页，如同极寒之地的冰晶一般，折射出数据的光芒。
-                </p>
-                <a href="#" class="card-link">VIEW CASE STUDY</a>
-            </div>
-        </article>
+        <blockquote>
+            “渲染管线的重构，本质上是对每一像素命运的重新裁决。” —— Developer Log
+        </blockquote>
 
-    </section>
+        <h2>2. 代码实现细节</h2>
+        <p>为了平滑阴影边缘，我们引入了基于 PCF（Percentage-Closer Filtering）的自定义滤波算法。以下是核心的 Shader 采样片段：</p>
 
-    <footer>
-        <p>&copy; 2024 SHIRAHATORI HARUKA. ALL RIGHTS RESERVED.</p>
-    </footer>
-</div>
+        <pre><code>// 自定义阴影采样函数
+half CustomShadowAttenuation(float3 worldPos) {
+    float4 shadowCoord = TransformWorldToShadowCoord(worldPos);
+
+    // 使用非线性采样偏移实现卡通硬阴影与软边缘的过渡
+    half attenuation = MainLightRealtimeShadow(shadowCoord);
+    return step(0.5, attenuation);
+}</code></pre>
+
+        <h3>性能优化</h3>
+        <ul>
+            <li>将深度图分辨率动态适配屏幕视口（Viewport）。</li>
+            <li>利用 <strong>Compute Shader</strong> 预计算静态物体的阴影遮蔽信息。</li>
+            <li>剔除不必要的 Cascade Shadow Map 层级，大幅降低 Draw Call。</li>
+        </ul>
+
+        <p>下一步的计划是将这一套阴影系统与我们正在开发的 <code>Capsule AO</code> 结合，实现完整的角色光照环境。</p>
+    </div>
+</article>
+
+<footer>
+    <p>&copy; 2026 Your Name. All Rights Reserved.</p>
+    <p style="font-family: 'Cinzel'; font-size: 0.7rem; opacity: 0.5; margin-top: 10px;">ENGINEERED WITH PRECISION</p>
+</footer>
 
 </body>
 </html>

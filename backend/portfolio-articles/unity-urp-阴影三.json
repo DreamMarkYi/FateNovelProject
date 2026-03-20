@@ -1,0 +1,16 @@
+{
+  "id": "unity-urp-阴影三",
+  "title": "Unity URP 阴影（三）",
+  "tags": "TA/Graph",
+  "coverImage": "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_055_0002.png",
+  "galleryImages": [
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_055_0002.png"
+  ],
+  "markdown": "在之前几个部分，我们完成了CSM阴影、软阴影。这一个部分进行一些小改动。**（以下内容实现了效果，但是原来项目的分帧并不是我来做的加上一些别的因素，不知道这么做是否合理，希望后续有机会学习）**\n## 阴影分帧更新\n分帧技术的思路是对于远处的ShadowMap，不必每帧都进行更新，而是可以每N帧才绘制一次。\n\n在这里我们提前规定了八级阴影每一级的缓存帧数，注意，在这里会有一个问题，如果我们分帧更新的时候，遇到了所有帧的公倍数帧的画，一下子就会全部更新，最好避免这种情况。\n```\npublic int[] updateFrequencies = new int[] { };\n```\n然后由于我们要对绘制的贴图进行跨帧保存，因此我们不需要再进行每一帧的``ConfigureClear(ClearFlag.All, Color.black);``我们将这一步的操作改为在更新深度图的时候在进行。\n\n在完成了上述改动之后，我们在进行分级绘制之前，首先判断当前cascade是否需要更新，如果不用更新直接跳过这次绘制。代码如下：\n```\n int frequency = 1;\n                if (settings.updateFrequencies != null && cascadeIndex < settings.updateFrequencies.Length)\n                {\n                    frequency = Mathf.Max(1, settings.updateFrequencies[cascadeIndex]);\n                }\n\n                if (cascadeInitialized[cascadeIndex])\n                {\n                    int phase = cascadeIndex % frequency;\n                    if ((currentFrame % frequency) != phase)\n                    {\n                        hasValidCascade = true;\n                        continue;\n                    }\n                }\n\n```\n在这段代码中，我们加入相位的影响将每一个级联更新的帧数分开，同时通过``cascadeInitialized``将每一个级联在一开始都必须更新一次，只有两者落在同一个余数桶时才更新该级联。\n\n在绘制之前，我们需要对当前cascade所绘制的区域进行clear，这里用到了以下函数：\n```\n   Rect clearRect = new Rect(offsetX, offsetY, tileResolution, tileResolution);\n   cmd.EnableScissorRect(clearRect);\n   cmd.ClearRenderTarget(true, false, Color.black);\n   cmd.DisableScissorRect();\n```\n先看EnableScissorRect( Rect scissor )这个函数，该函数用于裁剪屏幕上的某些区域，使后续的绘制只集中于这个区域。我们将当前级联对应的区域裁剪出来然后进行清除。**（用这个方法有没有什么负面影响目前还没确定）**\n\n同样的，因为我们要对阴影贴图进行持久化存储，因此同样的我们不要在\n``OnCameraCleanup``的时候每帧释放贴图，而是在``Dispose``再释放。\n\n## Ramp阴影\n这一部分就比较简单了（其实主要是这篇文章没什么能用的图，所以加进来了），主要原理就是用阴影作为x轴采样ramp贴图，得到阴影的颜色，看看最后的效果：\n\n![](https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_055_0002.png)",
+  "author": "SYSTEM",
+  "summary": "在之前几个部分，我们完成了CSM阴影、软阴影。这一个部分进行一些小改动。 （以下内容实现了效果，但是原来项目的分帧并不是我来做的加上一些别的因素，不知道这么做是否合理，希望后续有机会学习） 阴影分帧更新 分帧技术的思路是对于远处的Shado",
+  "showInGallery": false,
+  "showInCatalog": true,
+  "createdAt": "2026-03-13T10:04:38.981Z",
+  "updatedAt": "2026-03-13T10:04:38.981Z"
+}

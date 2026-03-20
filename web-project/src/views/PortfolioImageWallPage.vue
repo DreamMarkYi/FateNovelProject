@@ -2,15 +2,23 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { portfolioProjects } from '@/data/portfolioData'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
+import {
+  applyOrderByIds,
+  loadPortfolioOrderConfig,
+  reindexPortfolioCards,
+} from '@/utils/portfolioOrderConfig'
 
 const POLL_INTERVAL_MS = 5000
-const COLUMN_COUNT = 6
-const ROW_COUNT = 3
-const PAGE_SIZE = COLUMN_COUNT * ROW_COUNT
+const PAGE_SIZE = 12
 
 const remoteArticles = ref([])
 const lastSyncText = ref('未同步')
 const syncError = ref('')
+const orderConfig = ref({
+  homeRecentOrder: [],
+  catalogOrder: [],
+  wallOrder: [],
+})
 
 let pollTimer = null
 
@@ -44,18 +52,24 @@ async function loadRemoteArticles() {
 }
 
 const displayedProjects = computed(() => {
-  if (remoteArticles.value.length > 0) {
-    return remoteArticles.value.filter((item) => item.showInGallery !== false)
-  }
-  return portfolioProjects.filter((item) => item.showInGallery !== false)
+  const source =
+    remoteArticles.value.length > 0
+      ? remoteArticles.value.filter((item) => item.showInGallery !== false)
+      : portfolioProjects.filter((item) => item.showInGallery !== false)
+
+  const ordered = applyOrderByIds(source, orderConfig.value.wallOrder)
+  return reindexPortfolioCards(ordered)
 })
+
 const currentPage = ref(1)
 const totalPages = computed(() => Math.max(1, Math.ceil(displayedProjects.value.length / PAGE_SIZE)))
+
 const pagedProjects = computed(() => {
   const start = (currentPage.value - 1) * PAGE_SIZE
   const end = start + PAGE_SIZE
   return displayedProjects.value.slice(start, end)
 })
+
 const pageNumbers = computed(() =>
     Array.from({ length: totalPages.value }, (_, index) => index + 1)
 )
@@ -75,7 +89,7 @@ function setPage(page) {
 }
 
 onMounted(async () => {
-  await loadRemoteArticles()
+  await Promise.all([loadRemoteArticles(), loadPortfolioOrderConfig().then((config) => (orderConfig.value = config))])
   pollTimer = window.setInterval(loadRemoteArticles, POLL_INTERVAL_MS)
 })
 
@@ -88,112 +102,139 @@ onUnmounted(() => {
 
 <template>
   <div class="portfolio-image-wall-page">
-    <nav>
-      <div class="container nav-inner">
+    <!-- 背景古典文字水印 -->
+    <div class="bg-watermark">AESTHETICS</div>
+
+
+    <!-- 顶部导航 -->
+    <nav class="top-nav">
+      <div class="nav-container">
         <router-link to="/portfolio" class="logo">COLLECTION</router-link>
         <ul class="nav-links">
           <li><router-link to="/portfolio/catalog">CATALOG</router-link></li>
+          <li><router-link to="/portfolio-order-config">ORDER</router-link></li>
           <li><router-link to="/portfolio-config">WORKSPACE</router-link></li>
         </ul>
       </div>
     </nav>
 
-    <section class="section">
-      <div class="container heading-wrap">
-        <!-- 新增：背景水印，填补大面积空白 -->
-        <div class="watermark-bg">GALLERY</div>
+    <!-- 主体非对称布局 -->
+    <div class="page-layout container">
 
-        <div class="heading-content">
-          <h1>图床画廊</h1>
-          <span class="en-title">IMAGE WALL DIRECTORY</span>
+      <!-- 左侧：悬浮信息栏 -->
+      <aside class="info-sidebar">
+        <div class="sidebar-inner">
+          <div class="heading-group">
+            <span class="en-title">GALLERY</span>
+            <h1>画廊</h1>
+          </div>
 
-          <!-- 新增：视觉过渡文案 -->
           <p class="intro-desc">
-            探索光影与色彩的交错，记录每一个闪烁的视觉碎片与灵感瞬间。
+            全部为自己的练习作品，渲染的软件为Blender、UE5等，各位大佬看个乐就好。
           </p>
 
-          <!-- 优化：将同步信息重构为具有细节感的元数据栏 -->
-          <div class="meta-bar">
-            <span class="meta-item">
-              <span class="meta-icon">⟳</span>
-              {{ syncError || `自动同步中 · ${lastSyncText}` }}
-            </span>
-            <span class="meta-divider"></span>
-            <span class="meta-item">
-              <span class="meta-icon">⚏</span>
-              共 {{ displayedProjects.length }} 项作品
-            </span>
+          <div class="meta-block">
+            <div class="meta-item">
+              <span class="meta-label">STATUS</span>
+              <span class="meta-value">{{ syncError || `SYNC · ${lastSyncText}` }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">WORKS</span>
+              <span class="meta-value">{{ displayedProjects.length }} PIECES</span>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div class="wall-grid-wrap">
-        <div class="wall-grid-decor top"><span>✧</span></div>
-        <div class="wall-grid">
+          <div class="sidebar-decor"></div>
+        </div>
+      </aside>
+
+      <!-- 右侧：规整网格画廊 -->
+      <main class="gallery-content">
+        <div class="gallery-grid">
           <router-link
-              v-for="project in pagedProjects"
+              v-for="(project, index) in pagedProjects"
               :key="project.id"
               :to="`/portfolio/${project.id}`"
-              class="wall-tile"
+              class="gallery-item"
+              :style="{ animationDelay: `${(index % 6) * 0.1}s` }"
           >
-            <img v-if="project.image" :src="project.image" :alt="project.title" loading="lazy" />
-            <div v-else class="tile-placeholder">{{ project.number }}</div>
-            <div class="tile-overlay">
-              <p class="tile-title">{{ project.title }}</p>
+            <!-- 统一比例图片容器 -->
+            <div class="img-wrap">
+              <img v-if="project.image" :src="project.image" :alt="project.title" loading="lazy" />
+              <div v-else class="tile-placeholder">{{ project.number }}</div>
+            </div>
+
+            <div class="item-info">
+              <h3 class="item-title">{{ project.title }}</h3>
+              <span class="item-tags">{{ project.tags }}</span>
             </div>
           </router-link>
         </div>
-        <div class="wall-grid-decor bottom"><span>✧</span></div>
+
+        <!-- 分页器 -->
+        <div v-if="totalPages > 1" class="pagination">
+          <button
+              type="button"
+              class="page-btn page-nav"
+              :disabled="currentPage === 1"
+              @click="setPage(currentPage - 1)"
+          >
+            PREV
+          </button>
+
+          <div class="page-numbers-wrap">
+            <button
+                v-for="page in pageNumbers"
+                :key="page"
+                type="button"
+                class="page-btn num-btn"
+                :class="{ active: page === currentPage }"
+                @click="setPage(page)"
+            >
+              {{ String(page).padStart(2, '0') }}
+            </button>
+          </div>
+
+          <button
+              type="button"
+              class="page-btn page-nav"
+              :disabled="currentPage === totalPages"
+              @click="setPage(currentPage + 1)"
+          >
+            NEXT
+          </button>
+        </div>
+      </main>
+
+    </div>
+
+    <!-- 底部收尾 -->
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p>© {{ new Date().getFullYear() }} Collection Portfolio. All visual fragments reserved.</p>
+        <div class="footer-decor">✦</div>
       </div>
-
-      <div v-if="totalPages > 1" class="pagination">
-        <button
-            type="button"
-            class="page-btn page-nav"
-            :disabled="currentPage === 1"
-            @click="setPage(currentPage - 1)"
-        >
-          PREV
-        </button>
-
-        <button
-            v-for="page in pageNumbers"
-            :key="page"
-            type="button"
-            class="page-btn"
-            :class="{ active: page === currentPage }"
-            @click="setPage(page)"
-        >
-          {{ String(page).padStart(2, '0') }}
-        </button>
-
-        <button
-            type="button"
-            class="page-btn page-nav"
-            :disabled="currentPage === totalPages"
-            @click="setPage(currentPage + 1)"
-        >
-          NEXT
-        </button>
-      </div>
-    </section>
+    </footer>
   </div>
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif+SC:wght@300;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;700&family=Noto+Serif+SC:wght@300;400;500;700&display=swap');
 
 .portfolio-image-wall-page {
   --bg-color: #fdfdfd;
-  --text-main: #2c3e50;
-  --text-sub: #8e9aa3;
-  --text-lighter: #a0aab2;
-  --accent-ice: #a8d0e6;
-  --accent-red: #c85a5a;
+  --text-main: #1a1a1a;
+  --text-sub: #5a5a5a;
+  --text-light: #999999;
+  --border-color: #e5e3de;
+  --accent-color: #3b4249;
+
   font-family: 'Noto Serif SC', 'Cinzel', serif;
   background-color: var(--bg-color);
   color: var(--text-main);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 a {
@@ -203,279 +244,207 @@ a {
 
 ul {
   list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .container {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 40px;
 }
 
-nav {
+/* ================= 导航栏 ================= */
+.top-nav {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
-  padding: 20px 0;
-  background: rgba(253, 253, 253, 0.9);
-  backdrop-filter: blur(10px);
+  padding: 24px 0;
+  background: rgba(253, 253, 253, 0.85);
+  backdrop-filter: blur(12px);
   z-index: 1000;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid var(--border-color);
+  transition: all 0.3s ease;
 }
 
-.nav-inner {
+.bg-watermark {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: 'Cinzel', serif;
+  font-size: 18vw;
+  color: rgba(26, 26, 26, 0.02);
+  z-index: 0;
+  pointer-events: none;
+  letter-spacing: 0.1em;
+  user-select: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+
+.nav-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 40px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .logo {
-  font-size: 1.2rem;
-  letter-spacing: 0.1em;
+  font-size: 1.25rem;
+  letter-spacing: 0.15em;
   font-weight: 700;
   font-family: 'Cinzel', serif;
 }
 
 .nav-links {
   display: flex;
-  gap: 30px;
-  font-size: 0.9rem;
+  gap: 40px;
+  font-size: 0.85rem;
   color: var(--text-sub);
   font-family: 'Cinzel', serif;
 }
 
 .nav-links a {
-  transition: 0.3s;
-  letter-spacing: 0.05em;
+  transition: color 0.3s;
+  letter-spacing: 0.1em;
+  position: relative;
+}
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background-color: var(--text-main);
+  transition: width 0.3s ease;
 }
 
 .nav-links a:hover {
-  color: var(--accent-red);
-}
-
-.section {
-  padding: 130px 0 40px;
-}
-
-/* ================= 头部区域优化 ================= */
-.heading-wrap {
-  text-align: center;
-  padding: 20px 0 40px;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* 水印背景：打破绝对的空白 */
-.watermark-bg {
-  position: absolute;
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: clamp(5rem, 12vw, 10rem);
-  font-family: 'Cinzel', serif;
-  font-weight: 700;
-  color: rgba(168, 208, 230, 0.07); /* 极淡的冰蓝色 */
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 0;
-  user-select: none;
-  letter-spacing: 0.1em;
-}
-
-.heading-content {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 800px;
-}
-
-.heading-content h1 {
-  font-size: 2.4rem;
-  font-weight: 500;
-  letter-spacing: 0.15em;
-  position: relative;
-  display: inline-block;
-  margin: 0;
   color: var(--text-main);
 }
 
-/* 优化主标题两侧的装饰线，更具设计感 */
-.heading-content h1::before,
-.heading-content h1::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 6vw;
-  max-width: 120px;
-  height: 1px;
-  background: linear-gradient(to right, transparent, rgba(142, 154, 163, 0.5), transparent);
+.nav-links a:hover::after {
+  width: 100%;
 }
 
-.heading-content h1::before {
-  right: 100%;
-  margin-right: 30px;
+/* ================= 宏观布局 ================= */
+.page-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8vw;
+  padding-top: 140px;
+  padding-bottom: 80px;
+  flex: 1;
 }
 
-.heading-content h1::after {
-  left: 100%;
-  margin-left: 30px;
+/* ================= 左侧：固定信息栏 ================= */
+.info-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 160px;
+}
+
+.heading-group {
+  margin-bottom: 30px;
 }
 
 .en-title {
   display: block;
-  margin-top: 12px;
   font-family: 'Cinzel', serif;
-  color: var(--accent-ice);
-  font-size: 0.9rem;
-  letter-spacing: 0.35em;
+  color: var(--text-light);
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
+  margin-bottom: 12px;
 }
 
-/* 增加描述文案，承上启下 */
+.heading-group h1 {
+  font-size: 3.2rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  margin: 0;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+
 .intro-desc {
-  margin: 24px auto 0;
   font-size: 0.95rem;
   color: var(--text-sub);
-  line-height: 1.8;
-  letter-spacing: 0.08em;
-  max-width: 500px;
+  line-height: 2;
+  letter-spacing: 0.05em;
   font-weight: 300;
+  margin-bottom: 40px;
 }
 
-/* 元数据栏：将单薄的提示语变得专业化 */
-.meta-bar {
-  margin-top: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.meta-block {
+  border-top: 1px solid var(--border-color);
+  padding-top: 24px;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  font-size: 0.8rem;
-  color: var(--text-lighter);
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(168, 208, 230, 0.3);
-  padding: 6px 20px;
-  border-radius: 30px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.01);
 }
 
 .meta-item {
-  display: inline-flex;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 6px;
+  font-size: 0.8rem;
+  font-family: 'Cinzel', serif;
   letter-spacing: 0.05em;
 }
 
-.meta-icon {
-  font-size: 0.9rem;
-  opacity: 0.7;
+.meta-label {
+  color: var(--text-light);
 }
 
-.meta-divider {
-  width: 4px;
-  height: 4px;
-  background-color: var(--accent-ice);
-  border-radius: 50%;
-  opacity: 0.6;
+.meta-value {
+  color: var(--text-main);
+  font-family: monospace;
+  font-size: 0.75rem;
 }
 
-/* ================= 栅格区域 ================= */
-.wall-grid-wrap {
-  position: relative;
-  margin: 30px clamp(8px, 2vw, 24px) 0;
-  padding: 10px;
-  background: #f8f9fa; /* 稍微加深底色，衬托白底 */
-  box-shadow: inset 0 0 0 1px #fff, 0 8px 30px rgba(0, 0, 0, 0.03);
-  border-radius: 2px;
-}
-
-.wall-grid-wrap::before,
-.wall-grid-wrap::after {
-  content: '';
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  height: 4px;
-  border-left: 1px solid rgba(168, 208, 230, 0.6);
-  border-right: 1px solid rgba(168, 208, 230, 0.6);
-  pointer-events: none;
-}
-
-.wall-grid-wrap::before {
-  top: -4px;
-}
-
-.wall-grid-wrap::after {
-  bottom: -4px;
-}
-
-.wall-grid-decor {
-  position: absolute;
-  left: 0;
-  right: 0;
+.sidebar-decor {
+  margin-top: 50px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 10;
+  justify-content: flex-start;
+  width: auto;
+  height: auto;
+  background-color: transparent;
 }
 
-.wall-grid-decor::before,
-.wall-grid-decor::after {
-  content: '';
+/* ================= 右侧：规整网格画廊 ================= */
+.gallery-content {
   flex: 1;
-  height: 1px;
-  background: rgba(168, 208, 230, 0.5);
+  min-width: 0;
 }
 
-.wall-grid-decor span {
-  padding: 0 20px;
-  color: var(--accent-ice);
-  font-size: 14px;
-  font-family: 'Cinzel', serif;
-  line-height: 1;
-}
-
-.wall-grid-decor.top {
-  top: 0;
-  transform: translateY(-50%);
-}
-
-.wall-grid-decor.bottom {
-  bottom: 0;
-  transform: translateY(50%);
-}
-
-.wall-grid {
+/* 采用标准网格布局，确保水平绝对对齐 */
+.gallery-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  grid-template-rows: repeat(3, minmax(0, 1fr));
-  gap: 3px; /* 稍微增加一点间隙，让图片呼吸感更强 */
+  grid-template-columns: repeat(2, 1fr); /* 依然保留双列的高级感 */
+  gap: 60px 40px; /* 行间距60px，列间距40px */
 }
 
-.wall-tile {
-  position: relative;
-  aspect-ratio: 1 / 1;
-  background: var(--bg-color);
-  overflow: hidden;
-  border-radius: 2px; /* 边角稍微硬朗一些，配合画廊质感 */
-  animation: tileFadeIn 0.6s ease-out forwards;
+.gallery-item {
+  display: flex;
+  flex-direction: column;
   opacity: 0;
+  animation: fadeUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  cursor: pointer;
 }
 
-/* 为图片加载添加一点交错动画效果 */
-.wall-tile:nth-child(1) { animation-delay: 0.05s; }
-.wall-tile:nth-child(2) { animation-delay: 0.1s; }
-.wall-tile:nth-child(3) { animation-delay: 0.15s; }
-.wall-tile:nth-child(4) { animation-delay: 0.2s; }
-.wall-tile:nth-child(5) { animation-delay: 0.25s; }
-.wall-tile:nth-child(6) { animation-delay: 0.3s; }
-
-@keyframes tileFadeIn {
+@keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(30px);
   }
   to {
     opacity: 1;
@@ -483,17 +452,24 @@ nav {
   }
 }
 
-.wall-tile img {
+/* 统一图片比例容器 */
+.img-wrap {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  border-radius: inherit;
+  position: relative;
+  overflow: hidden;
+  background-color: #ebeae6;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  transition: box-shadow 0.4s ease;
+  aspect-ratio: 4 / 3; /* 【重点】在这里强制所有图片统一为 4:3 比例 */
 }
 
-.wall-tile:hover img {
-  transform: scale(1.08);
+.img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 保证图片填满容器不拉伸变形 */
+  transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  display: block;
 }
 
 .tile-placeholder {
@@ -503,112 +479,192 @@ nav {
   align-items: center;
   justify-content: center;
   font-family: 'Cinzel', serif;
-  color: #b7c0c8;
-  font-size: 1.5rem;
-  letter-spacing: 0.12em;
-  background: #f0f3f6;
+  color: #c9c7c1;
+  font-size: 2rem;
+  letter-spacing: 0.1em;
 }
 
-.tile-overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 20px 10px 10px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.8) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  border-radius: 0 0 2px 2px;
+/* 悬停交互 */
+.gallery-item:hover .img-wrap {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1), 0 8px 20px rgba(0, 0, 0, 0.04); /* 强化：悬停时阴影大幅扩散加深 */
 }
 
-.wall-tile:hover .tile-overlay {
-  opacity: 1;
+.gallery-item:hover img {
+  transform: scale(1.05);
 }
 
-.tile-title {
-  font-size: 0.8rem;
-  color: #fff;
+/* 底部说明文字 */
+.item-info {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.item-title {
+  font-size: 1.05rem;
+  font-weight: 400;
+  margin: 0;
+  color: var(--text-main);
   line-height: 1.4;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-  display: -webkit-box;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  letter-spacing: 0.05em;
-  font-weight: 300;
+  letter-spacing: 0.03em;
+  transition: color 0.3s;
+}
+
+.item-tags {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gallery-item:hover .item-title {
+  color: var(--text-sub);
 }
 
 /* ================= 分页器 ================= */
 .pagination {
-  margin-top: 40px;
+  margin-top: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 12px;
+  gap: 40px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 40px;
+}
+
+.page-numbers-wrap {
+  display: flex;
+  gap: 8px;
 }
 
 .page-btn {
-  min-width: 42px;
-  height: 36px;
-  padding: 0 12px;
-  border: 1px solid rgba(168, 208, 230, 0.4);
-  background: #fff;
-  color: var(--text-sub);
+  background: transparent;
+  border: none;
+  color: var(--text-light);
   font-family: 'Cinzel', serif;
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
   cursor: pointer;
   transition: all 0.3s ease;
-  border-radius: 2px;
-}
-
-.page-btn:hover:not(:disabled) {
-  border-color: var(--text-main);
-  color: var(--text-main);
-}
-
-.page-btn.active {
-  border-color: var(--text-main);
-  background: var(--text-main);
-  color: #fff;
+  padding: 8px 0;
 }
 
 .page-nav {
-  min-width: 70px;
+  position: relative;
+  overflow: hidden;
+}
+
+.page-nav::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background-color: var(--text-main);
+  transform: translateX(-101%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.page-nav:hover:not(:disabled)::after {
+  transform: translateX(0);
+}
+
+.page-btn:hover:not(:disabled) {
+  color: var(--text-main);
+}
+
+.num-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.num-btn.active {
+  background-color: var(--text-main);
+  color: var(--bg-color);
 }
 
 .page-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
-  border-color: rgba(0, 0, 0, 0.1);
 }
 
-@media (max-width: 900px) {
+/* ================= 页脚 ================= */
+.site-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--border-color);
+  padding: 40px 0;
+  background: transparent;
+}
+
+.footer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  color: var(--text-light);
+  letter-spacing: 0.05em;
+}
+
+.footer-decor {
+  font-size: 1rem;
+  color: var(--border-color);
+}
+
+/* ================= 响应式调整 ================= */
+@media (max-width: 1024px) {
+  .page-layout {
+    gap: 4vw;
+  }
+  .info-sidebar {
+    width: 260px;
+  }
+}
+
+@media (max-width: 860px) {
+  .page-layout {
+    flex-direction: column;
+    padding-top: 100px;
+    gap: 60px;
+  }
+
+  .info-sidebar {
+    width: 100%;
+    position: relative;
+    top: 0;
+  }
+
+  .sidebar-inner {
+    max-width: 600px;
+  }
+
+  .sidebar-decor {
+    display: none;
+  }
+
   .nav-links {
     display: none;
-  }
-
-  .watermark-bg {
-    font-size: 4rem;
-  }
-
-  .heading-content h1::before,
-  .heading-content h1::after {
-    display: none;
-  }
-
-  .wall-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: repeat(6, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 600px) {
-  .wall-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(9, minmax(0, 1fr));
+  .container {
+    padding: 0 20px;
+  }
+  .heading-group h1 {
+    font-size: 2.4rem;
+  }
+  .gallery-grid {
+    grid-template-columns: 1fr; /* 手机端单列 */
+    gap: 40px;
   }
 }
 </style>

@@ -51,7 +51,7 @@ body {
 
 body.loaded {
   opacity: 1;
-  transform: scale(1);
+  transform: none;
 }
 
 #app {

@@ -28,12 +28,32 @@ export const portfolioArticleApi = {
     return api.get(`${API_PREFIX}/articles`)
   },
 
+  async getNovelConfig() {
+    return api.get(`${API_PREFIX}/novel`)
+  },
+
+  async listNovelChapters() {
+    return api.get(`${API_PREFIX}/novel/chapters`)
+  },
+
+  async getNovelChapterById(id) {
+    return api.get(`${API_PREFIX}/novel/chapters/${id}`)
+  },
+
   async getArticleById(id) {
     return api.get(`${API_PREFIX}/articles/${id}`)
   },
 
   async saveArticle(payload) {
     return api.post(`${API_PREFIX}/articles`, payload)
+  },
+
+  async saveNovelConfig(payload) {
+    return api.post(`${API_PREFIX}/novel`, payload)
+  },
+
+  async saveNovelChapter(payload) {
+    return api.post(`${API_PREFIX}/novel/chapters`, payload)
   },
 }
 

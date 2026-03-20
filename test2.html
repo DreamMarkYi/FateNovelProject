@@ -1,0 +1,275 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>档案室 - C.H. Postal Company</title>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Noto+Serif+SC:wght@300;400;700&family=Playfair+Display:ital,wght@0,500;0,700;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --violet: #3A2E49;
+            --light-violet: #84759A;
+            --kraft-base: #D5B992;   /* 牛皮纸主色调 */
+            --kraft-dark: #8B5A2B;   /* 牛皮纸深色（用于边框和强调） */
+            --emerald: #1F5A40;
+            --text-main: #2C2621;    /* 配合牛皮纸加深正文墨色 */
+            --border-light: rgba(139, 90, 43, 0.2); /* 棕色虚线分割线 */
+        }
+
+        /* 背景改为纯白 */
+        body {
+            font-family: 'Noto Serif SC', 'Playfair Display', serif;
+            background-color: #FFFFFF;
+            color: var(--text-main);
+            line-height: 1.8;
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        /* 顶部导航与博客标题 */
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .blog-title {
+            font-family: 'Playfair Display', 'Noto Serif SC', serif;
+            color: var(--violet);
+            font-size: 2.5rem;
+            margin: 0 0 10px 0;
+            letter-spacing: 2px;
+        }
+
+        .blog-subtitle {
+            font-family: 'Courier Prime', monospace;
+            color: var(--light-violet);
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .gold-divider {
+            width: 150px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--kraft-dark), transparent);
+            margin: 20px auto;
+        }
+
+        /* 牛皮纸档案簿主容器 */
+        .archive-container {
+            max-width: 850px;
+            margin: 0 auto;
+            /* 牛皮纸质感生成区 */
+            background-color: var(--kraft-base);
+            background-image:
+                    radial-gradient(circle, rgba(0,0,0,0.02) 1px, transparent 1px),
+                    linear-gradient(to right, rgba(255,255,255,0.08), rgba(0,0,0,0.04), rgba(255,255,255,0.08));
+            background-size: 10px 10px, 100% 100%;
+
+            padding: 50px 60px;
+            border-radius: 3px; /* 微小的圆角 */
+
+            /* 利用多重阴影制造纸张厚度与边缘氧化泛黄的效果 */
+            box-shadow:
+                    0 20px 40px rgba(0, 0, 0, 0.08),
+                    inset 0 0 80px rgba(139, 90, 43, 0.15),
+                    inset 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .archive-header {
+            font-family: 'Playfair Display', 'Noto Serif SC', serif;
+            font-size: 1.8rem;
+            color: var(--violet);
+            text-align: center;
+            margin-bottom: 40px;
+            font-style: italic;
+            text-shadow: 1px 1px 0px rgba(255,255,255,0.3); /* 轻微的凸版印刷感 */
+        }
+
+        /* 列表布局 */
+        .archive-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .archive-item {
+            display: flex;
+            padding: 30px 0;
+            border-bottom: 1px dashed var(--border-light);
+            transition: all 0.4s ease;
+            position: relative;
+        }
+
+        .archive-item:last-child {
+            border-bottom: none;
+        }
+
+        /* 悬停时的“抽出信件”效果 - 适配牛皮纸的高亮 */
+        .archive-item:hover {
+            transform: translateX(10px);
+            background-color: rgba(255, 255, 255, 0.25); /* 稍微泛白的高亮 */
+            border-radius: 4px;
+            padding-left: 15px;
+            padding-right: 15px;
+            margin-left: -15px;
+            margin-right: -15px;
+            box-shadow: -4px 0 0 var(--kraft-dark); /* 侧边使用深棕色指示 */
+        }
+
+        /* 左侧元数据区 (日期与标签) */
+        .item-meta {
+            flex: 0 0 180px;
+            padding-right: 20px;
+            font-family: 'Courier Prime', monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        .item-date {
+            color: var(--violet);
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+        }
+
+        .item-tag {
+            color: var(--kraft-dark);
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+        }
+
+        /* 右侧内容区 */
+        .item-content {
+            flex: 1;
+        }
+
+        .item-title {
+            font-family: 'Playfair Display', 'Noto Serif SC', serif;
+            font-size: 1.4rem;
+            color: var(--violet);
+            margin: 0 0 10px 0;
+            line-height: 1.4;
+            transition: color 0.3s ease;
+        }
+
+        .archive-item:hover .item-title {
+            color: var(--emerald);
+        }
+
+        .item-excerpt {
+            font-size: 0.95rem;
+            color: var(--text-main);
+            margin: 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 移除链接默认样式 */
+        .archive-item-link {
+            text-decoration: none;
+            display: contents;
+        }
+
+        /* 底部 */
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.8rem;
+            color: var(--light-violet);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 600px) {
+            .archive-container {
+                padding: 30px 20px;
+            }
+            .archive-item {
+                flex-direction: column;
+            }
+            .item-meta {
+                flex: none;
+                flex-direction: row;
+                margin-bottom: 10px;
+                border-bottom: 1px solid var(--border-light);
+                padding-bottom: 5px;
+            }
+            .item-tag {
+                margin-left: 15px;
+                margin-top: 2px;
+            }
+            .archive-item:hover {
+                transform: translateX(5px);
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1 class="blog-title">C.H. Postal Company</h1>
+    <div class="blog-subtitle">Auto Memory Doll // Technical Archives</div>
+    <div class="gold-divider"></div>
+</header>
+
+<main class="archive-container">
+    <div class="archive-header">Directory of Dispatched Letters</div>
+
+    <ul class="archive-list">
+        <li class="archive-item">
+            <a href="post.html" class="archive-item-link">
+                <div class="item-meta">
+                    <span class="item-date">2026-03-02</span>
+                    <span class="item-tag"># FRONTEND</span>
+                    <span class="item-tag"># ANIMATION</span>
+                </div>
+                <div class="item-content">
+                    <h3 class="item-title">使用 CSS 与 JS 实现优雅的打字机效果</h3>
+                    <p class="item-excerpt">探讨如何在网页中复现打字机那清脆且富有节奏感的敲击效果。这不仅是一项技术，更是一种传达情感的方式。我们将分别探索纯 CSS 与 JavaScript 的实现路径...</p>
+                </div>
+            </a>
+        </li>
+
+        <li class="archive-item">
+            <a href="#" class="archive-item-link">
+                <div class="item-meta">
+                    <span class="item-date">2026-02-14</span>
+                    <span class="item-tag"># ARCHITECTURE</span>
+                    <span class="item-tag"># VUE</span>
+                </div>
+                <div class="item-content">
+                    <h3 class="item-title">致未来的开发者：组件库的设计哲学</h3>
+                    <p class="item-excerpt">在这个模块化如同齿轮般精密的时代，构建一个高复用、低耦合的组件库显得尤为重要。本文记录了在重构邮政系统前端架构时，关于状态管理与组件通信的点滴感悟...</p>
+                </div>
+            </a>
+        </li>
+
+        <li class="archive-item">
+            <a href="#" class="archive-item-link">
+                <div class="item-meta">
+                    <span class="item-date">2026-01-30</span>
+                    <span class="item-tag"># ALGORITHM</span>
+                    <span class="item-tag"># NOTES</span>
+                </div>
+                <div class="item-content">
+                    <h3 class="item-title">寻找最短路径：从 Dijkstra 到莱顿的邮递路线</h3>
+                    <p class="item-excerpt">每一封信都承载着期盼，必须以最快的速度送达。借由探讨图论中的最短路径算法，我们来看看如何优化投递员的路线，让代码的逻辑如水流般寻找阻力最小的方向...</p>
+                </div>
+            </a>
+        </li>
+    </ul>
+</main>
+
+<footer>
+    &copy; 2026 C.H. Postal Company. All rights reserved. <br>
+    Organized by Auto Memory Dolls.
+</footer>
+
+</body>
+</html>

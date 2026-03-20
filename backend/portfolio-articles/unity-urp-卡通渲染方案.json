@@ -1,0 +1,18 @@
+{
+  "id": "unity-urp-卡通渲染方案",
+  "title": "Unity URP 卡通渲染方案",
+  "tags": "TA/Render",
+  "coverImage": "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Snipaste_2026-03-20_16-09-47.png",
+  "galleryImages": [
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Snipaste_2026-03-20_16-09-47.png",
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Snipaste_2026-03-20_16-12-48.png",
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_028_0000.png"
+  ],
+  "markdown": "本篇文章主要是自己根据市面上的卡通人物渲染方案进行整合，制作了一套卡通人物渲染方案，并作效果的展示（制作时候的吐槽），实现的效果如下：\n\n## 实现效果\n**SDF面部阴影**\n**Ramp阴影颜色映射**\n**刘海投影（深度偏移）**\n**眉毛渲染（模板测试+半透明头发）**\n**头发各向异性高光（kajiya-kay）**\n**头发高光（伪，通过高光阈值贴图控制）**\n**风格化高光（高光阈值+金属度区分+matcap）**\n**眼球渲染（matcap眼部高光 + 特殊高光）**\n**描边（后处理+模型外拓）**\n**边缘光（深度偏移）**\n**多Pass毛发**\n**Tone Mapping**\n\n## 尘白禁区-芙提娅\n做这个的时候模型没找的好，不知道是不是从pmx文件转fbx的时候有问题，加上贴图不匹配，做的时候遭老罪了。遇到的问题包括：UV错乱（一个面没有展到一起并且方向反了，头发尤为严重导致必须想其他方法计算高光）、面部法线没有处理（不知道是不是故意这样做的）、模型硬边等问题之后，另外在提供的贴图中发现了一张类似于预积分的次表面的颜色贴图，不知道原来的渲染方案有用到次表面？（在实机中没有看到类似的效果）。然后找到的光照贴图，感觉没有特别合适的，感觉是在模型变更的过程中改了UV，因此高光区域规划的不是很好，不过最后的效果还行。\n\n在制作场景时，采用的还是PBR的方案。效果如下（眼部的高光有点问题，后面的地毯用了多Pass）：\n\n**最后还是要感谢尘白禁区和模之屋提供的模型的大佬**。\n\n<div style=\"display: flex; justify-content: center; width: 100%;\">\n    <video controls preload=\"metadata\" src=\"https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Movie_006.mp4\" style=\"max-width: 100%; height: auto;\">\n    </video>\n</div>\n\n![](https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_028_0000.png)\n模型：尘白禁区\n\n## 崩坏：星穹铁道-大黑塔（舞蹈）\n这个做的时候就顺利很多了，加上了人物动画和镜头动画\n\n<div style=\"display: flex; justify-content: center; width: 100%;\">\n    <video controls preload=\"metadata\" src=\"https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Movie_022%20-%20%E5%89%AF%E6%9C%AC.mp4\" style=\"max-width: 100%; height: auto;\">\n    </video>\n</div>\n<br>\n\n<div style=\"display: flex; justify-content: center; width: 100%;\">\n    <video controls preload=\"metadata\" src=\"https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Movie_019.mp4\" style=\"max-width: 100%; height: auto;\">\n    </video>\n</div>\n<br>\nModel：miHoYo/流云景\nMotion:青柠星芋糕\n\n**最后还是要感谢米哈游和模之屋提供的模型的大佬**。\n",
+  "author": "SYSTEM",
+  "summary": "本篇文章主要是自己根据市面上的卡通人物渲染方案进行整合，制作了一套卡通人物渲染方案，并作效果的展示（制作时候的吐槽），实现的效果如下： 实现效果 SDF面部阴影 Ramp阴影颜色映射 刘海投影（深度偏移） 眉毛渲染（模板测试+半透明头发） ",
+  "showInGallery": true,
+  "showInCatalog": true,
+  "createdAt": "2026-03-20T08:37:09.657Z",
+  "updatedAt": "2026-03-20T08:37:09.657Z"
+}

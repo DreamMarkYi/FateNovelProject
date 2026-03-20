@@ -1,17 +1,29 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { portfolioProjects } from '@/data/portfolioData'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
-
-const POLL_INTERVAL_MS = 5000
+import {
+  applyOrderByIds,
+  loadPortfolioOrderConfig,
+  reindexPortfolioCards,
+} from '@/utils/portfolioOrderConfig'
 
 const remoteArticles = ref([])
 const lastSyncText = ref('未同步')
 const syncError = ref('')
+const isRefreshing = ref(false)
 const isSidebarExpanded = ref(false)
 const heroBackgroundImages = ref([])
-
-let pollTimer = null
+const orderConfig = ref({
+  homeRecentOrder: [],
+  catalogOrder: [],
+  wallOrder: [],
+})
+const profileAvatarImage = ref('https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/%E5%A4%B4%E5%83%8F.jpg')
+const avatarImageFailed = ref(false)
+const contactEmail = ref('wsbhsbd1314@gmail.com')
+const copyFeedback = ref('')
+let copyFeedbackTimer = null
 
 function normalizeRemoteProject(article, index) {
   const typeIndex = (index % 3) + 1
@@ -38,6 +50,7 @@ function normalizeRemoteProject(article, index) {
 }
 
 async function loadRemoteArticles() {
+  isRefreshing.value = true
   try {
     const response = await portfolioArticleApi.listArticles()
     const list = Array.isArray(response?.data) ? response.data : []
@@ -46,6 +59,8 @@ async function loadRemoteArticles() {
     syncError.value = ''
   } catch (error) {
     syncError.value = '文件夹同步失败，当前展示本地示例数据'
+  } finally {
+    isRefreshing.value = false
   }
 }
 
@@ -54,22 +69,75 @@ async function loadDisplayConfig() {
     const response = await portfolioArticleApi.getDisplayConfig()
     const config = response?.data || {}
     const images = Array.isArray(config.heroBackgroundImages)
-      ? config.heroBackgroundImages.map((item) => String(item || '').trim()).filter(Boolean)
-      : []
+        ? config.heroBackgroundImages.map((item) => String(item || '').trim()).filter(Boolean)
+        : []
 
     heroBackgroundImages.value = images
+    if (config.profileAvatarImage) {
+      profileAvatarImage.value = String(config.profileAvatarImage).trim()
+    }
+    if (config.contactEmail) {
+      contactEmail.value = String(config.contactEmail).trim()
+    }
+    avatarImageFailed.value = false
   } catch (error) {
     heroBackgroundImages.value = []
+    // 不在这里清空 profileAvatarImage，以便保留默认值
+    avatarImageFailed.value = false
   }
 }
 
-const displayedProjects = computed(() => {
-  if (remoteArticles.value.length > 0) {
-    return remoteArticles.value.filter((item) => item.showInCatalog !== false)
+function showCopyFeedback(message) {
+  copyFeedback.value = message
+  if (copyFeedbackTimer) {
+    clearTimeout(copyFeedbackTimer)
   }
-  return portfolioProjects.filter((item) => item.showInCatalog !== false)
+  copyFeedbackTimer = window.setTimeout(() => {
+    copyFeedback.value = ''
+  }, 2200)
+}
+
+async function copyContactEmail() {
+  const email = String(contactEmail.value || '').trim()
+  if (!email) {
+    showCopyFeedback('邮箱为空，无法复制')
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(email)
+    showCopyFeedback('邮箱已复制到剪切板')
+    return
+  } catch (error) {
+    // 兼容非安全上下文或浏览器权限限制
+  }
+
+  const fallbackInput = document.createElement('textarea')
+  fallbackInput.value = email
+  fallbackInput.setAttribute('readonly', '')
+  fallbackInput.style.position = 'fixed'
+  fallbackInput.style.top = '-9999px'
+  document.body.appendChild(fallbackInput)
+  fallbackInput.select()
+
+  const copied = document.execCommand('copy')
+  document.body.removeChild(fallbackInput)
+  showCopyFeedback(copied ? '邮箱已复制到剪切板' : '复制失败，请手动复制邮箱')
+}
+
+const displayedProjects = computed(() => {
+  const source =
+    remoteArticles.value.length > 0
+      ? remoteArticles.value.filter((item) => item.showInCatalog !== false)
+      : portfolioProjects.filter((item) => item.showInCatalog !== false)
+
+  const ordered = applyOrderByIds(source, orderConfig.value.catalogOrder)
+  return reindexPortfolioCards(ordered)
 })
-const featuredProjects = computed(() => displayedProjects.value.slice(0, 5))
+const featuredProjects = computed(() => {
+  const ordered = applyOrderByIds(displayedProjects.value, orderConfig.value.homeRecentOrder)
+  return reindexPortfolioCards(ordered).slice(0, 5)
+})
 const heroStaticImages = computed(() => {
   if (heroBackgroundImages.value.length === 0) {
     return []
@@ -79,18 +147,25 @@ const heroStaticImages = computed(() => {
   })
 })
 
+async function loadOrderConfig() {
+  orderConfig.value = await loadPortfolioOrderConfig()
+}
+
 function toggleSidebar() {
   isSidebarExpanded.value = !isSidebarExpanded.value
 }
 
+function onAvatarImageError() {
+  avatarImageFailed.value = true
+}
+
 onMounted(async () => {
-  await Promise.all([loadRemoteArticles(), loadDisplayConfig()])
-  pollTimer = window.setInterval(loadRemoteArticles, POLL_INTERVAL_MS)
+  await Promise.all([loadRemoteArticles(), loadDisplayConfig(), loadOrderConfig()])
 })
 
-onUnmounted(() => {
-  if (pollTimer) {
-    window.clearInterval(pollTimer)
+onBeforeUnmount(() => {
+  if (copyFeedbackTimer) {
+    clearTimeout(copyFeedbackTimer)
   }
 })
 </script>
@@ -99,11 +174,12 @@ onUnmounted(() => {
   <div class="portfolio-home-page">
     <nav>
       <div class="container nav-inner">
-        <router-link to="/portfolio" class="logo">COLLECTION</router-link>
+        <router-link to="/portfolio" class="logo">HOMEPAGE</router-link>
         <ul class="nav-links">
           <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
           <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
-          <li><a href="#contact">CONTACT</a></li>
+          <li><a href="/portfolio-novel-select">NOVEL</a></li>
+          <li><router-link to="/portfolio-order-config">ORDER</router-link></li>
           <li><router-link to="/portfolio-config">WORKSPACE</router-link></li>
         </ul>
       </div>
@@ -111,38 +187,47 @@ onUnmounted(() => {
 
     <section class="hero">
       <div
-        v-if="heroStaticImages.length"
-        class="hero-bg-grid"
-        aria-hidden="true"
+          v-if="heroStaticImages.length"
+          class="hero-bg-grid"
+          aria-hidden="true"
       >
         <div v-for="(image, index) in heroStaticImages" :key="`${image}-${index}`" class="hero-bg-item">
           <img :src="image" :alt="`hero-bg-${index}`" />
         </div>
       </div>
       <div class="container hero-content">
-        <h1>PORTFOLIO</h1>
-        <p>ENGINEERING / ARCHITECTURE / LOGIC</p>
-        <p class="sub-title">Architecting Systems & Rendering Realities</p>
+        <h1>Illusions Intersect Dreams</h1>
+        <p>ARTIST / ILLUSION / DREAM</p>
+        <p class="sub-title">Build World & Rendering Realities</p>
         <br />
-        <a href="#works" class="btn-scroll">VIEW WORKS</a>
+        <a href="#works" class="btn-scroll">VIEW GALLERY</a>
       </div>
-      <div class="vertical-text right-note">NO.004 - RENDER</div>
+
     </section>
 
     <section id="works" class="section works-with-sidebar">
       <aside class="left-sidebar" :class="{ 'is-expanded': isSidebarExpanded }">
         <button
-          type="button"
-          class="sidebar-toggle"
-          :aria-expanded="isSidebarExpanded"
-          :aria-label="isSidebarExpanded ? '收起侧栏' : '展开侧栏'"
-          @click="toggleSidebar"
+            type="button"
+            class="sidebar-toggle"
+            :aria-expanded="isSidebarExpanded"
+            :aria-label="isSidebarExpanded ? '收起侧栏' : '展开侧栏'"
+            @click="toggleSidebar"
         >
-          <div class="toggle-avatar-mini" v-show="!isSidebarExpanded">
-            <span class="mini-initial">D</span>
+          <div class="mini-avatar-ring" v-show="!isSidebarExpanded">
+            <div class="toggle-avatar-mini">
+              <img
+                  v-if="profileAvatarImage && !avatarImageFailed"
+                  :src="profileAvatarImage"
+                  alt="mini avatar"
+                  class="avatar-image"
+                  @error="onAvatarImageError"
+              />
+              <span v-else class="mini-initial">D</span>
+            </div>
           </div>
-          <span class="toggle-label">{{ isSidebarExpanded ? 'CLOSE PROFILE' : 'PROFILE' }}</span>
-          <div class="toggle-icon-wrap">
+          <span class="toggle-label" v-show="isSidebarExpanded">CLOSE PROFILE</span>
+          <div class="toggle-icon-wrap" v-show="isSidebarExpanded">
             <i class="line-top"></i>
             <i class="line-bottom"></i>
           </div>
@@ -152,27 +237,38 @@ onUnmounted(() => {
           <div class="profile-card">
             <div class="profile-header">
               <div class="avatar-ring">
-                <div class="avatar-inner">DrM</div>
+                <div class="avatar-inner">
+                  <img
+                      v-if="profileAvatarImage && !avatarImageFailed"
+                      :src="profileAvatarImage"
+                      alt="Profile avatar"
+                      class="avatar-image"
+                      @error="onAvatarImageError"
+                  />
+                  <span v-else>DrM</span>
+                </div>
               </div>
               <h2 class="profile-name">Illusion's DrM</h2>
-              <p class="profile-title">TECHNICAL ART / DEVELOPER</p>
+              <h2 class="profile-name">(王钧艺)</h2>
+              <p class="profile-title">TECHNICAL ARTIST </p>
             </div>
 
             <div class="profile-body">
               <p class="bio-text">
-                月厨、杉菜水姬粉丝，喜欢剧情向 Galgame 以及仁王、如龙系列。梦想是有一天能做自己的游戏。
+                月厨、杉菜水姬粉丝，喜欢剧情向Galgame以及仁王、如龙、轨迹系列。梦想是有一天能做自己的游戏。
               </p>
-              
+
               <div class="skill-tags">
-                <span>UNITY URP</span>
+                <span>GAME DEVELOPER</span>
                 <span>GRAPH RENDERING</span>
-                <span>LLM AGENTS</span>
+                <span>SCENE ARTIST</span>
               </div>
             </div>
 
             <div class="profile-footer">
-              <p class="contact-note">探讨底层逻辑与视觉边界</p>
-              <a href="mailto:email@example.com" class="btn-elegant">GET IN TOUCH</a>
+              <p class="contact-note">于是春去秋来，四季轮回</p>
+              <button type="button" class="btn-elegant" @click="copyContactEmail">GET IN TOUCH</button>
+              <p v-if="copyFeedback" class="copy-feedback">{{ copyFeedback }}</p>
             </div>
           </div>
         </div>
@@ -180,19 +276,16 @@ onUnmounted(() => {
 
       <div class="container works-main">
         <div class="section-title">
-          <h2>核心工程</h2>
+          <h2>最近文章</h2>
           <span>PROJECT DIRECTORY</span>
-          <p class="sync-tip">
-            {{ syncError || `文件夹自动同步中（每5秒），最近同步：${lastSyncText}` }}
-          </p>
         </div>
 
         <div class="portfolio-list">
           <article
-            v-for="project in featuredProjects"
-            :key="project.id"
-            class="project-row"
-            :class="project.typeClass"
+              v-for="project in featuredProjects"
+              :key="project.id"
+              class="project-row"
+              :class="project.typeClass"
           >
             <div class="project-image">
               <img v-if="project.image" :src="project.image" :alt="project.title" />
@@ -320,9 +413,9 @@ nav {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    135deg,
-    rgba(54, 54, 54, 0.1) 0%,
-    rgba(73, 73, 73, 0.1) 100%
+      135deg,
+      rgba(54, 54, 54, 0.1) 0%,
+      rgba(73, 73, 73, 0.1) 100%
   );
   z-index: 0;
 }
@@ -452,6 +545,29 @@ nav {
   color: var(--text-sub);
 }
 
+.refresh-btn {
+  margin-top: 10px;
+  border: 1px solid var(--accent-red);
+  background: transparent;
+  color: var(--accent-red);
+  font-family: 'Cinzel', serif;
+  font-size: 0.74rem;
+  letter-spacing: 0.16em;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: 0.25s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: var(--accent-red);
+  color: #fff;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .portfolio-list {
   display: flex;
   flex-direction: column;
@@ -490,8 +606,8 @@ nav {
   top: 50%;
   left: 0;
   transform: translateY(-50%);
-  width: 58px;
-  padding: 10px 8px;
+  width: 66px;
+  padding: 12px 9px;
   display: flex;
   flex-direction: column;
   border-radius: 0 16px 16px 0;
@@ -504,10 +620,10 @@ nav {
   z-index: 900;
   overflow: hidden;
   transition:
-    width 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-    padding 0.35s ease,
-    box-shadow 0.35s ease,
-    background-color 0.35s ease;
+      width 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      padding 0.35s ease,
+      box-shadow 0.35s ease,
+      background-color 0.35s ease;
 }
 
 .left-sidebar.is-expanded {
@@ -519,7 +635,8 @@ nav {
 
 .sidebar-toggle {
   width: 100%;
-  min-height: 140px;
+  min-height: 56px;
+  padding: 10px 0;
   background: transparent;
   border: none;
   color: var(--text-main);
@@ -538,16 +655,42 @@ nav {
   background: rgba(0, 0, 0, 0.03);
 }
 
+.mini-avatar-ring {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-red);
+  padding: 3px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mini-avatar-ring::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  bottom: -4px;
+  left: -4px;
+  border-radius: 50%;
+  border: 1px dashed rgba(200, 90, 90, 0.35);
+  animation: spin 20s linear infinite;
+}
+
 .toggle-avatar-mini {
-  width: 32px;
-  height: 32px;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   background: linear-gradient(135deg, #2c3e50, #4ca1af);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.3);
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .mini-initial {
@@ -629,10 +772,10 @@ nav {
   margin-top: 0;
   overflow: hidden;
   transition:
-    max-height 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.25s ease,
-    transform 0.35s ease,
-    margin-top 0.35s ease;
+      max-height 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.25s ease,
+      transform 0.35s ease,
+      margin-top 0.35s ease;
 }
 
 .left-sidebar.is-expanded .sidebar-panel {
@@ -699,6 +842,14 @@ nav {
   font-size: 1.6rem;
   letter-spacing: 2px;
   box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .profile-name {
@@ -802,11 +953,19 @@ nav {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--text-main);
+  cursor: pointer;
 }
 
 .btn-elegant:hover {
   background: #fff;
   color: var(--text-main);
+}
+
+.copy-feedback {
+  margin-top: 10px;
+  font-size: 0.72rem;
+  color: var(--accent-red);
+  letter-spacing: 0.06em;
 }
 
 .works-main .section-title {

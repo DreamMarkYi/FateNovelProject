@@ -1,16 +1,24 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { portfolioProjects } from '@/data/portfolioData'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
+import {
+  applyOrderByIds,
+  loadPortfolioOrderConfig,
+  reindexPortfolioCards,
+} from '@/utils/portfolioOrderConfig'
 
-const POLL_INTERVAL_MS = 5000
 const PAGE_SIZE = 10
 
 const remoteArticles = ref([])
 const lastSyncText = ref('未同步')
 const syncError = ref('')
-
-let pollTimer = null
+const isRefreshing = ref(false)
+const orderConfig = ref({
+  homeRecentOrder: [],
+  catalogOrder: [],
+  wallOrder: [],
+})
 
 function normalizeRemoteProject(article, index) {
   const typeIndex = (index % 3) + 1
@@ -30,6 +38,7 @@ function normalizeRemoteProject(article, index) {
 }
 
 async function loadRemoteArticles() {
+  isRefreshing.value = true
   try {
     const response = await portfolioArticleApi.listArticles()
     const list = Array.isArray(response?.data) ? response.data : []
@@ -38,14 +47,19 @@ async function loadRemoteArticles() {
     syncError.value = ''
   } catch (error) {
     syncError.value = '文件夹同步失败，当前展示本地示例数据'
+  } finally {
+    isRefreshing.value = false
   }
 }
 
 const allProjects = computed(() => {
-  if (remoteArticles.value.length > 0) {
-    return remoteArticles.value.filter((item) => item.showInCatalog !== false)
-  }
-  return portfolioProjects.filter((item) => item.showInCatalog !== false)
+  const source =
+    remoteArticles.value.length > 0
+      ? remoteArticles.value.filter((item) => item.showInCatalog !== false)
+      : portfolioProjects.filter((item) => item.showInCatalog !== false)
+
+  const ordered = applyOrderByIds(source, orderConfig.value.catalogOrder)
+  return reindexPortfolioCards(ordered)
 })
 const currentPage = ref(1)
 const totalPages = computed(() => Math.max(1, Math.ceil(allProjects.value.length / PAGE_SIZE)))
@@ -73,14 +87,7 @@ function setPage(page) {
 }
 
 onMounted(async () => {
-  await loadRemoteArticles()
-  pollTimer = window.setInterval(loadRemoteArticles, POLL_INTERVAL_MS)
-})
-
-onUnmounted(() => {
-  if (pollTimer) {
-    window.clearInterval(pollTimer)
-  }
+  await Promise.all([loadRemoteArticles(), loadPortfolioOrderConfig().then((config) => (orderConfig.value = config))])
 })
 </script>
 
@@ -92,6 +99,7 @@ onUnmounted(() => {
         <ul class="nav-links">
           <li><router-link to="/portfolio">HOME</router-link></li>
           <li><router-link to="/portfolio/wall">IMAGE WALL</router-link></li>
+          <li><router-link to="/portfolio-order-config">ORDER</router-link></li>
           <li><router-link to="/portfolio-config">WORKSPACE</router-link></li>
         </ul>
       </div>
@@ -103,9 +111,12 @@ onUnmounted(() => {
           <h1>全部文章目录</h1>
           <span>ALL PROJECT ARTICLES</span>
           <p class="sync-tip">
-            {{ syncError || `文件夹自动同步中（每5秒），最近同步：${lastSyncText}` }}
+            {{ syncError || `最近同步：${lastSyncText}` }}
           </p>
-          <p class="count-tip">总文章数：{{ allProjects.length }}（每页 10 篇）</p>
+          <button type="button" class="refresh-btn" :disabled="isRefreshing" @click="loadRemoteArticles">
+            {{ isRefreshing ? 'REFRESHING...' : 'REFRESH DATA' }}
+          </button>
+          <p class="count-tip">总文章数：{{ allProjects.length }}</p>
         </div>
 
         <div class="directory-grid">
@@ -267,6 +278,29 @@ nav {
   margin-top: 14px;
   font-size: 0.85rem;
   color: var(--text-sub);
+}
+
+.refresh-btn {
+  margin-top: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: #fff;
+  color: var(--text-main);
+  font-family: 'Cinzel', serif;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: 0.25s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .count-tip {
