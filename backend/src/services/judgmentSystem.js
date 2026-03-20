@@ -4,8 +4,6 @@
  * 包括：伤害计算、命中判定、效果判定、状态更新
  */
 
-const { SKILL_TYPES } = require('./skillDerivationService');
-
 class JudgmentSystem {
   
   // ==================== 常量定义 ====================

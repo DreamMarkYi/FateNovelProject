@@ -1,10 +1,9 @@
 /**
  * 战斗模拟器控制器 (重构版)
- * 整合三大子系统：技能衍生系统、战斗判定系统、战斗描述系统
+ * 整合子系统：战斗判定系统、战斗描述系统
  */
 
 const Character = require('../schemas/unifiedCharacterSchema');
-const SkillDerivationService = require('../services/skillDerivationService');
 const JudgmentSystem = require('../services/judgmentSystem');
 const NarrativeSystem = require('../services/narrativeSystem');
 
@@ -263,7 +262,7 @@ class BattleSimulatorController {
   
   /**
    * 初始化战斗
-   * 只加载基础技能，不生成衍生技能（衍生技能在使用技能时按需生成）
+   * 只加载基础技能
    */
   static async initBattle(req, res) {
     try {
@@ -288,8 +287,7 @@ class BattleSimulatorController {
         userProfile = DEFAULT_USER_PROFILE;
       }
 
-      // 只使用基础技能，不预先生成衍生技能
-      // 衍生技能将在每回合使用技能后按需生成
+      // 只使用基础技能
       const userBaseSkills = BattleSimulatorController.prepareBaseSkills(userProfile.baseSkills || []);
       const enemyBaseSkills = BattleSimulatorController.prepareBaseSkills(enemyProfile.baseSkills || []);
 
@@ -370,14 +368,12 @@ class BattleSimulatorController {
   
   /**
    * 执行战斗回合
-   * 并行执行：技能衍生LLM 与 (判定系统 + 描述LLM)
+   * 并行执行：判定系统 + 描述系统
    * 
    * 执行流程：
-   * 1. 点击后立即并行启动：
-   *    - 技能衍生 LLM（为使用的技能生成1-2个衍生技能）
-   *    - 战斗判定（纯代码） → 描述 LLM（需要判定结果）
-   * 2. 使用 Promise.all 等待两者完成
-   * 3. 返回结果（包含新衍生的技能）
+   * 1. 战斗判定（纯代码）
+   * 2. 描述系统（基于判定结果）
+   * 3. 返回结果
    */
   static async executeTurn(req, res) {
     try {
@@ -448,13 +444,13 @@ class BattleSimulatorController {
       }
 
       // 检查技能使用条件
-      const conditionCheck = SkillDerivationService.quickConditionCheck(userSkill, battleState);
+      const conditionCheck = BattleSimulatorController.quickConditionCheck(userSkill, battleState);
       if (!conditionCheck.canUse) {
         return res.status(400).json({ success: false, message: conditionCheck.reason });
       }
 
       // 检查技能是否被封印
-      if (SkillDerivationService.isSkillSealed(userSkill, battleState.user, battleState.turn)) {
+      if (BattleSimulatorController.isSkillSealed(userSkill, battleState.user, battleState.turn)) {
         return res.status(400).json({ success: false, message: '该技能已被封印' });
       }
 
@@ -469,16 +465,8 @@ class BattleSimulatorController {
       console.log(`  用户: ${userSkill.name} -> ${JSON.stringify(judgmentResult.user.effects)}`);
       console.log(`  敌人: ${enemySkill.name} -> ${JSON.stringify(judgmentResult.enemy.effects)}`);
 
-      // ==================== 并行执行两个 LLM 任务 ====================
-      
-      // 任务1：技能衍生 LLM（为用户使用的技能生成衍生，不阻塞）
-      const skillDerivationPromise = BattleSimulatorController.deriveSkillsForUsedSkill(
-        userSkill, 
-        userProfile,
-        userSkills
-      );
-
-      // 任务2：战斗描述 LLM（需要判定结果，串行依赖）
+      // ==================== 描述系统任务 ====================
+      // 描述生成（基于判定结果）
       // 现在返回 { narrative, summary } 用于记忆系统
       const narrativePromise = (async () => {
         try {
@@ -498,11 +486,7 @@ class BattleSimulatorController {
         }
       })();
 
-      // 并行等待两个任务完成
-      const [derivedSkills, narrativeResult] = await Promise.all([
-        skillDerivationPromise,
-        narrativePromise
-      ]);
+      const narrativeResult = await narrativePromise;
 
       // 解构叙述结果（兼容新旧格式）
       const narrative = typeof narrativeResult === 'string' 
@@ -512,7 +496,6 @@ class BattleSimulatorController {
         ? narrativeResult.summary 
         : `${userSkill.name} vs ${enemySkill.name}`;
 
-      console.log(`  新衍生技能: ${derivedSkills.length} 个`);
       console.log(`  回合摘要: ${narrativeSummary.substring(0, 50)}...`);
 
       // 构建返回数据（包含摘要用于前端记忆）
@@ -534,8 +517,8 @@ class BattleSimulatorController {
         success: true,
         data: {
           turnData,
-          // 新衍生的技能（前端需要添加到技能列表）
-          newDerivedSkills: derivedSkills,
+          // 已移除技能衍生功能，保持兼容字段
+          newDerivedSkills: [],
           battleState: {
             userHp: judgmentResult.summary.userHp,
             userMp: judgmentResult.summary.userMp,
@@ -569,49 +552,6 @@ class BattleSimulatorController {
     }
   }
 
-  /**
-   * 为使用的技能生成衍生技能
-   * 只为基础技能生成衍生，衍生技能不会再衍生
-   */
-  static async deriveSkillsForUsedSkill(usedSkill, characterProfile, existingSkills) {
-    try {
-      // 只为基础技能生成衍生
-      if (!usedSkill.isBase) {
-        console.log(`  跳过衍生：${usedSkill.name} 不是基础技能`);
-        return [];
-      }
-
-      // 检查是否已经有足够的衍生技能
-      const existingDerived = existingSkills.filter(s => s.derivedFrom === usedSkill.id);
-      if (existingDerived.length >= 3) {
-        console.log(`  跳过衍生：${usedSkill.name} 已有 ${existingDerived.length} 个衍生`);
-        return [];
-      }
-
-      console.log(`  开始为 ${usedSkill.name} 生成衍生技能...`);
-      
-      // 生成 1-2 个衍生技能
-      const derivedSkills = await SkillDerivationService.deriveSkills(
-        usedSkill,
-        characterProfile,
-        existingSkills,
-        2 // 每次生成2个衍生
-      );
-
-      // 过滤掉已存在的技能（防止重复）
-      const newSkills = derivedSkills.filter(newSkill => 
-        !existingSkills.some(existing => 
-          existing.id === newSkill.id || existing.name === newSkill.name
-        )
-      );
-
-      return newSkills;
-    } catch (error) {
-      console.error(`技能衍生失败 (${usedSkill.name}):`, error);
-      return []; // 失败时返回空数组，不影响战斗流程
-    }
-  }
-
   // ==================== AI技能选择 ====================
   
   /**
@@ -623,11 +563,11 @@ class BattleSimulatorController {
     // 获取可用技能（排除封印和冷却，检查MP）
     const availableSkills = (enemy.skills || []).filter(skill => {
       // 检查封印
-      if (SkillDerivationService.isSkillSealed(skill, enemy, turn)) {
+      if (BattleSimulatorController.isSkillSealed(skill, enemy, turn)) {
         return false;
       }
       // 检查条件
-      const check = SkillDerivationService.quickConditionCheck(skill, { 
+      const check = BattleSimulatorController.quickConditionCheck(skill, {
         user: enemy, enemy: user, field, turn 
       });
       return check.canUse;
@@ -930,6 +870,77 @@ class BattleSimulatorController {
     }
     
     return 'attack';
+  }
+
+  static quickConditionCheck(skill, battleState) {
+    const { user, enemy, field, turn } = battleState;
+
+    if (!skill.conditions || skill.conditions.length === 0) {
+      if (user.mp < (skill.cost || 0)) {
+        return { canUse: false, reason: `MP不足（需要${skill.cost}，当前${user.mp}）` };
+      }
+      return { canUse: true, reason: '' };
+    }
+
+    for (const condition of skill.conditions) {
+      switch (condition.type) {
+        case 'mp_above':
+          if (user.mp < condition.value) {
+            return { canUse: false, reason: `MP需高于${condition.value}（当前${user.mp}）` };
+          }
+          break;
+        case 'hp_below': {
+          const hpTarget = condition.target === 'enemy' ? enemy : user;
+          const hpPercent = (hpTarget.hp / hpTarget.maxHp) * 100;
+          if (hpPercent > condition.value) {
+            return { canUse: false, reason: `HP需低于${condition.value}%` };
+          }
+          break;
+        }
+        case 'hp_above': {
+          const hpTarget = condition.target === 'enemy' ? enemy : user;
+          const hpPercent = (hpTarget.hp / hpTarget.maxHp) * 100;
+          if (hpPercent < condition.value) {
+            return { canUse: false, reason: `HP需高于${condition.value}%` };
+          }
+          break;
+        }
+        case 'field_exists':
+          if (!field.activeEffects || !field.activeEffects.some(e => e.type === condition.value)) {
+            return { canUse: false, reason: `需要存在${condition.value}类型的场地效果` };
+          }
+          break;
+        case 'cooldown': {
+          const lastUsed = user.skillCooldowns?.[skill.id] || 0;
+          if (turn - lastUsed < condition.value) {
+            return { canUse: false, reason: `冷却中（剩余${condition.value - (turn - lastUsed)}回合）` };
+          }
+          break;
+        }
+        case 'turn_count':
+          if (turn < condition.value) {
+            return { canUse: false, reason: `需要第${condition.value}回合后才能使用` };
+          }
+          break;
+        case 'sealed_enemy':
+          if (!enemy.sealedSkills || enemy.sealedSkills.length === 0) {
+            return { canUse: false, reason: '需要敌人有被封印的技能' };
+          }
+          break;
+      }
+    }
+
+    if (user.mp < (skill.cost || 0)) {
+      return { canUse: false, reason: `MP不足（需要${skill.cost}，当前${user.mp}）` };
+    }
+
+    return { canUse: true, reason: '' };
+  }
+
+  static isSkillSealed(skill, character, turn) {
+    if (!character.sealedSkills) return false;
+    const sealed = character.sealedSkills.find(s => s.id === skill.id);
+    return sealed && sealed.until > turn;
   }
 }
 
