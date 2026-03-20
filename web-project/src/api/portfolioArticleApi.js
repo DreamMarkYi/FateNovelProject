@@ -1,6 +1,9 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+const isProd = import.meta.env.PROD
+const envBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim()
+// 生产环境默认走同源反向代理，避免依赖 localhost
+const API_BASE_URL = envBaseUrl || (isProd ? '' : 'http://localhost:3000')
 const API_PREFIX = '/api/portfolio'
 
 const api = axios.create({

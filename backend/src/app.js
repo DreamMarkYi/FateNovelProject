@@ -35,17 +35,19 @@ const app = express();
 // 安全中间件
 app.use(helmet());
 
-// CORS配置
-const allowedOrigins = Array.from(
-  new Set([
-    'http://localhost:5173',
-    'https://www.illusiondrm.com',
-    ...String(config.cors.origin || '')
-      .split(',')
-      .map(origin => origin.trim())
-      .filter(Boolean)
-  ])
-);
+// CORS配置（生产环境不默认放行 localhost）
+const isProduction = String(config.nodeEnv || '').toLowerCase() === 'production';
+const baseAllowedOrigins = [
+  'https://www.illusiondrm.com',
+  ...String(config.cors.origin || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean),
+];
+if (!isProduction) {
+  baseAllowedOrigins.push('http://localhost:5173');
+}
+const allowedOrigins = Array.from(new Set(baseAllowedOrigins));
 
 app.use(cors({
   origin: (origin, callback) => {
