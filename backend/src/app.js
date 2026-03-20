@@ -36,8 +36,26 @@ const app = express();
 app.use(helmet());
 
 // CORS配置
+const allowedOrigins = Array.from(
+  new Set([
+    'http://localhost:5173',
+    'https://www.illusiondrm.com',
+    ...String(config.cors.origin || '')
+      .split(',')
+      .map(origin => origin.trim())
+      .filter(Boolean)
+  ])
+);
+
 app.use(cors({
-  origin: config.cors.origin,
+  origin: (origin, callback) => {
+    // 允许无 Origin 的请求（例如部分服务端到服务端请求）
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true
 }));
 
