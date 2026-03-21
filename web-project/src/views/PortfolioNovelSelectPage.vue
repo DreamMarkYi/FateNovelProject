@@ -9,7 +9,7 @@ const router = useRouter()
 const bookData = ref({
   id: 'novel-01',
   title: '雪坠银链时',
-  subtitle: 'THE BOUNDARY OF THE GLASS SEA',
+  subtitle: ' ~Imaginary White~',
   author: "Illusion's DrM",
   status: '连载中',
   tags: ['雪', '视觉小说', '时空交错'],
