@@ -394,13 +394,77 @@ function normalizeDisplayConfig(rawConfig) {
   };
 }
 
+function normalizeVolumeNumber(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1) {
+    return 1;
+  }
+  return Math.min(Math.floor(n), 9999);
+}
+
+/** 卷名为空时使用的默认展示文案 */
+const DEFAULT_VOLUME_NAME = '第一卷：已发布章节';
+
+function normalizeVolumeNameString(value) {
+  const s = String(value ?? '').trim();
+  if (!s) {
+    return DEFAULT_VOLUME_NAME;
+  }
+  return s.slice(0, 200);
+}
+
+function legacyVolumeNumberToVolumeName(n) {
+  const num = normalizeVolumeNumber(n);
+  const names = [
+    '一',
+    '二',
+    '三',
+    '四',
+    '五',
+    '六',
+    '七',
+    '八',
+    '九',
+    '十',
+    '十一',
+    '十二',
+    '十三',
+    '十四',
+    '十五',
+    '十六',
+    '十七',
+    '十八',
+    '十九',
+    '二十',
+  ];
+  const head = num <= 20 ? `第${names[num - 1]}卷` : `第${num}卷`;
+  return `${head}：已发布章节`;
+}
+
+function deriveVolumeNameFromParsed(parsed) {
+  if (!parsed || typeof parsed !== 'object') {
+    return DEFAULT_VOLUME_NAME;
+  }
+  const direct = String(parsed.volumeName || '').trim();
+  if (direct) {
+    return direct.slice(0, 200);
+  }
+  if (parsed.volume !== undefined && parsed.volume !== null && parsed.volume !== '') {
+    const n = Number(parsed.volume);
+    if (Number.isFinite(n) && n >= 1) {
+      return legacyVolumeNumberToVolumeName(n);
+    }
+  }
+  return DEFAULT_VOLUME_NAME;
+}
+
 function normalizeNovelData(rawData) {
   const data = rawData && typeof rawData === 'object' ? rawData : {};
   const normalizedWordCount = Number(data.wordCount);
 
   return {
     id: 'portfolio-novel',
-    title: String(data.title || '玻璃之海的边界').trim(),
+    title: String(data.title || '雪坠银链时 ~Imaginary White~').trim(),
     chapter: String(data.chapter || '第一章：雨中的交错').trim(),
     author: String(data.author || "Illusion's DrM").trim(),
     wordCount:
@@ -408,6 +472,7 @@ function normalizeNovelData(rawData) {
     updateDate: String(data.updateDate || '2026.03.14').trim(),
     coverImage: String(data.coverImage || '').trim(),
     markdown: String(data.markdown || '').trim(),
+    volumeName: deriveVolumeNameFromParsed(data),
   };
 }
 
@@ -444,8 +509,27 @@ async function readNovelFile(fullPath) {
     markdown: parsed.markdown || '',
     tags: parsed.tags || 'Novel',
     summary: parsed.summary || buildSummary(parsed.markdown || ''),
+    volumeName: deriveVolumeNameFromParsed(parsed),
     createdAt: parsed.createdAt || null,
     updatedAt: parsed.updatedAt || null,
+  };
+}
+
+/** 章节目录列表用：不得包含正文或可由正文推导的摘要，避免绕过姓名验证 */
+function toNovelChapterListItem(full) {
+  if (!full || typeof full !== 'object') {
+    return null;
+  }
+  return {
+    id: full.id,
+    title: full.title,
+    chapter: full.chapter,
+    author: full.author,
+    coverImage: full.coverImage,
+    tags: full.tags,
+    volumeName: normalizeVolumeNameString(full.volumeName),
+    createdAt: full.createdAt,
+    updatedAt: full.updatedAt,
   };
 }
 
@@ -764,6 +848,8 @@ class PortfolioController {
 
       const data = chapters
         .filter(Boolean)
+        .map((ch) => toNovelChapterListItem(ch))
+        .filter(Boolean)
         .sort((a, b) => {
           const ta = new Date(a.updatedAt || a.createdAt || 0).getTime();
           const tb = new Date(b.updatedAt || b.createdAt || 0).getTime();
@@ -827,7 +913,8 @@ class PortfolioController {
 
   static async saveNovelChapter(req, res) {
     try {
-      const { id, title, chapter, coverImage, markdown, author, tags } = req.body || {};
+      const body = req.body || {};
+      const { id, title, chapter, coverImage, markdown, author, tags, volumeName, volume } = body;
       const normalizedId = normalizeId(id || chapter || title);
       const safeId = ensureSafeId(normalizedId);
 
@@ -852,13 +939,22 @@ class PortfolioController {
       const nowIso = new Date().toISOString();
 
       let createdAt = nowIso;
+      let volumeNameFromExisting = DEFAULT_VOLUME_NAME;
       try {
         const existing = await readNovelFile(chapterPath);
         createdAt = existing.createdAt || nowIso;
+        volumeNameFromExisting = normalizeVolumeNameString(existing.volumeName);
       } catch (error) {
         if (error.code !== 'ENOENT') {
           throw error;
         }
+      }
+
+      let resolvedVolumeName = volumeNameFromExisting;
+      if (Object.prototype.hasOwnProperty.call(body, 'volumeName')) {
+        resolvedVolumeName = normalizeVolumeNameString(volumeName);
+      } else if (volume !== undefined && volume !== null && volume !== '') {
+        resolvedVolumeName = legacyVolumeNumberToVolumeName(volume);
       }
 
       const chapterData = {
@@ -870,6 +966,7 @@ class PortfolioController {
         coverImage: String(coverImage || '').trim(),
         markdown: String(markdown || ''),
         summary: buildSummary(markdown),
+        volumeName: resolvedVolumeName,
         createdAt,
         updatedAt: nowIso,
       };

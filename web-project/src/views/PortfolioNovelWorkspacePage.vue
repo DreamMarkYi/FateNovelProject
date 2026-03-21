@@ -7,6 +7,8 @@ import { renderMarkdown } from '@/utils/markdownRenderer'
 const route = useRoute()
 const router = useRouter()
 
+const DEFAULT_VOLUME_NAME = '第一卷：已发布章节'
+
 const form = reactive({
   id: '',
   title: '',
@@ -16,6 +18,7 @@ const form = reactive({
   updateDate: '',
   coverImage: '',
   markdown: '',
+  volumeName: DEFAULT_VOLUME_NAME,
 })
 
 const isLoading = ref(false)
@@ -27,6 +30,10 @@ const previewChapter = computed(() => form.chapter.trim() || '未命名章节')
 const previewAuthor = computed(() => form.author.trim() || 'SYSTEM')
 const previewWordCount = computed(() => Number(form.wordCount) || 0)
 const previewUpdateDate = computed(() => form.updateDate.trim() || '--')
+const previewVolumeName = computed(() => {
+  const s = String(form.volumeName || '').trim()
+  return s || DEFAULT_VOLUME_NAME
+})
 
 function applyNovelData(data = {}) {
   form.id = String(data.id || '')
@@ -37,6 +44,8 @@ function applyNovelData(data = {}) {
   form.updateDate = String(data.updateDate || '')
   form.coverImage = String(data.coverImage || '')
   form.markdown = String(data.markdown || '')
+  const vn = String(data.volumeName || '').trim()
+  form.volumeName = vn || DEFAULT_VOLUME_NAME
 }
 
 async function loadNovel() {
@@ -78,6 +87,7 @@ async function onSave() {
       tags: 'Novel',
       coverImage: form.coverImage,
       markdown: form.markdown,
+      volumeName: String(form.volumeName || '').trim() || DEFAULT_VOLUME_NAME,
     })
     const savedId = response?.data?.id
     if (savedId) {
@@ -137,6 +147,16 @@ watch(
           <input v-model="form.chapter" type="text" placeholder="输入当前章节名称" />
         </div>
 
+        <div class="input-group">
+          <label>VOLUME NAME（卷名）</label>
+          <input
+            v-model="form.volumeName"
+            type="text"
+            class="volume-name-input"
+            placeholder="例如：第一卷：已发布章节、第二卷：雨与边界"
+          />
+        </div>
+
         <div class="inline-group">
           <div class="input-group">
             <label>AUTHOR</label>
@@ -169,6 +189,7 @@ watch(
         <div class="preview-header">LIVE PREVIEW</div>
         <div class="preview-content">
           <div class="novel-book-title">{{ previewTitle }}</div>
+          <p class="preview-volume-label">{{ previewVolumeName }}</p>
           <h1 class="chapter-title">{{ previewChapter }}</h1>
 
           <div class="novel-meta">
@@ -316,6 +337,31 @@ header {
 
 .input-group input:focus {
   border-bottom-color: var(--accent-red);
+}
+
+.volume-name-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 0;
+  font-family: inherit;
+  font-size: 1rem;
+  outline: none;
+  background: transparent;
+  color: var(--text-main);
+}
+
+.volume-name-input:focus {
+  border-bottom-color: var(--accent-red);
+}
+
+.preview-volume-label {
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  color: var(--text-sub);
+  margin: -8px 0 16px;
 }
 
 .md-textarea {

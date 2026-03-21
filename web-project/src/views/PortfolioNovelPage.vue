@@ -9,6 +9,13 @@ const router = useRouter()
 
 const loading = ref(false)
 const chapterList = ref([])
+const DEFAULT_VOLUME_NAME = '第一卷：已发布章节'
+
+function volumeNameOrDefault(value) {
+  const s = String(value ?? '').trim()
+  return s || DEFAULT_VOLUME_NAME
+}
+
 const novelData = ref({
   id: 'portfolio-novel',
   title: '雪坠银链时 ~Imaginary White~',
@@ -16,6 +23,7 @@ const novelData = ref({
   author: 'Illusion\'s DrM',
   wordCount: 3240,
   updateDate: '2026.03.14',
+  volumeName: DEFAULT_VOLUME_NAME,
   coverImage: 'https://images.unsplash.com/photo-1518382473480-1a657cba32a7?q=80&w=1600&auto=format&fit=crop', // 占位图
   // 这里是一段模拟的小说 Markdown 内容
   markdown: `
@@ -46,6 +54,7 @@ const novelData = ref({
 const loadError = ref('')
 
 const markdownHtml = computed(() => renderMarkdown(novelData.value.markdown || ''))
+const displayVolumeName = computed(() => volumeNameOrDefault(novelData.value.volumeName))
 const currentChapterIndex = computed(() =>
   chapterList.value.findIndex((item) => item.id === novelData.value.id)
 )
@@ -116,6 +125,7 @@ async function loadNovelData(chapterId = '') {
           markdown: chapter.markdown || '',
           updateDate: formatDate(chapter.updatedAt || chapter.createdAt || baseNovel.updateDate),
           wordCount: calcWordCount(chapter.markdown),
+          volumeName: volumeNameOrDefault(chapter.volumeName ?? baseNovel.volumeName),
         }
         return
       }
@@ -125,6 +135,7 @@ async function loadNovelData(chapterId = '') {
       ...novelData.value,
       ...baseNovel,
       id: baseNovel.id || 'portfolio-novel',
+      volumeName: volumeNameOrDefault(baseNovel.volumeName),
     }
   } catch (error) {
     if (error?.response?.status === 403) {
@@ -197,6 +208,7 @@ watch(
 
       <header class="novel-header">
         <div class="novel-book-title">{{ novelData.title }}</div>
+        <p class="novel-volume-line">{{ displayVolumeName }}</p>
         <h1 class="chapter-title">{{ novelData.chapter }}</h1>
 
         <div class="novel-meta">
@@ -365,6 +377,14 @@ ul {
   color: var(--accent-ice);
   margin-bottom: 20px;
   text-transform: uppercase;
+}
+
+.novel-volume-line {
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  color: var(--text-sub);
+  margin: -6px 0 18px;
 }
 
 .chapter-title {

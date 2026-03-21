@@ -7,8 +7,8 @@ const router = useRouter()
 
 const bookData = ref({
   id: 'novel-01',
-  title: '雪坠银链时 ',
-  subtitle: '~Imaginary White~',
+  title: '雪坠银链时',
+  subtitle: 'THE BOUNDARY OF THE GLASS SEA',
   author: "Illusion's DrM",
   status: '连载中',
   tags: ['雪', '视觉小说', '时空交错'],
@@ -25,14 +25,45 @@ const guardianNameInput = ref('')
 const verifyLoading = ref(false)
 const verifyError = ref('')
 
-const volumes = computed(() => [
-  {
-    id: 'vol-1',
-    title: '第一卷：已发布章节',
-    englishTitle: 'VOL 1. PUBLISHED CHAPTERS',
-    chapters: chapters.value,
-  },
-])
+const DEFAULT_VOLUME_NAME = '第一卷：已发布章节'
+
+/** 卷名完全一致（去首尾空格后）的章节归入同一卷；空卷名与默认卷名视为同一组 */
+function volumeGroupKey(name) {
+  const s = String(name ?? '').trim()
+  return s || DEFAULT_VOLUME_NAME
+}
+
+const volumes = computed(() => {
+  const keyOrder = []
+  const map = new Map()
+  for (const ch of chapters.value) {
+    const key = volumeGroupKey(ch.volumeName)
+    if (!map.has(key)) {
+      map.set(key, [])
+      keyOrder.push(key)
+    }
+    map.get(key).push(ch)
+  }
+  return keyOrder.map((key, idx) => {
+    const list = map
+      .get(key)
+      .slice()
+      .sort((a, b) => {
+        const ta = new Date(a.sortTime || 0).getTime()
+        const tb = new Date(b.sortTime || 0).getTime()
+        return ta - tb
+      })
+    return {
+      id: `vol-${idx}`,
+      title: key,
+      englishTitle: key.toUpperCase(),
+      chapters: list.map((c, cIdx) => ({
+        ...c,
+        number: String(cIdx + 1).padStart(2, '0'),
+      })),
+    }
+  })
+})
 
 const firstChapter = computed(() => chapters.value[0] || null)
 function formatDate(value) {
@@ -78,6 +109,8 @@ async function loadChapters() {
         date: formatDate(updatedAt),
         isNew: daysFromNow <= 7,
         isLocked: false,
+        volumeName: item.volumeName,
+        sortTime: updatedAt,
       }
     })
   } catch (error) {
