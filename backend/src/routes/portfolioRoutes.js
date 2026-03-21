@@ -11,6 +11,7 @@ router.post('/novel/chapters/:id/access', PortfolioController.verifyNovelChapter
 router.get('/novel/chapters/:id', PortfolioController.getNovelChapterById);
 router.post('/memos/access', PortfolioController.verifyMemoAccess);
 router.get('/memos', PortfolioController.listMemos);
+router.patch('/memos/:id', PortfolioController.updateMemoDevFlags);
 router.post('/memos', PortfolioController.saveMemo);
 router.get('/articles', PortfolioController.listArticles);
 router.get('/articles/:id', PortfolioController.getArticleById);

@@ -98,6 +98,12 @@ export const portfolioArticleApi = {
     })
   },
 
+  /** 仅开发环境后端接受；用于置顶 */
+  async updateMemoDevFlags(id, payload) {
+    const safeId = String(id || '').trim()
+    return api.patch(`${API_PREFIX}/memos/${encodeURIComponent(safeId)}`, payload)
+  },
+
   async saveArticle(payload) {
     return api.post(`${API_PREFIX}/articles`, payload)
   },

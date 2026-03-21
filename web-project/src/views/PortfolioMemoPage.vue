@@ -1,6 +1,10 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
+import { renderMemoRichText } from '@/utils/memoRichText'
+
+/** 与 Vite 一致：仅本地开发构建为 true，生产包中不可编辑置顶 */
+const isDevUi = import.meta.env.DEV
 
 const MEMO_ACCESS_TOKEN_KEY = 'portfolio-memo-access-token'
 
@@ -8,7 +12,7 @@ const pageInfo = ref({
   title: '匣',
   subtitle: 'FRAGMENTS & WHISPERS',
   author: "Illusion's DrM",
-  summary: '把思绪切碎，装进时间的玻璃瓶里。这里是一些零散的想法、开发时的灵光一闪，以及日常生活的细小切片。没有沉重的篇章，只有轻盈的足迹。',
+  summary: '主要记录一些零散的想法吧，平时因为种种原因没法实现的东西，记录在这里，或许有一天去做了。',
 })
 
 const memos = ref([])
@@ -29,8 +33,26 @@ const accessVerifyError = ref('')
 /** 当前查看详情的便签（点击列表项打开） */
 const detailMemo = ref(null)
 
+const devEditPinned = ref(false)
+const devFlagsSaving = ref(false)
+const devFlagsError = ref('')
+
+watch(detailMemo, (m) => {
+  if (m) {
+    devEditPinned.value = Boolean(m.pinned)
+    devFlagsError.value = ''
+  }
+})
+
 const sortedMemos = computed(() =>
-  [...memos.value].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  [...memos.value].sort((a, b) => {
+    const pa = a.pinned ? 1 : 0
+    const pb = b.pinned ? 1 : 0
+    if (pa !== pb) {
+      return pb - pa
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })
 )
 
 function getMemoAccessToken() {
@@ -127,6 +149,34 @@ function openMemoDetail(memo) {
 
 function closeMemoDetail() {
   detailMemo.value = null
+}
+
+async function applyMemoDevFlags() {
+  if (!isDevUi || !detailMemo.value?.id) {
+    return
+  }
+
+  devFlagsSaving.value = true
+  devFlagsError.value = ''
+
+  try {
+    const response = await portfolioArticleApi.updateMemoDevFlags(detailMemo.value.id, {
+      pinned: devEditPinned.value,
+    })
+    const updated = response?.data
+    if (updated) {
+      const idx = memos.value.findIndex((x) => x.id === updated.id)
+      if (idx >= 0) {
+        memos.value[idx] = { ...memos.value[idx], ...updated }
+      }
+      detailMemo.value = { ...detailMemo.value, ...updated }
+    }
+  } catch (error) {
+    devFlagsError.value =
+      error?.response?.data?.message || error?.message || '保存失败'
+  } finally {
+    devFlagsSaving.value = false
+  }
 }
 
 function onDetailModalMaskClick(event) {
@@ -273,6 +323,7 @@ onMounted(loadMemos)
             v-for="memo in sortedMemos"
             :key="memo.id"
             class="memo-item"
+            :class="{ 'memo-item--pinned': memo.pinned }"
             role="button"
             tabindex="0"
             :aria-label="'查看便签 ' + (memo.id || '')"
@@ -291,7 +342,11 @@ onMounted(loadMemos)
 
           <!-- 右侧：便签内容 -->
           <div class="memo-content-block">
-            <p class="memo-text">{{ memo.content }}</p>
+            <span v-if="memo.pinned" class="memo-pin-badge">置顶</span>
+            <div
+              class="memo-text memo-text-rich"
+              v-html="renderMemoRichText(memo.content)"
+            ></div>
             <div class="memo-footer" v-if="memo.tags && memo.tags.length">
               <span v-for="tag in memo.tags" :key="tag" class="memo-tag">
                 # {{ tag }}
@@ -356,7 +411,7 @@ onMounted(loadMemos)
         <textarea
             v-model="newMemoContent"
             class="modal-textarea"
-            placeholder="写下你的想法... (支持 Markdown 语法)"
+            placeholder="写下你的想法... 用 **文字** 包裹需要加粗的部分"
             rows="6"
             autofocus
         ></textarea>
@@ -405,10 +460,34 @@ onMounted(loadMemos)
               {{ formatMemoDate(detailMemo.createdAt).time }}
             </span>
           </p>
-          <div class="memo-detail-body">{{ detailMemo.content }}</div>
+          <div
+            class="memo-detail-body memo-detail-body-rich"
+            v-html="renderMemoRichText(detailMemo.content)"
+          ></div>
           <div v-if="detailMemo.tags && detailMemo.tags.length" class="memo-detail-footer">
             <span v-for="tag in detailMemo.tags" :key="tag" class="memo-tag"># {{ tag }}</span>
           </div>
+
+          <div v-if="isDevUi" class="memo-dev-flags">
+            <p class="memo-dev-flags-title">开发者模式 · 置顶</p>
+            <p class="memo-dev-flags-hint">
+              仅在本地开发（Vite dev）且后端 NODE_ENV=development 时可保存。加粗请在正文中使用 **文字**。
+            </p>
+            <label class="memo-dev-checkbox">
+              <input v-model="devEditPinned" type="checkbox" />
+              置顶（列表优先展示）
+            </label>
+            <p v-if="devFlagsError" class="modal-error">{{ devFlagsError }}</p>
+            <button
+              type="button"
+              class="btn-confirm memo-dev-save"
+              :disabled="devFlagsSaving"
+              @click.stop="applyMemoDevFlags"
+            >
+              {{ devFlagsSaving ? '保存中…' : '保存版式设置' }}
+            </button>
+          </div>
+
           <div class="modal-actions memo-detail-actions">
             <span class="shortcut-tip">Esc 关闭</span>
             <div class="actions-right">
@@ -670,6 +749,24 @@ ul {
   transform: scaleY(1);
 }
 
+.memo-item--pinned {
+  border-left: 3px solid var(--accent-red);
+  padding-left: 12px;
+  margin-left: -4px;
+}
+
+.memo-pin-badge {
+  display: inline-block;
+  font-family: 'Cinzel', serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  color: var(--accent-red);
+  border: 1px solid rgba(200, 90, 90, 0.45);
+  padding: 2px 8px;
+  margin-bottom: 10px;
+  align-self: flex-start;
+}
+
 .memo-date-block {
   flex-shrink: 0;
   width: 100px;
@@ -719,6 +816,11 @@ ul {
   -webkit-line-clamp: 6;
   line-clamp: 6;
   overflow: hidden;
+}
+
+.memo-text-rich :deep(strong) {
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .memo-footer {
@@ -813,6 +915,54 @@ ul {
   padding-right: 4px;
   margin: 0;
   text-align: justify;
+}
+
+.memo-detail-body-rich :deep(strong) {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.memo-dev-flags {
+  margin-top: 22px;
+  padding: 16px 18px;
+  border: 1px dashed rgba(200, 90, 90, 0.35);
+  background: rgba(200, 90, 90, 0.04);
+}
+
+.memo-dev-flags-title {
+  margin: 0 0 6px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  color: var(--accent-red);
+}
+
+.memo-dev-flags-hint {
+  margin: 0 0 14px;
+  font-size: 0.78rem;
+  color: var(--text-sub);
+  line-height: 1.6;
+}
+
+.memo-dev-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: var(--text-main);
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.memo-dev-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-red);
+}
+
+.memo-dev-save {
+  margin-top: 12px;
+  width: 100%;
 }
 
 .memo-detail-footer {

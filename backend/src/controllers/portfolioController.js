@@ -546,6 +546,7 @@ async function readMemoFile(fullPath) {
     updatedAt: parsed.updatedAt || null,
     content: String(parsed.content || ''),
     tags,
+    pinned: Boolean(parsed.pinned),
   };
 }
 
@@ -709,6 +710,11 @@ class PortfolioController {
       const data = memos
         .filter(Boolean)
         .sort((a, b) => {
+          const pa = a.pinned ? 1 : 0;
+          const pb = b.pinned ? 1 : 0;
+          if (pa !== pb) {
+            return pb - pa;
+          }
           const ta = new Date(a.createdAt || 0).getTime();
           const tb = new Date(b.createdAt || 0).getTime();
           return tb - ta;
@@ -717,6 +723,64 @@ class PortfolioController {
       return res.json({
         success: true,
         data,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
+  /**
+   * 开发环境：更新便签置顶（生产环境拒绝）
+   */
+  static async updateMemoDevFlags(req, res) {
+    try {
+      if (!isDevelopmentMode()) {
+        return res.status(403).json({
+          success: false,
+          message: '仅在开发环境下可修改置顶',
+        });
+      }
+
+      const safeId = ensureSafeId(req.params.id);
+      if (!safeId) {
+        return res.status(400).json({
+          success: false,
+          message: '便签 ID 不合法',
+        });
+      }
+
+      const memoPath = buildMemoPath(safeId);
+      let existing;
+      try {
+        existing = await readMemoFile(memoPath);
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          return res.status(404).json({
+            success: false,
+            message: '便签不存在',
+          });
+        }
+        throw error;
+      }
+
+      const body = req.body || {};
+      const pinned = body.pinned !== undefined ? Boolean(body.pinned) : Boolean(existing.pinned);
+
+      const memoData = {
+        ...existing,
+        pinned,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await fs.writeFile(memoPath, JSON.stringify(memoData, null, 2), 'utf8');
+
+      return res.json({
+        success: true,
+        message: '便签属性已更新',
+        data: memoData,
       });
     } catch (error) {
       return res.status(500).json({
@@ -760,6 +824,7 @@ class PortfolioController {
         id: memoId,
         content,
         tags,
+        pinned: false,
         createdAt: nowIso,
         updatedAt: nowIso,
       };
