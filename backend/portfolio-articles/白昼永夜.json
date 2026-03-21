@@ -1,0 +1,17 @@
+{
+  "id": "白昼永夜",
+  "title": "「白昼、永夜」",
+  "tags": "Illustration Art",
+  "coverImage": "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/fullNight_BG_HighResolution.png",
+  "galleryImages": [
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/fullNight_BG_HighResolution.png",
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/fullDay_BG_HighResolution.png"
+  ],
+  "markdown": "\n> \"置身白日之下，堕入暗夜之中。\"\n\n![](https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/fullNight_BG_HighResolution.png)\n\n![](https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/fullDay_BG_HighResolution.png)",
+  "author": "SYSTEM",
+  "summary": "(AI作品)\"置身白日之下，堕入暗夜之中。\" ",
+  "showInGallery": true,
+  "showInCatalog": false,
+  "createdAt": "2026-03-21T05:17:15.252Z",
+  "updatedAt": "2026-03-21T05:17:15.252Z"
+}

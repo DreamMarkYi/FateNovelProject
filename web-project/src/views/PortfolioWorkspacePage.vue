@@ -4,6 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { defaultWorkspaceDraft } from '@/data/portfolioData'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
 import { renderMarkdown } from '@/utils/markdownRenderer'
+import {
+  hydrateArticleReferences,
+  prepareMarkdownWithArticleRefs,
+} from '@/utils/articleReferenceRenderer'
 
 const router = useRouter()
 const route = useRoute()
@@ -22,6 +26,20 @@ const form = reactive({
 const isSaving = ref(false)
 const isLoadingArticle = ref(false)
 const loadArticleError = ref('')
+const markdownTextareaRef = ref(null)
+const referenceArticles = ref([])
+const selectedReferenceId = ref('')
+const referenceLoading = ref(false)
+
+const referenceArticleMap = computed(() => {
+  const map = new Map()
+  referenceArticles.value.forEach((item) => {
+    if (item?.id) {
+      map.set(item.id, item)
+    }
+  })
+  return map
+})
 
 function applyDraftToForm(draft = {}) {
   form.id = draft.id || ''
@@ -62,11 +80,53 @@ async function loadArticleForEditing(id) {
   }
 }
 
+async function loadReferenceArticles() {
+  try {
+    referenceLoading.value = true
+    const response = await portfolioArticleApi.listArticles()
+    referenceArticles.value = Array.isArray(response?.data) ? response.data : []
+    if (!selectedReferenceId.value && referenceArticles.value.length) {
+      selectedReferenceId.value = referenceArticles.value[0].id
+    }
+  } catch (error) {
+    referenceArticles.value = []
+  } finally {
+    referenceLoading.value = false
+  }
+}
+
+function insertReferenceSnippet() {
+  const id = String(selectedReferenceId.value || '').trim()
+  if (!id) {
+    return
+  }
+
+  const snippet = `\n<article-ref id="${id}"></article-ref>\n`
+  const textarea = markdownTextareaRef.value
+
+  if (!textarea) {
+    form.markdown += snippet
+    return
+  }
+
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const source = form.markdown || ''
+  form.markdown = `${source.slice(0, start)}${snippet}${source.slice(end)}`
+
+  requestAnimationFrame(() => {
+    const nextPos = start + snippet.length
+    textarea.focus()
+    textarea.setSelectionRange(nextPos, nextPos)
+  })
+}
+
 watch(
   () => route.query.id,
   (id) => {
     const articleId = typeof id === 'string' ? id.trim() : ''
     loadArticleForEditing(articleId)
+    loadReferenceArticles()
   },
   { immediate: true }
 )
@@ -81,7 +141,11 @@ const previewGalleryImages = computed(() =>
     .filter(Boolean)
 )
 const previewGalleryColumns = computed(() => Math.min(Math.max(previewGalleryImages.value.length, 1), 4))
-const previewHtml = computed(() => renderMarkdown(form.markdown))
+const previewHtml = computed(() => {
+  const markdown = prepareMarkdownWithArticleRefs(form.markdown || '')
+  const rawHtml = renderMarkdown(markdown)
+  return hydrateArticleReferences(rawHtml, referenceArticleMap.value)
+})
 const previewLightboxImage = ref('')
 
 function onCancel() {
@@ -195,8 +259,22 @@ function closePreviewImage() {
           </div>
         </div>
 
+        <div class="reference-helper">
+          <label>ARTICLE REFERENCE (站内文章引用)</label>
+          <div class="reference-row">
+            <select v-model="selectedReferenceId" :disabled="referenceLoading || !referenceArticles.length">
+              <option v-for="item in referenceArticles" :key="item.id" :value="item.id">
+                {{ item.title }} ({{ item.id }})
+              </option>
+            </select>
+            <button type="button" @click="insertReferenceSnippet">插入引用</button>
+          </div>
+          <p class="reference-tip">也可手动输入：<code>[[article:文章id]]</code></p>
+        </div>
+
         <label class="md-label">MARKDOWN CONTENT</label>
         <textarea
+          ref="markdownTextareaRef"
           v-model="form.markdown"
           class="md-textarea"
           placeholder="在此开始撰写正文 (支持 Markdown 语法)..."
@@ -405,6 +483,58 @@ header {
   height: 16px;
   accent-color: var(--accent-red);
   cursor: pointer;
+}
+
+.reference-helper {
+  margin-bottom: 20px;
+}
+
+.reference-helper > label {
+  display: block;
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  color: var(--text-sub);
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
+}
+
+.reference-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.reference-row select {
+  flex: 1;
+  border: 1px solid var(--border-color);
+  padding: 8px 10px;
+  font-family: inherit;
+  background: #fff;
+}
+
+.reference-row button {
+  border: 1px solid var(--text-main);
+  background: #fff;
+  color: var(--text-main);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.reference-tip {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-sub);
+}
+
+.reference-tip code {
+  font-family: monospace;
+  font-size: 0.85em;
+  background: var(--code-bg);
+  padding: 1px 5px;
+  border-radius: 3px;
 }
 
 .md-label {
@@ -627,6 +757,58 @@ header {
 :deep(.markdown-body ol) {
   margin-bottom: 25px;
   padding-left: 20px;
+}
+
+:deep(.markdown-body .article-reference-block) {
+  margin: 18px 0 28px;
+}
+
+:deep(.markdown-body .article-reference-card) {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 12px;
+  align-items: center;
+  background: #f2f3f6;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 10px;
+  color: inherit;
+}
+
+:deep(.markdown-body .article-reference-thumb) {
+  width: 78px;
+  height: 58px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+}
+
+:deep(.markdown-body .article-reference-thumb-empty) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 1px;
+  color: #6f7b86;
+  background: #dfe3ea;
+}
+
+:deep(.markdown-body .article-reference-title) {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+:deep(.markdown-body .article-reference-meta) {
+  margin: 4px 0 2px;
+  color: #738293;
+  font-size: 0.78rem;
+}
+
+:deep(.markdown-body .article-reference-tag) {
+  font-size: 0.72rem;
+  color: #66717c;
 }
 
 @media (max-width: 900px) {

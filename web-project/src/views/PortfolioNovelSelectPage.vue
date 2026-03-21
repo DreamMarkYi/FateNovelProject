@@ -7,11 +7,11 @@ const router = useRouter()
 
 const bookData = ref({
   id: 'novel-01',
-  title: '玻璃之海的边界',
-  subtitle: 'THE BOUNDARY OF THE GLASS SEA',
+  title: '雪坠银链时 ',
+  subtitle: '~Imaginary White~',
   author: "Illusion's DrM",
   status: '连载中',
-  tags: ['悬疑', '视觉小说', '时空交错'],
+  tags: ['雪', '视觉小说', '时空交错'],
   summary: '在这个世界上，有些相遇就像是两束光在真空中的交汇，没有任何声音，却能照亮彼此的宇宙。一个关于时间、记忆与雨天法则的故事。当你凝视深渊的时候，水洼中的倒影也在凝视着你。',
   coverImage: 'https://images.unsplash.com/photo-1518382473480-1a657cba32a7?q=80&w=1600&auto=format&fit=crop',
 })

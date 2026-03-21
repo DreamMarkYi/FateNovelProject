@@ -3,10 +3,6 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
 import { renderMarkdown } from '@/utils/markdownRenderer'
-import {
-  hydrateArticleReferences,
-  prepareMarkdownWithArticleRefs,
-} from '@/utils/articleReferenceRenderer'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,26 +21,7 @@ const form = reactive({
 const isLoading = ref(false)
 const isSaving = ref(false)
 const loadError = ref('')
-const markdownTextareaRef = ref(null)
-const referenceArticles = ref([])
-const selectedReferenceId = ref('')
-const referenceLoading = ref(false)
-
-const referenceArticleMap = computed(() => {
-  const map = new Map()
-  referenceArticles.value.forEach((item) => {
-    if (item?.id) {
-      map.set(item.id, item)
-    }
-  })
-  return map
-})
-
-const previewHtml = computed(() => {
-  const markdown = prepareMarkdownWithArticleRefs(form.markdown || '')
-  const rawHtml = renderMarkdown(markdown)
-  return hydrateArticleReferences(rawHtml, referenceArticleMap.value)
-})
+const previewHtml = computed(() => renderMarkdown(form.markdown || ''))
 const previewTitle = computed(() => form.title.trim() || '未命名小说')
 const previewChapter = computed(() => form.chapter.trim() || '未命名章节')
 const previewAuthor = computed(() => form.author.trim() || 'SYSTEM')
@@ -86,47 +63,6 @@ async function loadNovel() {
   }
 }
 
-async function loadReferenceArticles() {
-  try {
-    referenceLoading.value = true
-    const response = await portfolioArticleApi.listArticles()
-    referenceArticles.value = Array.isArray(response?.data) ? response.data : []
-    if (!selectedReferenceId.value && referenceArticles.value.length) {
-      selectedReferenceId.value = referenceArticles.value[0].id
-    }
-  } catch (error) {
-    referenceArticles.value = []
-  } finally {
-    referenceLoading.value = false
-  }
-}
-
-function insertReferenceSnippet() {
-  const id = String(selectedReferenceId.value || '').trim()
-  if (!id) {
-    return
-  }
-
-  const snippet = `\n<article-ref id="${id}"></article-ref>\n`
-  const textarea = markdownTextareaRef.value
-
-  if (!textarea) {
-    form.markdown += snippet
-    return
-  }
-
-  const start = textarea.selectionStart
-  const end = textarea.selectionEnd
-  const source = form.markdown || ''
-  form.markdown = `${source.slice(0, start)}${snippet}${source.slice(end)}`
-
-  requestAnimationFrame(() => {
-    const nextPos = start + snippet.length
-    textarea.focus()
-    textarea.setSelectionRange(nextPos, nextPos)
-  })
-}
-
 async function onSave() {
   if (isSaving.value) {
     return
@@ -164,7 +100,6 @@ watch(
   () => route.query.id,
   () => {
     loadNovel()
-    loadReferenceArticles()
   },
   { immediate: true }
 )
@@ -222,22 +157,8 @@ watch(
           <input v-model="form.coverImage" type="text" placeholder="输入封面图 URL" />
         </div>
 
-        <div class="reference-helper">
-          <label>ARTICLE REFERENCE (站内文章引用)</label>
-          <div class="reference-row">
-            <select v-model="selectedReferenceId" :disabled="referenceLoading || !referenceArticles.length">
-              <option v-for="item in referenceArticles" :key="item.id" :value="item.id">
-                {{ item.title }} ({{ item.id }})
-              </option>
-            </select>
-            <button type="button" @click="insertReferenceSnippet">插入引用</button>
-          </div>
-          <p class="reference-tip">也可手动输入：`[[article:文章id]]`</p>
-        </div>
-
         <label class="md-label">NOVEL MARKDOWN CONTENT</label>
         <textarea
-          ref="markdownTextareaRef"
           v-model="form.markdown"
           class="md-textarea"
           placeholder="在此编辑小说正文（支持 Markdown）..."
@@ -370,47 +291,6 @@ header {
   margin-bottom: 24px;
 }
 
-.reference-helper {
-  margin-bottom: 16px;
-}
-
-.reference-helper label {
-  display: block;
-  font-family: 'Cinzel', serif;
-  font-size: 0.75rem;
-  color: var(--text-sub);
-  letter-spacing: 1.5px;
-  margin-bottom: 8px;
-}
-
-.reference-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.reference-row select {
-  flex: 1;
-  border: 1px solid var(--border-color);
-  padding: 8px 10px;
-  font-family: inherit;
-  background: #fff;
-}
-
-.reference-row button {
-  border: 1px solid var(--text-main);
-  background: #fff;
-  color: var(--text-main);
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
-.reference-tip {
-  margin: 6px 0 0;
-  font-size: 0.78rem;
-  color: var(--text-sub);
-}
-
 .input-group label,
 .md-label {
   display: block;
@@ -541,58 +421,6 @@ header {
   font-size: 1.05rem;
   line-height: 1.9;
   color: #2c3640;
-}
-
-:deep(.novel-body .article-reference-block) {
-  margin: 18px 0 28px;
-}
-
-:deep(.novel-body .article-reference-card) {
-  display: grid;
-  grid-template-columns: 78px 1fr;
-  gap: 12px;
-  align-items: center;
-  background: #f2f3f6;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  padding: 10px;
-  color: inherit;
-}
-
-:deep(.novel-body .article-reference-thumb) {
-  width: 78px;
-  height: 58px;
-  border-radius: 6px;
-  object-fit: cover;
-  display: block;
-}
-
-:deep(.novel-body .article-reference-thumb-empty) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Cinzel', serif;
-  font-size: 0.65rem;
-  letter-spacing: 1px;
-  color: #6f7b86;
-  background: #dfe3ea;
-}
-
-:deep(.novel-body .article-reference-title) {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.4;
-}
-
-:deep(.novel-body .article-reference-meta) {
-  margin: 4px 0 2px;
-  color: #738293;
-  font-size: 0.78rem;
-}
-
-:deep(.novel-body .article-reference-tag) {
-  font-size: 0.72rem;
-  color: #66717c;
 }
 
 @media (max-width: 900px) {

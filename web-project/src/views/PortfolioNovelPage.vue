@@ -11,7 +11,7 @@ const loading = ref(false)
 const chapterList = ref([])
 const novelData = ref({
   id: 'portfolio-novel',
-  title: '玻璃之海的边界',
+  title: '雪坠银链时 ~Imaginary White~',
   chapter: '第一章：雨中的交错',
   author: 'Illusion\'s DrM',
   wordCount: 3240,
@@ -300,9 +300,12 @@ ul {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .logo {
+  flex-shrink: 0;
   font-size: 1.1rem;
   letter-spacing: 0.15em;
   font-weight: 700;
@@ -310,10 +313,20 @@ ul {
 }
 
 .nav-links {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 22px;
   font-size: 0.85rem;
   font-family: 'Cinzel', serif;
   letter-spacing: 0.1em;
   color: var(--text-sub);
+}
+
+.nav-links li {
+  flex-shrink: 0;
 }
 
 .nav-links a:hover {
@@ -549,6 +562,11 @@ footer {
 
 /* 响应式适配 */
 @media (max-width: 768px) {
+  .nav-links {
+    gap: 12px;
+    font-size: 0.78rem;
+  }
+
   .reader-main {
     padding: 20px 20px 60px;
   }

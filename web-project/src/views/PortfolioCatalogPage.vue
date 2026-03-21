@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { portfolioProjects } from '@/data/portfolioData'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
 import {
@@ -9,6 +10,8 @@ import {
 } from '@/utils/portfolioOrderConfig'
 
 const PAGE_SIZE = 10
+
+const router = useRouter()
 
 const remoteArticles = ref([])
 const lastSyncText = ref('未同步')
@@ -87,6 +90,10 @@ function setPage(page) {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+function goToArticle(id) {
+  router.push(`/portfolio/${id}`)
+}
+
 onMounted(async () => {
   await Promise.all([loadRemoteArticles(), loadPortfolioOrderConfig().then((config) => (orderConfig.value = config))])
   const isDev = import.meta.env.DEV
@@ -125,6 +132,12 @@ onMounted(async () => {
             :key="project.id"
             class="directory-card"
             :class="project.typeClass"
+            role="link"
+            tabindex="0"
+            :aria-label="`打开文章：${project.title}`"
+            @click="goToArticle(project.id)"
+            @keydown.enter.prevent="goToArticle(project.id)"
+            @keydown.space.prevent="goToArticle(project.id)"
           >
             <div class="card-cover">
               <img v-if="project.image" :src="project.image" :alt="project.title" />
@@ -137,11 +150,12 @@ onMounted(async () => {
             <h2 class="card-title">{{ project.title }}</h2>
             <p class="card-desc">{{ project.description }}</p>
             <div class="card-actions">
-              <router-link :to="`/portfolio/${project.id}`" class="card-link">VIEW DETAIL</router-link>
+              <span class="card-link">VIEW DETAIL</span>
               <router-link
                 v-if="showEditor"
                 :to="{ path: '/portfolio-config', query: { id: project.id } }"
                 class="card-link card-edit-link"
+                @click.stop
               >
                 EDIT
               </router-link>
@@ -328,6 +342,16 @@ nav {
   display: flex;
   flex-direction: column;
   transition: 0.35s ease;
+  cursor: pointer;
+}
+
+.directory-card:focus {
+  outline: none;
+}
+
+.directory-card:focus-visible {
+  outline: 2px solid rgba(200, 90, 90, 0.45);
+  outline-offset: 3px;
 }
 
 .directory-card:hover {

@@ -19,7 +19,9 @@
     "the-office-of-yamada-hospital",
     "the-village-at-night",
     "冬子的病床",
-    "nierin-the-forest-of-piano"
+    "nierin-the-forest-of-piano",
+    "crystal-forest-spring",
+    "the-seaside-in-the-countryside"
   ],
   "catalogOrder": [
     "unity-urp-程序化3d线框场景切换",
@@ -41,7 +43,9 @@
     "the-office-of-yamada-hospital",
     "the-village-at-night",
     "冬子的病床",
-    "nierin-the-forest-of-piano"
+    "nierin-the-forest-of-piano",
+    "crystal-forest-spring",
+    "the-seaside-in-the-countryside"
   ],
   "wallOrder": [
     "the-magic-spell-made-a-house-filled-with-crystals",
@@ -53,12 +57,18 @@
     "the-village-at-night",
     "the-classroom-at-night",
     "nierin-the-forest-of-piano",
-    "corridor",
+    "古廊下",
+    "the-seaside-in-the-countryside",
+    "crystal-forest-spring",
     "the-office-of-yamada-hospital",
+    "corridor",
     "unity-urp水",
+    "crystal-tree",
     "unity-urp-程序化3d线框场景切换",
-    "unity-urp草绘制",
     "unity-urp-写实雪一",
-    "unity-urp-卡通渲染方案"
+    "unity-urp草绘制",
+    "unity-urp-卡通渲染方案",
+    "白昼永夜",
+    "airport"
   ]
 }

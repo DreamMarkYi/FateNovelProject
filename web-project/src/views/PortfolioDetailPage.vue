@@ -24,11 +24,11 @@ const project = computed(() => {
       tags: remoteArticle.value.tags || 'UNTAGGED',
       detail: {
         date: remoteArticle.value.updatedAt
-          ? remoteArticle.value.updatedAt.slice(0, 10).replaceAll('-', '.')
-          : 'UNKNOWN',
+            ? remoteArticle.value.updatedAt.slice(0, 10).replaceAll('-', '.')
+            : 'UNKNOWN',
         author: remoteArticle.value.author || 'SYSTEM',
         coverImage: remoteArticle.value.coverImage || '',
-          galleryImages: Array.isArray(remoteArticle.value.galleryImages)
+        galleryImages: Array.isArray(remoteArticle.value.galleryImages)
             ? remoteArticle.value.galleryImages
             : [],
         markdown: remoteArticle.value.markdown || '',
@@ -63,7 +63,15 @@ const galleryImages = computed(() => {
   return detail.coverImage ? [detail.coverImage] : []
 })
 const galleryColumns = computed(() => Math.min(Math.max(galleryImages.value.length, 1), 4))
-const lightboxImage = ref('')
+/** 大图预览当前索引，null 表示关闭 */
+const lightboxIndex = ref(null)
+const lightboxCurrentImage = computed(() => {
+  const i = lightboxIndex.value
+  if (i === null) return ''
+  const list = galleryImages.value
+  return list[i] || ''
+})
+const lightboxHasMultiple = computed(() => galleryImages.value.length > 1)
 const activeMarkdownImage = ref(null)
 
 async function loadRemoteDetail(id) {
@@ -93,19 +101,43 @@ async function loadReferenceArticles() {
 }
 
 watch(
-  () => route.params.id,
-  (id) => {
-    loadRemoteDetail(id)
-  },
-  { immediate: true }
+    () => route.params.id,
+    (id) => {
+      lightboxIndex.value = null
+      loadRemoteDetail(id)
+    },
+    { immediate: true }
 )
 
-function openLightbox(url) {
-  lightboxImage.value = url
+function openLightbox(index) {
+  const list = galleryImages.value
+  if (!list.length) return
+  const i = Number(index)
+  if (Number.isFinite(i) && i >= 0 && i < list.length) {
+    lightboxIndex.value = i
+  } else {
+    lightboxIndex.value = 0
+  }
 }
 
 function closeLightbox() {
-  lightboxImage.value = ''
+  lightboxIndex.value = null
+}
+
+function lightboxPrev() {
+  const list = galleryImages.value
+  if (list.length <= 1) return
+  const i = lightboxIndex.value
+  if (i === null) return
+  lightboxIndex.value = i <= 0 ? list.length - 1 : i - 1
+}
+
+function lightboxNext() {
+  const list = galleryImages.value
+  if (list.length <= 1) return
+  const i = lightboxIndex.value
+  if (i === null) return
+  lightboxIndex.value = i >= list.length - 1 ? 0 : i + 1
 }
 
 function onMarkdownBodyClick(event) {
@@ -155,6 +187,15 @@ function onDocumentClick(event) {
 function onKeydown(event) {
   if (event.key === 'Escape') {
     closeLightbox()
+    return
+  }
+  if (lightboxIndex.value === null || !lightboxHasMultiple.value) return
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    lightboxPrev()
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    lightboxNext()
   }
 }
 
@@ -194,17 +235,17 @@ onUnmounted(() => {
       </header>
 
       <div
-        v-if="galleryImages.length"
-        class="article-gallery-wrap"
-        :style="{ '--gallery-columns': galleryColumns }"
+          v-if="galleryImages.length"
+          class="article-gallery-wrap"
+          :style="{ '--gallery-columns': galleryColumns }"
       >
         <div class="article-gallery">
           <button
-            v-for="(image, index) in galleryImages"
-            :key="`${image}-${index}`"
-            type="button"
-            class="article-gallery-item"
-            @click="openLightbox(image)"
+              v-for="(image, index) in galleryImages"
+              :key="`${image}-${index}`"
+              type="button"
+              class="article-gallery-item"
+              @click="openLightbox(index)"
           >
             <img :src="image" :alt="`${project.title}-图片-${index + 1}`" />
           </button>
@@ -226,9 +267,27 @@ onUnmounted(() => {
       <p class="footer-sub">ENGINEERED WITH PRECISION</p>
     </footer>
 
-    <div v-if="lightboxImage" class="lightbox" @click.self="closeLightbox">
+    <div v-if="lightboxIndex !== null" class="lightbox" @click.self="closeLightbox">
       <button type="button" class="lightbox-close" @click="closeLightbox">×</button>
-      <img :src="lightboxImage" alt="完整图片" />
+      <button
+          v-if="lightboxHasMultiple"
+          type="button"
+          class="lightbox-nav lightbox-nav-prev"
+          aria-label="上一张"
+          @click.stop="lightboxPrev"
+      >
+        ‹
+      </button>
+      <button
+          v-if="lightboxHasMultiple"
+          type="button"
+          class="lightbox-nav lightbox-nav-next"
+          aria-label="下一张"
+          @click.stop="lightboxNext"
+      >
+        ›
+      </button>
+      <img :src="lightboxCurrentImage" alt="完整图片" @click.stop />
     </div>
   </div>
 </template>
@@ -394,24 +453,27 @@ nav {
   border: 1px solid rgba(0, 0, 0, 0.05);
   cursor: zoom-in;
   transition:
-    transform 0.25s ease,
-    box-shadow 0.25s ease,
-    border-color 0.25s ease;
+      transform 0.25s ease,
+      box-shadow 0.25s ease,
+      border-color 0.25s ease;
 }
 
+/* 修复了此处：改成了 fixed 定位实现真正的屏幕居中并减小了尺寸 */
 :deep(.markdown-body img.is-fullsize) {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: auto;
-  max-width: min(1400px, 95vw);
-  margin-left: -20%;
-
-  position: relative;
-  z-index: 2;
+  max-width: 65vw;
+  max-height: 65vh;
+  margin: 0;
+  z-index: 1200;
   cursor: zoom-out;
-  border-color: rgba(200, 90, 90, 0.3);
+  border-color: transparent;
   box-shadow:
-    0 0 0 100vmax rgba(0, 0, 0, 0.45),
-    0 10px 30px rgba(20, 31, 47, 0.16);
-  transform: none;
+      0 0 0 100vmax rgba(0, 0, 0, 0.78),
+      0 10px 30px rgba(20, 31, 47, 0.16);
 }
 
 :deep(.markdown-body code) {
@@ -566,5 +628,38 @@ footer {
   color: #fff;
   font-size: 1.6rem;
   cursor: pointer;
+  z-index: 2;
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.lightbox-nav:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.lightbox-nav-prev {
+  left: max(12px, env(safe-area-inset-left));
+}
+
+.lightbox-nav-next {
+  right: max(12px, env(safe-area-inset-right));
 }
 </style>

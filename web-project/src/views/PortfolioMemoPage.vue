@@ -26,6 +26,9 @@ const accessNameInput = ref('')
 const accessVerifyLoading = ref(false)
 const accessVerifyError = ref('')
 
+/** 当前查看详情的便签（点击列表项打开） */
+const detailMemo = ref(null)
+
 const sortedMemos = computed(() =>
   [...memos.value].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 )
@@ -106,6 +109,7 @@ async function submitAccessVerification() {
 }
 
 function openWriteModal() {
+  detailMemo.value = null
   if (!getMemoAccessToken()) {
     openAccessModal()
     return
@@ -115,6 +119,26 @@ function openWriteModal() {
   newMemoTags.value = ''
   submitError.value = ''
   isWriteModalVisible.value = true
+}
+
+function openMemoDetail(memo) {
+  detailMemo.value = memo
+}
+
+function closeMemoDetail() {
+  detailMemo.value = null
+}
+
+function onDetailModalMaskClick(event) {
+  if (event.target === event.currentTarget) {
+    closeMemoDetail()
+  }
+}
+
+function onDetailModalKeydown(event) {
+  if (event.key === 'Escape') {
+    closeMemoDetail()
+  }
 }
 
 function closeWriteModal() {
@@ -149,6 +173,8 @@ async function submitMemo() {
       memos.value.unshift(response.data)
     }
 
+    // 先结束提交态，否则 closeWriteModal 会因 isSubmitting 为 true 而直接 return
+    isSubmitting.value = false
     closeWriteModal()
   } catch (error) {
     if (error?.response?.status === 403) {
@@ -247,6 +273,12 @@ onMounted(loadMemos)
             v-for="memo in sortedMemos"
             :key="memo.id"
             class="memo-item"
+            role="button"
+            tabindex="0"
+            :aria-label="'查看便签 ' + (memo.id || '')"
+            @click="openMemoDetail(memo)"
+            @keydown.enter.prevent="openMemoDetail(memo)"
+            @keydown.space.prevent="openMemoDetail(memo)"
         >
           <!-- 左侧：复古日期排版 -->
           <div class="memo-date-block">
@@ -308,14 +340,15 @@ onMounted(loadMemos)
     </div>
 
     <!-- 写入便签弹窗 -->
-    <div
+    <Transition name="write-modal">
+      <div
         v-if="isWriteModalVisible"
-        class="access-modal-mask"
+        class="access-modal-mask write-modal-mask"
         role="dialog"
         aria-modal="true"
         @click="onModalMaskClick"
         @keydown="onModalKeydown"
-    >
+      >
       <div class="write-modal">
         <h3>记录此刻</h3>
         <p class="modal-desc">捕捉一闪而过的灵感，或是一段平凡的日常。</p>
@@ -348,7 +381,45 @@ onMounted(loadMemos)
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </Transition>
+
+    <!-- 便签详情（点击列表卡片） -->
+    <Transition name="write-modal">
+      <div
+        v-if="detailMemo"
+        class="access-modal-mask write-modal-mask memo-detail-mask"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="memo-detail-title"
+        @click="onDetailModalMaskClick"
+        @keydown="onDetailModalKeydown"
+      >
+        <div class="write-modal memo-detail-modal">
+          <h3 id="memo-detail-title">匣中片段</h3>
+          <p v-if="detailMemo.createdAt" class="memo-detail-when">
+            <span class="memo-detail-when-day">{{ formatMemoDate(detailMemo.createdAt).day }}</span>
+            <span class="memo-detail-when-rest">
+              {{ formatMemoDate(detailMemo.createdAt).monthYear }}
+              <span class="memo-detail-when-sep">·</span>
+              {{ formatMemoDate(detailMemo.createdAt).time }}
+            </span>
+          </p>
+          <div class="memo-detail-body">{{ detailMemo.content }}</div>
+          <div v-if="detailMemo.tags && detailMemo.tags.length" class="memo-detail-footer">
+            <span v-for="tag in detailMemo.tags" :key="tag" class="memo-tag"># {{ tag }}</span>
+          </div>
+          <div class="modal-actions memo-detail-actions">
+            <span class="shortcut-tip">Esc 关闭</span>
+            <div class="actions-right">
+              <button type="button" class="btn-confirm" @click="closeMemoDetail">
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <footer>
       <p>&copy; 2026 Your Name. All Rights Reserved.</p>
@@ -565,6 +636,18 @@ ul {
   border-bottom: 1px solid var(--border-color);
   position: relative;
   transition: all 0.4s ease;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 2px;
+}
+
+.memo-item:focus {
+  outline: none;
+}
+
+.memo-item:focus-visible {
+  outline: 2px solid rgba(200, 90, 90, 0.45);
+  outline-offset: 4px;
 }
 
 /* 侧边装饰线 */
@@ -631,6 +714,11 @@ ul {
   color: var(--text-main);
   margin: 0 0 20px 0;
   text-align: justify;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  overflow: hidden;
 }
 
 .memo-footer {
@@ -680,6 +768,86 @@ ul {
   justify-content: center;
   z-index: 3000;
   padding: 20px;
+}
+
+.memo-detail-mask {
+  z-index: 3010;
+}
+
+.memo-detail-modal .modal-actions {
+  margin-top: 28px;
+}
+
+.memo-detail-when {
+  margin: 6px 0 22px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  color: var(--text-sub);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 10px;
+}
+
+.memo-detail-when-day {
+  font-size: 1.35rem;
+  font-weight: 400;
+  color: var(--text-main);
+  letter-spacing: 0.06em;
+}
+
+.memo-detail-when-sep {
+  opacity: 0.45;
+  padding: 0 0.15em;
+}
+
+.memo-detail-body {
+  font-size: 0.98rem;
+  line-height: 2.05;
+  color: var(--text-main);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: min(52vh, 440px);
+  overflow-y: auto;
+  padding-right: 4px;
+  margin: 0;
+  text-align: justify;
+}
+
+.memo-detail-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.memo-detail-modal .memo-tag {
+  font-size: 0.78rem;
+}
+
+/* 写入弹窗：打开 / 关闭（封存入匣、取消、点遮罩） */
+.write-modal-enter-active,
+.write-modal-leave-active {
+  transition: opacity 1.15s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.write-modal-enter-active .write-modal,
+.write-modal-leave-active .write-modal {
+  transition:
+    transform 1.2s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 1.05s ease;
+}
+
+.write-modal-enter-from,
+.write-modal-leave-to {
+  opacity: 0;
+}
+
+.write-modal-enter-from .write-modal,
+.write-modal-leave-to .write-modal {
+  transform: translateY(14px) scale(0.97);
+  opacity: 0;
 }
 
 .write-modal {
