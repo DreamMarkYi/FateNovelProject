@@ -491,7 +491,7 @@ onMounted(loadMemos)
     </Transition>
 
     <footer>
-      <p>&copy; 2026 Your Name. All Rights Reserved.</p>
+      <p>&copy; 2026 Illusion's drm. All Rights Reserved.</p>
       <p class="footer-sub">ENGINEERED WITH PRECISION</p>
     </footer>
   </div>

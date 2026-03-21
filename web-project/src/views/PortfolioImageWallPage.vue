@@ -140,7 +140,7 @@ onUnmounted(() => {
     <!-- 底部收尾 -->
     <footer class="site-footer">
       <div class="container footer-inner">
-        <p>© {{ new Date().getFullYear() }} Collection Portfolio. All visual fragments reserved.</p>
+        <p>© {{ new Date().getFullYear() }} Illusion's drm. All visual fragments reserved.</p>
         <div class="footer-decor">✦</div>
       </div>
     </footer>
