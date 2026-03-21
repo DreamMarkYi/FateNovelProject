@@ -319,10 +319,9 @@ onMounted(loadChapters)
       @keydown="onModalKeydown"
     >
       <div class="access-modal">
-        <h3>身份验证</h3>
+        <h3>叩响门扉</h3>
         <p class="access-modal-desc">
-          请输入指定姓名以解锁章节阅读：
-          <b>{{ pendingChapter?.title || '当前章节' }}</b>
+          在窥探这段记忆之前，您是正确的人吗：
         </p>
         <input
           v-model="guardianNameInput"
@@ -335,10 +334,10 @@ onMounted(loadChapters)
         <p v-if="verifyError" class="access-modal-error">{{ verifyError }}</p>
         <div class="access-modal-actions">
           <button type="button" class="btn-cancel" :disabled="verifyLoading" @click="closeAccessModal">
-            取消
+            转身离去
           </button>
           <button type="button" class="btn-confirm" :disabled="verifyLoading" @click="submitAccessVerification">
-            {{ verifyLoading ? '验证中...' : '确认进入' }}
+            {{ verifyLoading ? '于记忆中搜索...' : '推开门扉' }}
           </button>
         </div>
       </div>

@@ -315,7 +315,7 @@ onBeforeUnmount(() => {
 
               <div class="skill-tags">
                 <span>GAME DEVELOPER</span>
-                <span>GRAPH RENDERING</span>
+                <span>TECHNICAL ARTIST</span>
                 <span>SCENE ARTIST</span>
               </div>
             </div>

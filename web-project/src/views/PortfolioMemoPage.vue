@@ -711,6 +711,8 @@ ul {
 .memo-item {
   display: flex;
   gap: 30px;
+  width: 100%;
+  box-sizing: border-box;
   padding-bottom: 40px;
   border-bottom: 1px solid var(--border-color);
   position: relative;
@@ -718,6 +720,11 @@ ul {
   cursor: pointer;
   text-align: left;
   border-radius: 2px;
+}
+
+/* v-html 内的 strong 等节点会拦截点击；统一穿透到整条便签，保证任意位置可打开详情 */
+.memo-item * {
+  pointer-events: none;
 }
 
 .memo-item:focus {
@@ -742,6 +749,7 @@ ul {
   transform: scaleY(0);
   transform-origin: top;
   transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  pointer-events: none;
 }
 
 .memo-item:hover::before {
