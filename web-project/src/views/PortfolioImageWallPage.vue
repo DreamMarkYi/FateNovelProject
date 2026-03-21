@@ -7,6 +7,7 @@ import {
   loadPortfolioOrderConfig,
   reindexPortfolioCards,
 } from '@/utils/portfolioOrderConfig'
+import PortfolioSiteNav from '@/components/PortfolioSiteNav.vue'
 
 const POLL_INTERVAL_MS = 5000
 
@@ -78,18 +79,7 @@ onUnmounted(() => {
     <div class="bg-watermark">AESTHETICS</div>
 
 
-    <!-- 顶部导航 -->
-    <nav class="top-nav">
-      <div class="nav-container">
-        <router-link to="/portfolio" class="logo">HOMEPAGE</router-link>
-        <ul class="nav-links">
-          <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
-          <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
-          <li><router-link to="/portfolio-novel-select">NOVEL</router-link></li>
-          <li><router-link to="/portfolio-memo">MEMO</router-link></li>
-        </ul>
-      </div>
-    </nav>
+    <PortfolioSiteNav inner-max-width="1400px" />
 
     <!-- 主体非对称布局 -->
     <div class="page-layout container">
@@ -193,20 +183,6 @@ ul {
   padding: 0 40px;
 }
 
-/* ================= 导航栏 ================= */
-.top-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  padding: 24px 0;
-  background: rgba(253, 253, 253, 0.85);
-  backdrop-filter: blur(12px);
-  z-index: 1000;
-  border-bottom: 1px solid var(--border-color);
-  transition: all 0.3s ease;
-}
-
 .bg-watermark {
   position: fixed;
   inset: 0;
@@ -223,55 +199,6 @@ ul {
   line-height: 1;
 }
 
-
-.nav-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 40px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.logo {
-  font-size: 1.25rem;
-  letter-spacing: 0.15em;
-  font-weight: 700;
-  font-family: 'Cinzel', serif;
-}
-
-.nav-links {
-  display: flex;
-  gap: 40px;
-  font-size: 0.85rem;
-  color: var(--text-sub);
-  font-family: 'Cinzel', serif;
-}
-
-.nav-links a {
-  transition: color 0.3s;
-  letter-spacing: 0.1em;
-  position: relative;
-}
-
-.nav-links a::after {
-  content: '';
-  position: absolute;
-  bottom: -4px;
-  left: 0;
-  width: 0;
-  height: 1px;
-  background-color: var(--text-main);
-  transition: width 0.3s ease;
-}
-
-.nav-links a:hover {
-  color: var(--text-main);
-}
-
-.nav-links a:hover::after {
-  width: 100%;
-}
 
 /* ================= 宏观布局 ================= */
 .page-layout {
@@ -513,10 +440,6 @@ ul {
   }
 
   .sidebar-decor {
-    display: none;
-  }
-
-  .nav-links {
     display: none;
   }
 }

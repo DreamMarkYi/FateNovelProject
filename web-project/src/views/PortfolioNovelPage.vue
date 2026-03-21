@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { renderMarkdown } from '@/utils/markdownRenderer'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
+import PortfolioSiteNav from '@/components/PortfolioSiteNav.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -190,17 +191,7 @@ watch(
 
 <template>
   <div class="novel-reader-page">
-    <nav class="reader-nav">
-      <div class="nav-inner">
-        <router-link to="/portfolio" class="logo">HOMEPAGE</router-link>
-        <ul class="nav-links">
-          <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
-          <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
-          <li><router-link to="/portfolio-novel-select">NOVEL</router-link></li>
-          <li><router-link to="/portfolio-memo">MEM0</router-link></li>
-        </ul>
-      </div>
-    </nav>
+    <PortfolioSiteNav />
 
     <main class="reader-main" v-if="novelData">
       <p v-if="loading" class="state-tip">正在加载最新小说内容...</p>
@@ -289,60 +280,6 @@ ul {
   list-style: none;
   padding: 0;
   margin: 0;
-}
-
-/* 导航条（跟随页面或悬浮）*/
-.reader-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  padding: 15px 0;
-  background: rgba(252, 252, 252, 0.95);
-  backdrop-filter: blur(10px);
-  z-index: 1000;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-  transition: transform 0.3s ease;
-}
-
-.nav-inner {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.logo {
-  flex-shrink: 0;
-  font-size: 1.1rem;
-  letter-spacing: 0.15em;
-  font-weight: 700;
-  font-family: 'Cinzel', serif;
-}
-
-.nav-links {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 22px;
-  font-size: 0.85rem;
-  font-family: 'Cinzel', serif;
-  letter-spacing: 0.1em;
-  color: var(--text-sub);
-}
-
-.nav-links li {
-  flex-shrink: 0;
-}
-
-.nav-links a:hover {
-  color: var(--accent-red);
 }
 
 /* 页面主体内容限制宽度，打造沉浸式阅读 */
@@ -582,11 +519,6 @@ footer {
 
 /* 响应式适配 */
 @media (max-width: 768px) {
-  .nav-links {
-    gap: 12px;
-    font-size: 0.78rem;
-  }
-
   .reader-main {
     padding: 20px 20px 60px;
   }

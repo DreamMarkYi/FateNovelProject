@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { portfolioArticleApi } from '@/api/portfolioArticleApi'
 import { renderMemoRichText } from '@/utils/memoRichText'
+import PortfolioSiteNav from '@/components/PortfolioSiteNav.vue'
 
 /** 与 Vite 一致：仅本地开发构建为 true，生产包中不可编辑置顶 */
 const isDevUi = import.meta.env.DEV
@@ -12,7 +13,7 @@ const pageInfo = ref({
   title: '匣',
   subtitle: 'FRAGMENTS & WHISPERS',
   author: "Illusion's DrM",
-  summary: '主要记录一些零散的想法吧，平时因为种种原因没法实现的东西，记录在这里，或许有一天去做了。',
+  summary: '主要记录一些零散的想法，平时因为种种原因没法实现的东西记录在这里，或许有一天去做了。',
 })
 
 const memos = ref([])
@@ -273,18 +274,7 @@ onMounted(loadMemos)
 
 <template>
   <div class="memo-index-page">
-    <!-- 顶部导航条 (复用样式) -->
-    <nav class="index-nav">
-      <div class="nav-inner">
-        <router-link to="/portfolio" class="logo">HOMEPAGE</router-link>
-        <ul class="nav-links">
-          <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
-          <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
-          <li><router-link to="/portfolio-novel-select">NOVEL</router-link></li>
-          <li><router-link to="/portfolio-memo">MEM0</router-link></li>
-        </ul>
-      </div>
-    </nav>
+    <PortfolioSiteNav />
 
     <!-- 顶部视觉与信息区 -->
     <header class="page-hero">
@@ -542,49 +532,6 @@ ul {
   max-width: 800px; /* 比小说页稍窄，更适合阅读短文本 */
   margin: 0 auto;
   padding: 0 20px;
-}
-
-/* 导航条 */
-.index-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  padding: 20px 0;
-  background: rgba(252, 252, 252, 0.9);
-  backdrop-filter: blur(10px);
-  z-index: 1000;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.nav-inner {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.logo {
-  font-size: 1.2rem;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  font-family: 'Cinzel', serif;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  font-size: 0.85rem;
-  font-family: 'Cinzel', serif;
-  letter-spacing: 0.1em;
-  color: var(--text-sub);
-}
-
-.nav-links a:hover {
-  color: var(--accent-red);
 }
 
 /* 顶部信息区 (Hero) */

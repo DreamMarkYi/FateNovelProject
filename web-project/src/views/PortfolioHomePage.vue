@@ -7,6 +7,7 @@ import {
   loadPortfolioOrderConfig,
   reindexPortfolioCards,
 } from '@/utils/portfolioOrderConfig'
+import PortfolioSiteNav from '@/components/PortfolioSiteNav.vue'
 
 const remoteArticles = ref([])
 const lastSyncText = ref('未同步')
@@ -227,17 +228,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="portfolio-home-page">
-    <nav>
-      <div class="container nav-inner">
-        <router-link to="/portfolio" class="logo" @click="scrollToTop">HOMEPAGE</router-link>
-        <ul class="nav-links">
-          <li class="primary-nav-item"><router-link to="/portfolio/catalog" @click="scrollToTop">ARTICLES</router-link></li>
-          <li class="primary-nav-item"><router-link to="/portfolio/wall" @click="scrollToTop">GALLERY</router-link></li>
-          <li class="primary-nav-item"><router-link to="/portfolio-novel-select" @click="scrollToTop">NOVEL</router-link></li>
-          <li class="primary-nav-item"><router-link to="/portfolio-memo" @click="scrollToTop">MEM0</router-link></li>
-        </ul>
-      </div>
-    </nav>
+    <PortfolioSiteNav accent-shift :on-link-click="scrollToTop" />
 
     <section class="hero">
       <div
@@ -439,45 +430,6 @@ ul {
 .right-note {
   right: 30px;
   color: var(--accent-ice);
-}
-
-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  padding: 20px 0;
-  background: rgba(253, 253, 253, 0.9);
-  backdrop-filter: blur(10px);
-  z-index: 1000;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.nav-inner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.logo {
-  font-size: 1.2rem;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-}
-
-.nav-links {
-  display: flex;
-  gap: 40px;
-  font-size: 1rem;
-  color: var(--text-sub);
-}
-
-.nav-links .primary-nav-item {
-  transform: translateX(200px);
-}
-
-.nav-links a:hover {
-  color: var(--accent-red);
 }
 
 .hero {
@@ -1290,9 +1242,6 @@ footer {
 
   .hero h1 {
     font-size: 3rem;
-  }
-  .nav-links {
-    display: none;
   }
 }
 </style>

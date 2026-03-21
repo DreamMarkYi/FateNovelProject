@@ -51,10 +51,10 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomePage,
+      component: PortfolioHomePage,
       meta: { public: true }
     },
-    {
+    /*{
       path: '/blue',
       name: 'blue',
       component: BluePage,
@@ -113,7 +113,7 @@ const router = createRouter({
       name: 'vocabulary',
       component: VocabularyPage,
       meta: { public: true }
-    },
+    },*/
     {
       path: '/portfolio',
       name: 'portfolio',
@@ -144,38 +144,38 @@ const router = createRouter({
       component: PortfolioWorkspacePage,
       meta: { public: true }
     },
-    {
-      path: '/portfolio-novel-config',
-      name: 'portfolio-novel-config',
-      component: PortfolioNovelWorkspacePage,
-      meta: { public: true }
-    },
+    //{
+    //  path: '/portfolio-novel-config',
+    //  name: 'portfolio-novel-config',
+    //  component: PortfolioNovelWorkspacePage,
+    //  meta: { public: true }
+    //},
       {
           path: '/portfolio-memo',
           name: 'portfolio-memo',
           component: PortfolioMemoPage,
           meta: { public: true }
       },
-    {
-      path: '/portfolio-order-config',
-      name: 'portfolio-order-config',
-      component: PortfolioOrderWorkspacePage,
-      meta: { public: true }
-    },
+    //{
+    //  path: '/portfolio-order-config',
+    //  name: 'portfolio-order-config',
+    //  component: PortfolioOrderWorkspacePage,
+    //  meta: { public: true }
+    //},
       {
           path: '/portfolio-novel-select',
           name: 'portfolio-novel-select',
           component: PortfolioNovelSelectPage,
           meta: { public: true }
       },
-    {
-      path: '/portfolio-novel-access-config',
-      name: 'portfolio-novel-access-config',
-      component: PortfolioNovelAccessConfigPage,
-      meta: { public: true },
-    },
+    //{
+    //  path: '/portfolio-novel-access-config',
+    //  name: 'portfolio-novel-access-config',
+    //  component: PortfolioNovelAccessConfigPage,
+    //  meta: { public: true },
+    //},
     
-    // === 昼用户专属页面 ===
+     /* // === 昼用户专属页面 ===
     {
       path: '/exDay',
       name: 'exDay',
@@ -221,7 +221,7 @@ const router = createRouter({
       name: 'terminal-chapter-select',
       component: TerminalChapterSelect,
       meta: { requireAnyIdentity: true }
-    },
+    },*/
       {
           path: '/portfolio-Novel',
           name: 'portfolio-Novel',

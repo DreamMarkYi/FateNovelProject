@@ -8,6 +8,7 @@ import {
   hydrateArticleReferences,
   prepareMarkdownWithArticleRefs,
 } from '@/utils/articleReferenceRenderer'
+import PortfolioSiteNav from '@/components/PortfolioSiteNav.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -217,17 +218,7 @@ onUnmounted(() => {
 
 <template>
   <div class="portfolio-detail-page">
-    <nav>
-      <div class="nav-inner">
-        <router-link to="/portfolio" class="logo">HOMEPAGE</router-link>
-        <ul class="nav-links">
-          <li><router-link to="/portfolio/catalog">ARTICLES</router-link></li>
-          <li><router-link to="/portfolio/wall">GALLERY</router-link></li>
-          <li><router-link to="/portfolio-novel-select">NOVEL</router-link></li>
-          <li><router-link to="/portfolio-memo">MEM0</router-link></li>
-        </ul>
-      </div>
-    </nav>
+    <PortfolioSiteNav />
 
     <article v-if="project && project.detail">
       <header class="article-hero">
@@ -313,46 +304,6 @@ a {
   text-decoration: none;
   color: inherit;
   transition: 0.3s;
-}
-
-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  padding: 20px 0;
-  background: rgba(253, 253, 253, 0.9);
-  backdrop-filter: blur(10px);
-  z-index: 1000;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.nav-inner {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.logo {
-  font-size: 1.2rem;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  font-family: 'Cinzel', serif;
-}
-
-.nav-links {
-  display: flex;
-  gap: 40px;
-  font-size: 0.9rem;
-  color: var(--text-sub);
-  list-style: none;
-}
-
-.nav-links a:hover {
-  color: var(--accent-red);
 }
 
 .article-hero {
