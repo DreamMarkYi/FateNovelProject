@@ -250,7 +250,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div class="container hero-content">
-        <h1>Illusions Intersect Dreams</h1>
+        <h1>PAVILION OF LILACS</h1>
         <p class="hero-slogan">ARTIST / ILLUSION / DREAM</p>
         <p class="sub-title">Build World & Rendering Realities</p>
         <br />
