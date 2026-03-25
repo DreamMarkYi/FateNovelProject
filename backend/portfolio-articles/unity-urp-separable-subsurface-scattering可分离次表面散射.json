@@ -1,0 +1,17 @@
+{
+  "id": "unity-urp-separable-subsurface-scattering可分离次表面散射",
+  "title": "Unity URP Separable Subsurface Scattering（可分离次表面散射）",
+  "tags": "TA/Render",
+  "coverImage": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1200&auto=format&fit=crop",
+  "galleryImages": [
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_089_0005.png",
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_091_0001.png"
+  ],
+  "markdown": "作为人物渲染的一部分(水一篇)，实现了 Separable Subsurface Scattering（可分离次表面散射）。先来看效果：\n<div style=\"display: flex; justify-content: center; width: 100%;\">\n    <video controls preload=\"metadata\" src=\"https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Movie_050.mp4\" style=\"max-width: 100%; height: auto;\">\n    </video>\n</div>\n<br>\n原理比较简单，使用计算出的卷积核来对漫反射贴图进行卷积，在完成卷积之后我是作为NdotL来放入光照计算的（由于卷积可能丢失一些法线细节，但是这样来说相对比较自然，不过其实也还好，并且不是传统的高斯模糊，差的没有那么大）。其中，漫反射是在屏幕空间计算的（得益于DepthNormalPass），次表面反射图如如所示：\n\n![](https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/SSSS.png)\n最后的效果以及对比如图：\n![](https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_089_0005.png)\n![](https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_091_0001.png)\n![](https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Image%20Sequence_090_0000.png)",
+  "author": "SYSTEM",
+  "summary": "作为人物渲染的一部分 水一篇 ，实现了 Separable Subsurface Scattering（可分离次表面散射）。先来看效果： <div style=\"display: flex; justify content: center;",
+  "showInGallery": false,
+  "showInCatalog": true,
+  "createdAt": "2026-03-25T14:07:37.699Z",
+  "updatedAt": "2026-03-25T14:07:37.699Z"
+}
