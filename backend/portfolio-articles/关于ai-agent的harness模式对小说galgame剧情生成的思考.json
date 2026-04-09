@@ -1,0 +1,16 @@
+{
+  "id": "关于ai-agent的harness模式对小说galgame剧情生成的思考",
+  "title": "关于AI Agent的Harness模式对小说（galgame）剧情生成的思考",
+  "tags": "LLM",
+  "coverImage": "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Snipaste_2026-04-09_22-17-29.png",
+  "galleryImages": [
+    "https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Snipaste_2026-04-09_22-17-29.png"
+  ],
+  "markdown": "\n 感觉最近Harness模式的AI架构很火啊，然后自己最近思考了一下和年前自己研究的那一套到底有什么区别，我觉得从结果上来说的话首先是更明确以及合理分布了不同AI Agengt的职责，然后是对于涉及到代码类的任务，给出了更加明确的返回结果（沙盒独立运行）。\n\n然后又思考了一下，这玩意对制作小说，或者做Galgame有什么帮助？\n\n我觉得可能是我原来的思路错了，首先，我原来的思路是给剧情中的每一个人物一个角色分配，让Agent扮演一个人物去进行对话，这样的话每个Agent之间的对话可能会造成一点割裂，同时这样也不大好进行并行生成筛选处理的这种模式，同时这样**太贵了**。于是先简单尝试一下，将小说中的剧情、对话分开处理，但是使用一个总的Agent处理，然后用Agent去评价，这样会不会好一点。（感觉我的钱包在燃烧。）\n\n不过，我觉得这种模式的关键还是提示词，一个是如何在压缩提示词量的情况下提高提示词的信息量，另外一个是给提示词更准的指示。\n\n先让AI跑一下，大概是图片的这种模式：\n![](https://mini-story-bg.oss-cn-shanghai.aliyuncs.com/Snipaste_2026-04-09_22-17-29.png)\n\n",
+  "author": "SYSTEM",
+  "summary": "感觉最近Harness模式的AI架构很火啊，然后自己最近思考了一下和年前自己研究的那一套到底有什么区别，我觉得从结果上来说的话首先是更明确以及合理分布了不同AI Agengt的职责，然后是对于涉及到代码类的任务，给出了更加明确的返回结果（沙",
+  "showInGallery": false,
+  "showInCatalog": true,
+  "createdAt": "2026-04-09T14:18:03.463Z",
+  "updatedAt": "2026-04-09T14:23:48.269Z"
+}
